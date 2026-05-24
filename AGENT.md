@@ -30,4 +30,4 @@ Quick form:
 
 ## Repository
 
-pnpm workspace monorepo: apps in `apps/`, shared packages in `packages/`, internal scope `@digital-worker/*`. See [docs/project-structure.md](docs/project-structure.md) for full layout.
+pnpm workspace monorepo: apps in `apps/`, shared packages in `packages/`, internal scope `@digital-worker/*`. System docs: [docs/README.md](docs/README.md). Monorepo layout: [docs/project-structure.md](docs/project-structure.md).

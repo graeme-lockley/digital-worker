@@ -1,5 +1,7 @@
 # Agent workspace
 
+Operator notes for per-agent deployment folders. **Normative spec:** [docs/specs/workspace-identity.md](../docs/specs/workspace-identity.md).
+
 Each digital worker (agent-core process) is deployed with a flat workspace folder:
 
 ```

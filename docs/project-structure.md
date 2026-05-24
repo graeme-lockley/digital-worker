@@ -1,8 +1,10 @@
 # Project structure
 
-**digital-worker** is a TypeScript monorepo managed with [pnpm](https://pnpm.io/) workspaces. Application code lives under `apps/`; reusable, buildable libraries live under `packages/`. The repository is intentionally minimal at the root—members are added incrementally as the project grows.
+**digital-worker** is a TypeScript monorepo managed with [pnpm](https://pnpm.io/) workspaces. Application code lives under `apps/`; reusable, buildable libraries live under `packages/`.
 
-AI agents (GitHub Copilot, Cursor, and others) can load the **`pnpm-workspace`** skill from [`.github/skills/pnpm-workspace/`](../.github/skills/pnpm-workspace/) (also linked from [`.cursor/skills/pnpm-workspace`](../.cursor/skills/pnpm-workspace)).
+Full documentation index: **[docs/README.md](./README.md)** (philosophy, specs, build state, deployment).
+
+AI agents can load the **`pnpm-workspace`** skill from [`.github/skills/pnpm-workspace/`](../.github/skills/pnpm-workspace/) (also linked from [`.cursor/skills/pnpm-workspace`](../.cursor/skills/pnpm-workspace)).
 
 ## Repository layout
 
@@ -10,7 +12,7 @@ AI agents (GitHub Copilot, Cursor, and others) can load the **`pnpm-workspace`**
 digital-worker/
 ├── apps/                    # Deployable or runnable applications (one directory per app)
 ├── packages/                # Shared libraries built and consumed by apps (and each other)
-├── docs/                    # Project documentation
+├── docs/                    # System documentation (start at docs/README.md)
 ├── infra/                   # Docker Compose and deployment configs
 ├── package.json             # Root workspace manifest and shared scripts
 ├── pnpm-workspace.yaml      # Workspace package globs

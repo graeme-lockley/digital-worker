@@ -103,7 +103,7 @@ pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001
 pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001 --agent-name agent-core
 ```
 
-Chat uses **SSE** token streaming on `POST /api/v1/chat` (see [architecture](docs/architecture.md)).
+Chat uses **SSE** token streaming on `POST /api/v1/chat` (see [docs/specs/chat-streaming.md](docs/specs/chat-streaming.md)).
 
 When the register is on `localhost` but an agent registered a Docker hostname (e.g. `http://agent-core:3000` from dev-workstation), the TUI automatically chats via `http://127.0.0.1:<port>` instead.
 
@@ -125,5 +125,15 @@ pnpm --filter @digital-worker/agent-core dev -- \
 
 ## Documentation
 
-- [Project structure](docs/project-structure.md) — monorepo layout and conventions
-- [Architecture](docs/architecture.md) — library choices and runtime flows
+System documentation lives in **[docs/](docs/README.md)** — philosophy, specs, build state, and deployment guides.
+
+| Doc | Purpose |
+|-----|---------|
+| [docs/README.md](docs/README.md) | Index and maintenance guide |
+| [system-overview.md](docs/system-overview.md) | End-to-end architecture |
+| [build-state.md](docs/build-state.md) | What is implemented today |
+| [project-structure.md](docs/project-structure.md) | Monorepo layout |
+| [architecture.md](docs/architecture.md) | Library choices |
+| [roadmap.md](docs/roadmap.md) | Planned work |
+| [specs/](docs/specs/) | Normative API and runtime contracts |
+| [deployment/](docs/deployment/) | Docker and local dev |
