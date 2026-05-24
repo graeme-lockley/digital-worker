@@ -48,6 +48,8 @@ describe("HeartbeatMonitor", () => {
       endpoint: { url: "http://127.0.0.1:3000" },
     });
 
+    expect(store.get("agent-1")?.status).toBe(AGENT_STATUS.AVAILABLE);
+
     const monitor = new HeartbeatMonitor({
       store,
       intervalMs: 60_000,
