@@ -3,7 +3,7 @@ name: dev-workstation
 services:
   agent-register:
     build:
-      context: ../..
+      context: .
       dockerfile: infra/dev-workstation/Dockerfile.agent-register
     ports:
       - "3001:3001"
@@ -33,7 +33,7 @@ services:
 
   agent-core:
     build:
-      context: ../..
+      context: .
       dockerfile: infra/dev-workstation/Dockerfile.agent-core
     ports:
       - "3000:3000"
@@ -53,12 +53,20 @@ services:
       - http://agent-core:3000
       - --agent-id
       - dev-workstation-agent-core
-      - --name
+      - --agent-name
       - agent-core
-      - --purpose
-      - Core digital worker agent (dev workstation)
+      - --workspace-dir
+      - /app/workspace/agent-core
+      - --provider
+      - deepseek
+      - --model
+      - deepseek-v4-flash
       - --skills
       - pnpm-workspace,conventional-commits
+    env_file:
+      - .env
+    environment:
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
     healthcheck:
       test:
         [

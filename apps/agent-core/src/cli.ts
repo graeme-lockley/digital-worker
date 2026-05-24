@@ -1,6 +1,14 @@
+import path from "node:path";
+
 import { Command } from "commander";
 
+import {
+  assertApiKeyConfigured,
+  resolveLlmOptions,
+  type LlmOptions,
+} from "./llm-config.js";
 import { userArgv } from "./user-argv.js";
+import { resolveWorkspaceDir } from "./workspace/paths.js";
 
 export type ServerOptions = {
   host: string;
@@ -8,9 +16,13 @@ export type ServerOptions = {
   registerUrl: string;
   endpointUrl?: string;
   agentId: string;
+  agentName: string;
   name: string;
-  purpose: string;
+  purpose?: string;
   skills: string[];
+  workspaceDir: string;
+  llm: LlmOptions;
+  apiKey?: string;
 };
 
 export function parseCli(argv: readonly string[] = process.argv): ServerOptions {
@@ -21,14 +33,20 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
       "-r, --register-url <url>",
       "agent-register base URL (e.g. http://127.0.0.1:3001)",
     )
+    .requiredOption("--provider <name>", "LLM provider (e.g. deepseek, anthropic)")
+    .requiredOption("--model <id>", "LLM model id or provider/model")
     .option("-H, --host <host>", "bind host", "127.0.0.1")
     .option("-p, --port <port>", "HTTP port", "3000")
     .option("--agent-id <id>", "unique agent id (generated if omitted)")
-    .option("--name <name>", "agent name", "agent-core")
+    .option(
+      "--agent-name <name>",
+      "workspace folder name under workspace/",
+      "agent-core",
+    )
+    .option("--name <name>", "registration display name (defaults to agent-name)")
     .option(
       "--purpose <purpose>",
-      "short description of what this agent does",
-      "Core digital worker agent",
+      "registration purpose override (defaults to MANDATE excerpt)",
     )
     .option(
       "--skills <skills>",
@@ -38,7 +56,12 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     .option(
       "--endpoint-url <url>",
       "URL other agents use to reach this agent (required when bind host is not routable)",
-    );
+    )
+    .option(
+      "--workspace-dir <path>",
+      "agent workspace directory (default: ./workspace/<agent-name>)",
+    )
+    .option("--api-key <key>", "LLM API key override");
 
   program.parse(userArgv(argv), { from: "user" });
 
@@ -46,11 +69,16 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     host: string;
     port: string;
     registerUrl: string;
+    provider: string;
+    model: string;
     agentId?: string;
-    name: string;
-    purpose: string;
+    agentName: string;
+    name?: string;
+    purpose?: string;
     skills: string;
     endpointUrl?: string;
+    workspaceDir?: string;
+    apiKey?: string;
   }>();
 
   const port = Number(opts.port);
@@ -77,14 +105,42 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     .map((skill) => skill.trim())
     .filter((skill) => skill.length > 0);
 
+  const agentName = opts.agentName.trim();
+  if (!agentName) {
+    program.error("agent-name must not be empty");
+  }
+
+  const workspaceDir = resolveWorkspaceDir(agentName, opts.workspaceDir);
+
+  const llm = resolveLlmConfig(program, opts.provider, opts.model, opts.apiKey);
+
   return {
     host: opts.host,
     port,
     registerUrl: opts.registerUrl,
     endpointUrl: opts.endpointUrl,
     agentId: opts.agentId ?? crypto.randomUUID(),
-    name: opts.name,
-    purpose: opts.purpose,
+    agentName,
+    name: opts.name?.trim() || agentName,
+    purpose: opts.purpose?.trim() || undefined,
     skills,
+    workspaceDir: path.resolve(workspaceDir),
+    llm,
+    apiKey: opts.apiKey?.trim() || undefined,
   };
+}
+
+function resolveLlmConfig(
+  program: Command,
+  provider: string,
+  modelArg: string,
+  apiKey?: string,
+): LlmOptions {
+  try {
+    const llm = resolveLlmOptions(provider, modelArg);
+    assertApiKeyConfigured(llm.provider, apiKey);
+    return llm;
+  } catch (error) {
+    program.error(error instanceof Error ? error.message : String(error));
+  }
 }

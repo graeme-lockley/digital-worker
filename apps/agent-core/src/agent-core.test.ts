@@ -6,22 +6,42 @@ import { AGENT_REGISTER_PATHS } from "@digital-worker/agent-register-protocol";
 import { parseCli } from "./cli.js";
 import { buildAgentEndpointUrl, resolveAdvertisedHost } from "./endpoint.js";
 import { deregisterAgent, registerAgent } from "./registration.js";
-import { createApp } from "./server.js";
+import {
+  createTestHarness,
+  disposeTestHarness,
+  repoWorkspacePath,
+  TEST_AGENT_ID,
+  TEST_SESSION_ID,
+} from "./test-helpers.js";
+
+const baseCliArgs = [
+  "node",
+  "agent-core",
+  "--register-url",
+  "http://127.0.0.1:3001",
+  "--provider",
+  "deepseek",
+  "--model",
+  "deepseek-v4-flash",
+  "--workspace-dir",
+  repoWorkspacePath(),
+  "--api-key",
+  "test-key",
+];
 
 describe("parseCli", () => {
-  it("parses registration and server options", () => {
+  it("parses registration, server, and LLM options", () => {
     expect(
       parseCli([
-        "node",
-        "agent-core",
-        "--register-url",
-        "http://127.0.0.1:3001",
+        ...baseCliArgs,
         "--host",
         "0.0.0.0",
         "--port",
         "8080",
         "--agent-id",
         "agent-1",
+        "--agent-name",
+        "agent-core",
         "--skills",
         "a, b",
       ]),
@@ -30,21 +50,41 @@ describe("parseCli", () => {
       port: 8080,
       registerUrl: "http://127.0.0.1:3001",
       agentId: "agent-1",
+      agentName: "agent-core",
       skills: ["a", "b"],
+      llm: { provider: "deepseek", modelId: "deepseek-v4-flash" },
     });
   });
 
   it("parses endpoint-url override", () => {
     expect(
       parseCli([
-        "node",
-        "agent-core",
-        "--register-url",
-        "http://127.0.0.1:3001",
+        ...baseCliArgs,
         "--endpoint-url",
         "http://agent-core:3000",
       ]).endpointUrl,
     ).toBe("http://agent-core:3000");
+  });
+
+  it("parses provider/model shorthand in --model", () => {
+    const opts = parseCli([
+      "node",
+      "agent-core",
+      "--register-url",
+      "http://127.0.0.1:3001",
+      "--provider",
+      "ignored",
+      "--model",
+      "deepseek/deepseek-v4-pro",
+      "--workspace-dir",
+      repoWorkspacePath(),
+      "--api-key",
+      "test-key",
+    ]);
+    expect(opts.llm).toEqual({
+      provider: "deepseek",
+      modelId: "deepseek-v4-pro",
+    });
   });
 });
 
@@ -59,26 +99,48 @@ describe("endpoint", () => {
 
 describe("createApp", () => {
   it("GET /health returns ok", async () => {
-    const app = createApp({ agentId: "agent-1" });
-    const response = await app.request("/health");
+    const harness = await createTestHarness();
+    try {
+      const response = await harness.app.request("/health");
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({ status: "ok" });
+    } finally {
+      await disposeTestHarness(harness);
+    }
+  });
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ status: "ok" });
+  it("GET /api/v1 includes session and queue metadata", async () => {
+    const harness = await createTestHarness();
+    try {
+      const response = await harness.app.request("/api/v1");
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        service: "agent-core",
+        agentId: TEST_AGENT_ID,
+        sessionId: TEST_SESSION_ID,
+      });
+    } finally {
+      await disposeTestHarness(harness);
+    }
   });
 
   it("POST heartbeat returns agent status", async () => {
-    const app = createApp({ agentId: "agent-1" });
-    const response = await app.request(AGENT_CORE_PATHS.heartbeat, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ polledAt: "2026-01-01T00:00:00.000Z" }),
-    });
+    const harness = await createTestHarness();
+    try {
+      const response = await harness.app.request(AGENT_CORE_PATHS.heartbeat, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ polledAt: "2026-01-01T00:00:00.000Z" }),
+      });
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      agentId: "agent-1",
-      status: "ok",
-    });
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        agentId: TEST_AGENT_ID,
+        status: "ok",
+      });
+    } finally {
+      await disposeTestHarness(harness);
+    }
   });
 });
 

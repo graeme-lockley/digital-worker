@@ -10,8 +10,8 @@
     "test:packages": "pnpm -r --filter './packages/*' --if-present run test",
     "test:apps": "pnpm -r --filter './apps/*' --if-present run test",
     "clean": "pnpm -r run clean && rm -rf node_modules",
-    "docker:dev": "docker-compose -f infra/dev-workstation/docker-compose.yml up --build",
-    "docker:dev:down": "docker-compose -f infra/dev-workstation/docker-compose.yml down"
+    "docker:dev": "docker-compose --env-file .env --project-directory . -f infra/dev-workstation/docker-compose.yml up --build",
+    "docker:dev:down": "docker-compose --env-file .env --project-directory . -f infra/dev-workstation/docker-compose.yml down"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

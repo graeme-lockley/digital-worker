@@ -8,9 +8,12 @@ import { Hono } from "hono";
 
 import { registerChatRoute } from "./chat.js";
 import type { ServerOptions } from "./cli.js";
+import type { WorkerRuntime } from "./worker-runtime.js";
 
 export type AppContext = {
   agentId: string;
+  sessionId: string;
+  runtime: WorkerRuntime;
 };
 
 export function createApp(ctx: AppContext): Hono {
@@ -22,11 +25,13 @@ export function createApp(ctx: AppContext): Hono {
     c.json({
       service: "agent-core",
       agentId: ctx.agentId,
+      sessionId: ctx.sessionId,
+      queueDepth: ctx.runtime.queueDepth,
       version: "0.0.0",
     }),
   );
 
-  registerChatRoute(app);
+  registerChatRoute(app, ctx);
 
   app.post(AGENT_CORE_PATHS.heartbeat, async (c) => {
     await c.req.json<HeartbeatRequest>().catch(() => ({}));

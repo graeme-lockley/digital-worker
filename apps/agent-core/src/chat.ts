@@ -8,19 +8,22 @@ import {
 import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 
-const PARROT_PREFIX = "Echo: ";
-const TOKEN_DELAY_MS = 25;
+import type { AppContext } from "./server.js";
+import type { ChatJob } from "./worker-runtime.js";
 
-export function registerChatRoute(app: {
-  post: (
-    path: string,
-    handler: (c: Context) => Response | Promise<Response>,
-  ) => void;
-}): void {
-  app.post(AGENT_CORE_PATHS.chat, handleChat);
+export function registerChatRoute(
+  app: {
+    post: (
+      path: string,
+      handler: (c: Context) => Response | Promise<Response>,
+    ) => void;
+  },
+  ctx: AppContext,
+): void {
+  app.post(AGENT_CORE_PATHS.chat, (c) => handleChat(c, ctx));
 }
 
-async function handleChat(c: Context): Promise<Response> {
+async function handleChat(c: Context, ctx: AppContext): Promise<Response> {
   let body: ChatPromptRequest;
   try {
     body = await c.req.json<ChatPromptRequest>();
@@ -48,39 +51,56 @@ async function handleChat(c: Context): Promise<Response> {
     );
   }
 
-  const sessionId = body.sessionId ?? crypto.randomUUID();
+  if (
+    body.sessionId &&
+    body.sessionId.trim() !== "" &&
+    body.sessionId !== ctx.sessionId
+  ) {
+    return c.json(
+      {
+        error: {
+          code: AGENT_CORE_ERROR_CODES.SESSION_MISMATCH,
+          message: "sessionId does not match this worker",
+        },
+      },
+      409,
+    );
+  }
+
   const messageId = crypto.randomUUID();
+  const abortController = new AbortController();
+
+  c.req.raw.signal.addEventListener("abort", () => {
+    abortController.abort();
+  });
 
   return streamSSE(c, async (stream) => {
+    const emit = async (event: ChatStreamEvent): Promise<void> => {
+      await stream.writeSSE({ data: JSON.stringify(event) });
+    };
+
+    const job: ChatJob = {
+      id: crypto.randomUUID(),
+      messageId,
+      clientId: body.clientId.trim(),
+      prompt: body.prompt.trim(),
+      sessionId: ctx.sessionId,
+      enqueueAt: Date.now(),
+      emit,
+      signal: abortController.signal,
+    };
+
     try {
-      const text = `${PARROT_PREFIX}${body.prompt}`;
-      for (const token of text) {
+      await ctx.runtime.enqueue(job);
+    } catch (error) {
+      if (!abortController.signal.aborted) {
         const event: ChatStreamEvent = {
-          type: CHAT_STREAM_EVENT.TOKEN,
-          sessionId,
-          token,
+          type: CHAT_STREAM_EVENT.ERROR,
+          code: AGENT_CORE_ERROR_CODES.INTERNAL_ERROR,
+          message: error instanceof Error ? error.message : "request failed",
         };
         await stream.writeSSE({ data: JSON.stringify(event) });
-        await delay(TOKEN_DELAY_MS);
       }
-
-      const done: ChatStreamEvent = {
-        type: CHAT_STREAM_EVENT.DONE,
-        sessionId,
-        messageId,
-      };
-      await stream.writeSSE({ data: JSON.stringify(done) });
-    } catch (error) {
-      const event: ChatStreamEvent = {
-        type: CHAT_STREAM_EVENT.ERROR,
-        code: AGENT_CORE_ERROR_CODES.INTERNAL_ERROR,
-        message: error instanceof Error ? error.message : "stream failed",
-      };
-      await stream.writeSSE({ data: JSON.stringify(event) });
     }
   });
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -47,9 +47,12 @@ brew services start colima
 From the repository root:
 
 ```bash
+cp .env.example .env   # then set DEEPSEEK_API_KEY in .env
 pnpm install
 pnpm docker:dev
 ```
+
+`pnpm docker:dev` reads `.env` from the **project root** (where `package.json` lives) and passes `DEEPSEEK_API_KEY` into the `agent-core` container.
 
 Build images and start containers in the foreground. Stop with `Ctrl+C`, then remove containers:
 
@@ -90,7 +93,10 @@ Interactive terminal chat with a registered agent (not part of the Docker dev-wo
 pnpm install
 pnpm build
 pnpm --filter @digital-worker/agent-register dev                            # terminal 1 (port 3001)
-pnpm --filter @digital-worker/agent-core dev -- -r http://127.0.0.1:3001   # terminal 2 (port 3000)
+pnpm --filter @digital-worker/agent-core dev -- \
+  -r http://127.0.0.1:3001 \
+  --provider deepseek --model deepseek-v4-flash \
+  --agent-name agent-core   # terminal 2 (port 3000; set DEEPSEEK_API_KEY)
 
 pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001
 # or with agent name prefix:
@@ -112,7 +118,9 @@ pnpm --filter @digital-worker/agent-register dev
 
 # Terminal 2 — agent-core (port 3000)
 pnpm --filter @digital-worker/agent-core dev -- \
-  --register-url http://127.0.0.1:3001
+  --register-url http://127.0.0.1:3001 \
+  --provider deepseek --model deepseek-v4-flash \
+  --agent-name agent-core
 ```
 
 ## Documentation
