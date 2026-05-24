@@ -4,8 +4,17 @@ export {
   type ApiError,
   type ApiErrorResponse,
 } from "./error.js";
-export { AGENT_CORE_PATHS } from "./paths.js";
+export { AGENT_CORE_PATHS, CHAT_STREAM_ACCEPT } from "./paths.js";
 export type { HeartbeatRequest, HeartbeatResponse } from "./heartbeat.js";
+export {
+  CHAT_STREAM_EVENT,
+  type ChatDoneEvent,
+  type ChatErrorEvent,
+  type ChatPromptRequest,
+  type ChatStreamEvent,
+  type ChatStreamEventType,
+  type ChatTokenEvent,
+} from "./chat.js";
 export type {
   AgentMessage,
   AgentMessageResponse,

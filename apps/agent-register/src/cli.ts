@@ -1,5 +1,7 @@
 import { Command } from "commander";
 
+import { userArgv } from "./user-argv.js";
+
 export type ServerOptions = {
   host: string;
   port: number;
@@ -24,7 +26,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
       "5000",
     );
 
-  program.parse([...argv]);
+  program.parse(userArgv(argv), { from: "user" });
 
   const opts = program.opts<{
     host: string;

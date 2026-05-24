@@ -6,6 +6,7 @@ import {
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 
+import { registerChatRoute } from "./chat.js";
 import type { ServerOptions } from "./cli.js";
 
 export type AppContext = {
@@ -24,6 +25,8 @@ export function createApp(ctx: AppContext): Hono {
       version: "0.0.0",
     }),
   );
+
+  registerChatRoute(app);
 
   app.post(AGENT_CORE_PATHS.heartbeat, async (c) => {
     await c.req.json<HeartbeatRequest>().catch(() => ({}));

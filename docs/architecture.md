@@ -8,6 +8,7 @@ High-level design notes and **library decisions** for the digital-worker monorep
 |-----|------|------|
 | agent-register | `apps/agent-register` | Registration and discovery service; polls agent heartbeats |
 | agent-core | `apps/agent-core` | Runnable agent; registers with agent-register on startup |
+| agent-tui | `apps/agent-tui` | Terminal chat UI; lists agents from register, streams chat over SSE |
 
 ## Protocol packages
 
@@ -28,6 +29,14 @@ Consumers (agent-core, agent-register, future agents) depend on these packages �
 | CLI | Commander | Host, port, heartbeat interval/timeout |
 | Registry store | In-memory (`AgentRegistryStore`) | Sufficient for first version; persistence can be added later |
 | Heartbeat monitor | `setInterval` + `fetch` | Polls each agent’s `POST /api/v1/heartbeat`; marks `SLEEPING` on failure |
+
+### agent-tui
+
+| Concern | Choice | Rationale |
+|---------|--------|-----------|
+| TUI runtime | [Ink](https://github.com/vadimdemedes/ink) | React-in-terminal; chat layout with scrollback + input line |
+| Agent picker | [@clack/prompts](https://github.com/natemoo-re/clack) | Minimal interactive select when `--agent-name` is omitted |
+| Chat transport | SSE (`POST /api/v1/chat`, `Accept: text/event-stream`) | Token streaming without WebSocket; aligns with `agent-core-protocol` |
 
 ### agent-core
 
@@ -99,6 +108,17 @@ SIGINT / SIGTERM ──► POST deregister ──► exit
 ```
 
 The register URL is required. Registration runs after the HTTP server is listening so heartbeat polls succeed immediately.
+
+### Chat API (agent-core-protocol)
+
+| Item | Detail |
+|------|--------|
+| Path | `POST /api/v1/chat` |
+| Request | `ChatPromptRequest` (`clientId`, `prompt`, optional `sessionId`) |
+| Response | SSE stream of `ChatStreamEvent`: `token`, `done`, `error` |
+| Stub behaviour | Parrots `Echo: {prompt}` one character per event until a real LLM is wired in |
+
+**agent-tui** sends a random `clientId` per run, resolves agents via register (`--agent-name` unique prefix or interactive list), and posts prompts to the agent’s `endpoint.url`.
 
 ## Local infrastructure
 

@@ -14,7 +14,7 @@
     "docker:dev:down": "docker-compose -f infra/dev-workstation/docker-compose.yml down"
   },
   "devDependencies": {
-    "typescript": "^5.8.3"
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=20"

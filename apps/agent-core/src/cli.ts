@@ -1,5 +1,7 @@
 import { Command } from "commander";
 
+import { userArgv } from "./user-argv.js";
+
 export type ServerOptions = {
   host: string;
   port: number;
@@ -38,7 +40,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
       "URL other agents use to reach this agent (required when bind host is not routable)",
     );
 
-  program.parse([...argv]);
+  program.parse(userArgv(argv), { from: "user" });
 
   const opts = program.opts<{
     host: string;

@@ -82,6 +82,25 @@ curl http://127.0.0.1:3000/api/v1
 
 Inside the Compose network, containers reach each other by service name (e.g. `http://agent-register:3001`, `http://agent-core:3000`). Those hostnames are not available from your Mac unless port mappings are used.
 
+## Agent TUI
+
+Interactive terminal chat with a registered agent (not part of the Docker dev-workstation stack).
+
+```bash
+pnpm install
+pnpm build
+pnpm --filter @digital-worker/agent-register dev                            # terminal 1 (port 3001)
+pnpm --filter @digital-worker/agent-core dev -- -r http://127.0.0.1:3001   # terminal 2 (port 3000)
+
+pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001
+# or with agent name prefix:
+pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001 --agent-name agent-core
+```
+
+Chat uses **SSE** token streaming on `POST /api/v1/chat` (see [architecture](docs/architecture.md)).
+
+When the register is on `localhost` but an agent registered a Docker hostname (e.g. `http://agent-core:3000` from dev-workstation), the TUI automatically chats via `http://127.0.0.1:<port>` instead.
+
 ## Local development (without Docker)
 
 ```bash
