@@ -25,6 +25,7 @@ async function main(): Promise<void> {
   const agent = createLlmAgent({
     llm: options.llm,
     apiKey: options.apiKey,
+    toolsCwd: options.toolsCwd,
     identity: identitySnapshot,
     identityStore: loaded.identityStore,
     getIdentity: () => identitySnapshot,

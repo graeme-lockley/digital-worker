@@ -21,6 +21,7 @@ export type ServerOptions = {
   purpose?: string;
   skills: string[];
   workspaceDir: string;
+  toolsCwd: string;
   llm: LlmOptions;
   apiKey?: string;
 };
@@ -61,6 +62,10 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
       "--workspace-dir <path>",
       "agent workspace directory (default: ./workspace/<agent-name>)",
     )
+    .option(
+      "--tools-cwd <path>",
+      "working directory for read/write/bash/ls tools (default: process cwd)",
+    )
     .option("--api-key <key>", "LLM API key override");
 
   program.parse(userArgv(argv), { from: "user" });
@@ -78,6 +83,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     skills: string;
     endpointUrl?: string;
     workspaceDir?: string;
+    toolsCwd?: string;
     apiKey?: string;
   }>();
 
@@ -125,6 +131,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     purpose: opts.purpose?.trim() || undefined,
     skills,
     workspaceDir: path.resolve(workspaceDir),
+    toolsCwd: path.resolve(opts.toolsCwd ?? process.cwd()),
     llm,
     apiKey: opts.apiKey?.trim() || undefined,
   };

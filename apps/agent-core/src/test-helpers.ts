@@ -44,10 +44,13 @@ export async function createTestHarness(
   });
 
   let identitySnapshot = { ...loaded.identity };
+  const workspaceDir = repoWorkspacePath();
+  const repoRoot = path.dirname(path.dirname(workspaceDir));
   const agent = createLlmAgent({
     llm: { provider: model.provider, modelId: model.id },
     model,
     apiKey: "faux-test-key",
+    toolsCwd: repoRoot,
     identity: identitySnapshot,
     identityStore: loaded.identityStore,
     getIdentity: () => identitySnapshot,

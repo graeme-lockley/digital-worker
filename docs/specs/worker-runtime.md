@@ -72,7 +72,7 @@ Clients may send `sessionId` on each request for correlation; the server validat
 
 - Model and provider come from CLI (`--provider`, `--model`) or env API keys.
 - Streaming maps pi `message_update` events with `assistantMessageEvent.type === "text_delta"` to SSE `token` events.
-- Tools: currently `update_identity` only (see [workspace-identity](./workspace-identity.md)).
+- Tools: pi builtins `read`, `write`, `bash`, `ls` (from `@earendil-works/pi-coding-agent`, scoped to `--tools-cwd`) plus `update_identity` (see [workspace-identity](./workspace-identity.md)).
 
 ## Startup order
 

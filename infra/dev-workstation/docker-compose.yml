@@ -57,6 +57,8 @@ services:
       - agent-core
       - --workspace-dir
       - /app/workspace/agent-core
+      - --tools-cwd
+      - /app
       - --provider
       - deepseek
       - --model

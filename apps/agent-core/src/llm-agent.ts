@@ -8,11 +8,14 @@ import {
   type LlmOptions,
 } from "./llm-config.js";
 import { createUpdateIdentityTool, type UpdateIdentityDeps } from "./tools/update-identity.js";
+import { createBuiltinPiTools } from "./tools/builtin-tools.js";
 import { buildSystemPrompt, type WorkspaceIdentity } from "./workspace/index.js";
 
 export type CreateLlmAgentOptions = {
   llm: LlmOptions;
   apiKey?: string;
+  /** Working directory for read/write/bash/ls tools. */
+  toolsCwd: string;
   /** Override resolved model (e.g. pi-ai faux provider in tests). */
   model?: Model<string>;
   identity: WorkspaceIdentity;
@@ -36,13 +39,13 @@ export function createLlmAgent(options: CreateLlmAgentOptions): Agent {
       resolveApiKey(provider, options.apiKey) ?? resolveApiKey(options.llm.provider, options.apiKey),
   });
 
-  const tool = createUpdateIdentityTool({
+  const identityTool = createUpdateIdentityTool({
     identityStore: options.identityStore,
     getIdentity: options.getIdentity,
     setIdentityContent: options.setIdentityContent,
     agent,
   });
-  agent.state.tools = [tool];
+  agent.state.tools = [...createBuiltinPiTools(options.toolsCwd), identityTool];
 
   return agent;
 }
