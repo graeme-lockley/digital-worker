@@ -6,9 +6,28 @@ High-level design notes and **library decisions** for the digital-worker monorep
 
 | App | Path | Role |
 |-----|------|------|
-| agent-core | `apps/agent-core` | CLI entrypoint that parses arguments, then runs an HTTP API server |
+| agent-register | `apps/agent-register` | Registration and discovery service; polls agent heartbeats |
+| agent-core | `apps/agent-core` | Runnable agent; registers with agent-register on startup |
+
+## Protocol packages
+
+| Package | Path | Role |
+|---------|------|------|
+| agent-register-protocol | `packages/agent-register-protocol` | Contract for the register HTTP API (register, deregister, list, errors) |
+| agent-core-protocol | `packages/agent-core-protocol` | Contract for every agent HTTP API (heartbeat, inter-agent messages, errors) |
+
+Consumers (agent-core, agent-register, future agents) depend on these packages — never duplicate request/response shapes in app code.
 
 ## Library decisions
+
+### agent-register
+
+| Concern | Choice | Rationale |
+|---------|--------|-----------|
+| HTTP API | Hono + @hono/node-server | Same stack as agent-core for consistency |
+| CLI | Commander | Host, port, heartbeat interval/timeout |
+| Registry store | In-memory (`AgentRegistryStore`) | Sufficient for first version; persistence can be added later |
+| Heartbeat monitor | `setInterval` + `fetch` | Polls each agent’s `POST /api/v1/heartbeat`; marks `SLEEPING` on failure |
 
 ### agent-core
 
@@ -47,19 +66,36 @@ High-level design notes and **library decisions** for the digital-worker monorep
 
 Hono handlers are tested with `createApp().request(path)` so tests do not start an HTTP listener.
 
+## agent-register runtime flow
+
+```
+process.argv
+    │
+    ▼
+Commander ──► bind HTTP + start HeartbeatMonitor
+    │
+    ├── POST /api/v1/agents/register
+    ├── POST /api/v1/agents/deregister
+    ├── GET  /api/v1/agents
+    └── periodic POST {agent}/api/v1/heartbeat  ──► AVAILABLE | SLEEPING
+```
+
 ## agent-core runtime flow
 
 ```
 process.argv
     │
     ▼
-Commander (cli.ts)  ──►  ServerOptions { host, port }
+Commander ──► ServerOptions (includes --register-url, agent metadata)
     │
     ▼
-Hono app (server.ts)  ──►  @hono/node-server serve()
+Start Hono server ──► on listening, POST register to agent-register
     │
     ▼
-HTTP handlers (/health, /api/v1, …)
+Serve /health, /api/v1, POST /api/v1/heartbeat
+    │
+    ▼
+SIGINT / SIGTERM ──► POST deregister ──► exit
 ```
 
-The process does not listen for HTTP traffic until CLI parsing completes successfully.
+The register URL is required. Registration runs after the HTTP server is listening so heartbeat polls succeed immediately.

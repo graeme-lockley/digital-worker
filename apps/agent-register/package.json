@@ -1,10 +1,10 @@
 {
-  "name": "@digital-worker/agent-core",
+  "name": "@digital-worker/agent-register",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "bin": {
-    "agent-core": "./dist/index.js"
+    "agent-register": "./dist/index.js"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
