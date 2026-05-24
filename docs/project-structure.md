@@ -11,6 +11,7 @@ digital-worker/
 ├── apps/                    # Deployable or runnable applications (one directory per app)
 ├── packages/                # Shared libraries built and consumed by apps (and each other)
 ├── docs/                    # Project documentation
+├── infra/                   # Docker Compose and deployment configs
 ├── package.json             # Root workspace manifest and shared scripts
 ├── pnpm-workspace.yaml      # Workspace package globs
 ├── pnpm-lock.yaml           # Lockfile (commit this)
@@ -70,6 +71,8 @@ Run these from the repository root:
 | `pnpm typecheck` | Runs `typecheck` everywhere it is defined |
 | `pnpm test` | Runs all package tests, then all app tests (see [Testing](#testing)) |
 | `pnpm clean` | Runs `clean` in each member, then removes root `node_modules` |
+| `pnpm docker:dev` | Builds and starts the `dev-workstation` Compose stack (`docker-compose`; start Colima first) |
+| `pnpm docker:dev:down` | Stops the `dev-workstation` Compose stack |
 
 Members that do not define a script are skipped (`--if-present`).
 

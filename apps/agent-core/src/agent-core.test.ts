@@ -33,6 +33,19 @@ describe("parseCli", () => {
       skills: ["a", "b"],
     });
   });
+
+  it("parses endpoint-url override", () => {
+    expect(
+      parseCli([
+        "node",
+        "agent-core",
+        "--register-url",
+        "http://127.0.0.1:3001",
+        "--endpoint-url",
+        "http://agent-core:3000",
+      ]).endpointUrl,
+    ).toBe("http://agent-core:3000");
+  });
 });
 
 describe("endpoint", () => {

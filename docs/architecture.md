@@ -99,3 +99,21 @@ SIGINT / SIGTERM ──► POST deregister ──► exit
 ```
 
 The register URL is required. Registration runs after the HTTP server is listening so heartbeat polls succeed immediately.
+
+## Local infrastructure
+
+| Path | Role |
+|------|------|
+| `infra/dev-workstation/` | Docker Compose stack **`dev-workstation`**: `agent-register` + one `agent-core` |
+
+From the repository root (requires a running container runtime — this project uses **Colima** via Homebrew, not Docker Desktop):
+
+```bash
+colima start           # if Colima is not already running
+pnpm docker:dev        # build and start
+pnpm docker:dev:down   # stop and remove containers
+```
+
+Scripts use the standalone **`docker-compose`** CLI (from Homebrew). The Homebrew `docker` package does not provide `docker compose …`.
+
+Inside Compose, `agent-core` uses `--register-url http://agent-register:3001` and `--endpoint-url http://agent-core:3000` so heartbeat polling works across the Docker network.

@@ -1,0 +1,11 @@
+node_modules
+**/dist
+**/*.tsbuildinfo
+.git
+.github
+.cursor
+coverage
+**/*.test.ts
+**/vitest.config.ts
+.env
+.env.*

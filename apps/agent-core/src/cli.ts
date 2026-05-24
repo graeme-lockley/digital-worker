@@ -4,6 +4,7 @@ export type ServerOptions = {
   host: string;
   port: number;
   registerUrl: string;
+  endpointUrl?: string;
   agentId: string;
   name: string;
   purpose: string;
@@ -31,6 +32,10 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
       "--skills <skills>",
       "comma-separated skill identifiers",
       "pnpm-workspace",
+    )
+    .option(
+      "--endpoint-url <url>",
+      "URL other agents use to reach this agent (required when bind host is not routable)",
     );
 
   program.parse([...argv]);
@@ -43,6 +48,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     name: string;
     purpose: string;
     skills: string;
+    endpointUrl?: string;
   }>();
 
   const port = Number(opts.port);
@@ -56,6 +62,14 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     program.error(`invalid register-url: ${opts.registerUrl}`);
   }
 
+  if (opts.endpointUrl) {
+    try {
+      new URL(opts.endpointUrl);
+    } catch {
+      program.error(`invalid endpoint-url: ${opts.endpointUrl}`);
+    }
+  }
+
   const skills = opts.skills
     .split(",")
     .map((skill) => skill.trim())
@@ -65,6 +79,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     host: opts.host,
     port,
     registerUrl: opts.registerUrl,
+    endpointUrl: opts.endpointUrl,
     agentId: opts.agentId ?? crypto.randomUUID(),
     name: opts.name,
     purpose: opts.purpose,

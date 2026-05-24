@@ -5,7 +5,8 @@ import { startServer } from "./server.js";
 
 async function main(): Promise<void> {
   const options = parseCli();
-  const endpointUrl = buildAgentEndpointUrl(options.host, options.port);
+  const endpointUrl =
+    options.endpointUrl ?? buildAgentEndpointUrl(options.host, options.port);
 
   const shutdown = async (signal: string): Promise<void> => {
     console.log(`received ${signal}, deregistering agent ${options.agentId}`);

@@ -1,0 +1,23 @@
+# syntax=docker/dockerfile:1
+# Builds agent-register from the monorepo root (context: ../..).
+# The build stage matches Dockerfile.agent-core — keep both in sync.
+
+FROM node:20-alpine AS base
+RUN corepack enable && corepack prepare pnpm@10.14.0 --activate
+WORKDIR /app
+
+FROM base AS build
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json .npmrc ./
+COPY packages ./packages
+COPY apps ./apps
+RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @digital-worker/agent-core-protocol run build \
+  && pnpm --filter @digital-worker/agent-register-protocol run build \
+  && pnpm --filter @digital-worker/agent-register run build \
+  && pnpm --filter @digital-worker/agent-core run build
+
+FROM base AS runtime
+COPY --from=build /app /app
+WORKDIR /app/apps/agent-register
+EXPOSE 3001
+CMD ["node", "dist/index.js", "--host", "0.0.0.0", "--port", "3001"]
