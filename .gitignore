@@ -31,3 +31,5 @@ Thumbs.db
 
 # Local editor / agent config (canonical skills: .github/skills/)
 .cursor/
+
+./workspace/Aida/USER.md
