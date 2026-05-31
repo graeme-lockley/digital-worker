@@ -32,4 +32,7 @@ Thumbs.db
 # Local editor / agent config (canonical skills: .github/skills/)
 .cursor/
 
+# Pi loader state under agent workspace (agent-core DefaultResourceLoader)
+**/.agent-core-pi/
+
 ./workspace/Aida/USER.md

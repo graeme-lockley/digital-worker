@@ -20,6 +20,7 @@
     "@earendil-works/pi-agent-core": "0.75.5",
     "@earendil-works/pi-ai": "0.75.5",
     "@earendil-works/pi-coding-agent": "0.75.5",
+    "pi-agent-browser-native": "^0.2.38",
     "@hono/node-server": "^1.14.4",
     "commander": "^14.0.0",
     "hono": "^4.7.10",

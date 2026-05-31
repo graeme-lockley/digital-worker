@@ -92,6 +92,11 @@ describe("parseCli", () => {
     expect(opts.agentName).toBe("Aida");
     expect(opts.toolsCwd).toBe(opts.workspaceDir);
   });
+
+  it("defaults browserEnabled to true and disables with --no-browser", () => {
+    expect(parseCli(baseCliArgs).browserEnabled).toBe(true);
+    expect(parseCli([...baseCliArgs, "--no-browser"]).browserEnabled).toBe(false);
+  });
 });
 
 describe("endpoint", () => {

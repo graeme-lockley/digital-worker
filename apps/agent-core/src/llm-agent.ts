@@ -1,5 +1,15 @@
-import { Agent } from "@earendil-works/pi-agent-core";
+import path from "node:path";
+
+import type { Agent } from "@earendil-works/pi-agent-core";
 import type { Model } from "@earendil-works/pi-ai";
+import {
+  AuthStorage,
+  createAgentSession,
+  DefaultResourceLoader,
+  ModelRegistry,
+  SessionManager,
+  SettingsManager,
+} from "@earendil-works/pi-coding-agent";
 
 import {
   assertApiKeyConfigured,
@@ -7,16 +17,54 @@ import {
   resolveApiKey,
   type LlmOptions,
 } from "./llm-config.js";
+import {
+  AGENT_BROWSER_TOOL_NAME,
+  resolvePiAgentBrowserExtensionPath,
+} from "./tools/pi-browser-plugin.js";
 import { createUpdateIdentityTool, type UpdateIdentityDeps } from "./tools/update-identity.js";
 import { createUpdateUserTool, type UpdateUserDeps } from "./tools/update-user.js";
-import { createBuiltinPiTools } from "./tools/builtin-tools.js";
 import { buildSystemPrompt, type WorkspaceIdentity } from "./workspace/index.js";
+
+const BASE_TOOL_NAMES = [
+  "read",
+  "write",
+  "bash",
+  "ls",
+  "update_identity",
+  "update_user",
+] as const;
+
+function buildToolAllowlist(browserEnabled: boolean): string[] {
+  return browserEnabled
+    ? [...BASE_TOOL_NAMES, AGENT_BROWSER_TOOL_NAME]
+    : [...BASE_TOOL_NAMES];
+}
+
+/** Proxy so identity tools can mutate agent.state before the session Agent exists. */
+function createAgentProxy(agentRef: { current?: Agent }): Agent {
+  return new Proxy({} as Agent, {
+    get(_target, prop, receiver) {
+      if (!agentRef.current) {
+        throw new Error("LLM agent is not initialized yet");
+      }
+      return Reflect.get(agentRef.current, prop, receiver);
+    },
+    set(_target, prop, value, receiver) {
+      if (!agentRef.current) {
+        throw new Error("LLM agent is not initialized yet");
+      }
+      return Reflect.set(agentRef.current, prop, value, receiver);
+    },
+  });
+}
 
 export type CreateLlmAgentOptions = {
   llm: LlmOptions;
   apiKey?: string;
   /** Working directory for read/write/bash/ls tools. */
   toolsCwd: string;
+  /** Load pi-agent-browser-native and expose agent_browser. Default true. */
+  browserEnabled?: boolean;
   /** Override resolved model (e.g. pi-ai faux provider in tests). */
   model?: Model<string>;
   identity: WorkspaceIdentity;
@@ -27,38 +75,66 @@ export type CreateLlmAgentOptions = {
   userStore: UpdateUserDeps["userStore"];
 };
 
-export function createLlmAgent(options: CreateLlmAgentOptions): Agent {
+export async function createLlmAgent(options: CreateLlmAgentOptions): Promise<Agent> {
   assertApiKeyConfigured(options.llm.provider, options.apiKey);
-  const systemPrompt = buildSystemPrompt(options.identity);
   const model = options.model ?? getConfiguredModel(options.llm);
+  const browserEnabled = options.browserEnabled ?? true;
+  const tools = buildToolAllowlist(browserEnabled);
 
-  const agent = new Agent({
-    initialState: {
-      systemPrompt,
-      model,
-      tools: [],
-    },
-    getApiKey: (provider) =>
-      resolveApiKey(provider, options.apiKey) ?? resolveApiKey(options.llm.provider, options.apiKey),
+  const agentDir = path.join(options.toolsCwd, ".agent-core-pi");
+  const settingsManager = SettingsManager.create(options.toolsCwd, agentDir);
+
+  const resourceLoader = new DefaultResourceLoader({
+    cwd: options.toolsCwd,
+    agentDir,
+    settingsManager,
+    noExtensions: true,
+    noSkills: true,
+    noPromptTemplates: true,
+    noThemes: true,
+    noContextFiles: true,
+    additionalExtensionPaths: browserEnabled
+      ? [resolvePiAgentBrowserExtensionPath()]
+      : [],
+    systemPromptOverride: () => buildSystemPrompt(options.getIdentity()),
   });
+  await resourceLoader.reload();
+
+  const authStorage = AuthStorage.inMemory();
+  const apiKey = resolveApiKey(options.llm.provider, options.apiKey);
+  if (apiKey) {
+    authStorage.setRuntimeApiKey(options.llm.provider, apiKey);
+  }
+  const modelRegistry = ModelRegistry.create(authStorage);
+
+  const agentRef: { current?: Agent } = {};
+  const agentProxy = createAgentProxy(agentRef);
 
   const identityTool = createUpdateIdentityTool({
     identityStore: options.identityStore,
     getIdentity: options.getIdentity,
     setIdentityContent: options.setIdentityContent,
-    agent,
+    agent: agentProxy,
   });
   const userTool = createUpdateUserTool({
     userStore: options.userStore,
     getIdentity: options.getIdentity,
     setUserContent: options.setUserContent,
-    agent,
+    agent: agentProxy,
   });
-  agent.state.tools = [
-    ...createBuiltinPiTools(options.toolsCwd),
-    identityTool,
-    userTool,
-  ];
 
-  return agent;
+  const { session } = await createAgentSession({
+    resourceLoader,
+    model,
+    cwd: options.toolsCwd,
+    sessionManager: SessionManager.inMemory(options.toolsCwd),
+    settingsManager,
+    authStorage,
+    modelRegistry,
+    customTools: [identityTool, userTool],
+    tools,
+  });
+
+  agentRef.current = session.agent;
+  return session.agent;
 }

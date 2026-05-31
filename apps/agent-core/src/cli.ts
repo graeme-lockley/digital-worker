@@ -24,6 +24,8 @@ export type ServerOptions = {
   toolsCwd: string;
   llm: LlmOptions;
   apiKey?: string;
+  /** When false, skip loading pi-agent-browser-native (no agent_browser tool). */
+  browserEnabled: boolean;
 };
 
 export function parseCli(argv: readonly string[] = process.argv): ServerOptions {
@@ -66,7 +68,11 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
       "--tools-cwd <path>",
       "working directory for read/write/bash/ls tools (default: workspace directory)",
     )
-    .option("--api-key <key>", "LLM API key override");
+    .option("--api-key <key>", "LLM API key override")
+    .option(
+      "--no-browser",
+      "disable web browsing (do not load pi-agent-browser-native)",
+    );
 
   program.parse(userArgv(argv), { from: "user" });
 
@@ -85,6 +91,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     workspaceDir?: string;
     toolsCwd?: string;
     apiKey?: string;
+    browser?: boolean;
   }>();
 
   const port = Number(opts.port);
@@ -134,6 +141,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     toolsCwd: path.resolve(opts.toolsCwd ?? workspaceDir),
     llm,
     apiKey: opts.apiKey?.trim() || undefined,
+    browserEnabled: opts.browser !== false,
   };
 }
 

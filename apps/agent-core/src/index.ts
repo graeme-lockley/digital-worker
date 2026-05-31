@@ -23,10 +23,11 @@ async function main(): Promise<void> {
 
   let identitySnapshot = { ...loaded.identity };
 
-  const agent = createLlmAgent({
+  const agent = await createLlmAgent({
     llm: options.llm,
     apiKey: options.apiKey,
     toolsCwd: options.toolsCwd,
+    browserEnabled: options.browserEnabled,
     identity: identitySnapshot,
     identityStore: loaded.identityStore,
     userStore: loaded.userStore,

@@ -19,7 +19,8 @@ The dev-workstation stack runs **agent-register** (discovery + heartbeat) and **
 | Worker runtime (FIFO, single Agent) | **Done** | [worker-runtime](./specs/worker-runtime.md) | `apps/agent-core/src/worker-runtime.ts` |
 | Workspace identity (MANDATE/SOUL/IDENTITY) | **Done** | [workspace-identity](./specs/workspace-identity.md) | `apps/agent-core/src/workspace/` |
 | `update_identity` / `update_user` tools | **Done** | [workspace-identity](./specs/workspace-identity.md) | `apps/agent-core/src/tools/` |
-| Builtin pi tools (`read`, `write`, `bash`, `ls`) | **Done** | [worker-runtime](./specs/worker-runtime.md) | `apps/agent-core/src/tools/builtin-tools.ts` |
+| Builtin pi tools (`read`, `write`, `bash`, `ls`) | **Done** | [worker-runtime](./specs/worker-runtime.md) | `apps/agent-core/src/llm-agent.ts` |
+| Web browsing (`agent_browser`) | **Done** | [web-browsing](./specs/web-browsing.md) | `pi-agent-browser-native` via `createAgentSession` |
 | Terminal chat UI | **Done** | [chat-streaming](./specs/chat-streaming.md) | `apps/agent-tui` |
 | Docker dev-workstation | **Done** | [dev-workstation](./deployment/dev-workstation.md) | `infra/dev-workstation/` |
 | Project-root `.env` for API keys | **Done** | [dev-workstation](./deployment/dev-workstation.md) | `package.json` `docker:dev` |
@@ -42,7 +43,7 @@ The dev-workstation stack runs **agent-register** (discovery + heartbeat) and **
 | Component | Node.js | Notes |
 |-----------|---------|-------|
 | agent-register | ≥ 20 | Alpine 22 in Docker |
-| agent-core | **≥ 22.19** | Required by `@earendil-works/pi-agent-core` |
+| agent-core | **≥ 22.19** | Required by `@earendil-works/pi-agent-core`; Docker image includes `agent-browser` + Chrome |
 | agent-tui | ≥ 20 | Ink + fetch |
 
 ## Known gaps

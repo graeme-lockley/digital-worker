@@ -4,6 +4,13 @@
 
 RESTART_EXIT=75
 
+if [ -f /etc/agent-browser.env ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . /etc/agent-browser.env
+  set +a
+fi
+
 while true; do
   "$@"
   code=$?

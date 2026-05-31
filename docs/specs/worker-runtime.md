@@ -92,13 +92,14 @@ Clients may send `sessionId` on each request for correlation; the server validat
 
 - Model and provider come from CLI (`--provider`, `--model`) or env API keys.
 - Streaming maps pi `message_update` events with `assistantMessageEvent.type === "text_delta"` to SSE `token` events.
-- Tools: pi builtins `read`, `write`, `bash`, `ls` (from `@earendil-works/pi-coding-agent`, scoped to `--tools-cwd`, defaulting to the workspace directory) plus `update_identity` and `update_user` (see [workspace-identity](./workspace-identity.md)).
+- Tools: pi builtins `read`, `write`, `bash`, `ls` (from `@earendil-works/pi-coding-agent`, scoped to `--tools-cwd`, defaulting to the workspace directory), `update_identity` and `update_user` (see [workspace-identity](./workspace-identity.md)), and optionally `agent_browser` from [pi-agent-browser-native](https://www.npmjs.com/package/pi-agent-browser-native) (see [web-browsing](./web-browsing.md)). Pass `--no-browser` to omit the browser tool.
+- Agent construction uses `createAgentSession()` with a `DefaultResourceLoader` that sets `systemPromptOverride` to the workspace MANDATE/SOUL/IDENTITY/USER prompt and loads the browser extension via `additionalExtensionPaths` when enabled.
 
 ## Startup order
 
 1. Parse CLI and validate workspace + LLM config.
 2. Load workspace identity files.
-3. Create pi `Agent`.
+3. Create pi `Agent` via `createAgentSession()` (loads extensions through `DefaultResourceLoader`).
 4. Start `WorkerRuntime` loop.
 5. Start Hono HTTP server.
 6. Register with agent-register **after** listen (so heartbeats succeed immediately).

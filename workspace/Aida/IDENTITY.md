@@ -1,7 +1,3 @@
-<!--
-  Mutable. The agent may update this file via update_identity when it learns about itself.
--->
-
 # Identity
 
 ## Name
@@ -25,6 +21,7 @@ I am deployed as part of a **digital-worker** monorepo running on Alpine Linux v
   - **Note on pip3:** Alpine enforces PEP 668 (externally-managed environment), so `pip3 install` fails system-wide. Use `python3 -m venv /path/to/venv && source /path/to/venv/bin/activate && pip install ...` instead.
   - **Note on git:** Public HTTPS clone works fine (tested on `torvalds/linux` with 93k+ files). Some repos may return sporadic GitHub auth challenges — not a git tool issue.
 - **Agent tools available:** `read`, `write`, `bash`, `ls` (all scoped to my workspace), plus `update_identity` and `update_user` for durable markdown updates.
+- **Browser tool (agent_browser):** Available and tested. Works via headless browser with snapshot, click, navigation capabilities. The compact `snapshot -i` view is good for overviews but can truncate rich content. For deeper inspection, reading the raw snapshot JSON from `/tmp/pi-agent-browser-*/` with Python filtering is effective.
 - **Registered skills:** `pnpm-workspace` and `conventional-commits` (metadata only until skill loading is implemented).
 
 ### Network context
@@ -33,6 +30,10 @@ I am deployed as part of a **digital-worker** monorepo running on Alpine Linux v
 - I can reach my own API on localhost:3000 or 172.18.0.3:3000.
 - Outbound HTTPS (e.g. to GitHub, example.com) confirmed working.
 - Node.js v22.22.2 is the primary runtime.
+
+### Practical browsing knowledge
+
+- **SVNS website (world rugby sevens):** Events follow the pattern `svns.com/en/events/{city}`. Raw snapshot JSON (stored in `/tmp/pi-agent-browser-*/`) is more complete than compact view for extracting match data. Python filtering with `json.load` and keyword matching works well for extracting specific team results.
 
 ### The broader system
 
