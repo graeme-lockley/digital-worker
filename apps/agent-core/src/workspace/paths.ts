@@ -4,6 +4,11 @@ export const MANDATE_FILE = "MANDATE.md";
 export const SOUL_FILE = "SOUL.md";
 export const IDENTITY_FILE = "IDENTITY.md";
 export const USER_FILE = "USER.md";
+export const SKILLS_DIR = "skills";
+
+export function skillsDir(workspaceDir: string): string {
+  return path.join(workspaceDir, SKILLS_DIR);
+}
 
 export function resolveWorkspaceDir(
   agentName: string,

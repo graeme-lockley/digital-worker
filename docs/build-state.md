@@ -27,7 +27,7 @@ The dev-workstation stack runs **agent-register** (discovery + heartbeat) and **
 | Inter-agent message delivery | **Not started** | [roadmap](./roadmap.md) | Types in `agent-core-protocol` only |
 | Command queue (`/status`, `/abandon`, `/restart`, `/shutdown`) | **Done** | [agent-core-api](./specs/agent-core-api.md), [worker-runtime](./specs/worker-runtime.md) | `apps/agent-core`, `apps/agent-tui` |
 | Priority / judgment dequeue | **Not started** | [roadmap](./roadmap.md) | FIFO only today |
-| Skills loaded from markdown | **Not started** | [roadmap](./roadmap.md) | `--skills` is register metadata |
+| Skills loaded from markdown | **Done** | [skills](./specs/skills.md) | `SkillRegistry`, `refresh_skills` |
 | Register persistence | **Not started** | [roadmap](./roadmap.md) | In-memory store |
 | Workspace bind mount (Docker dev) | **Done** | [workspace-identity](./specs/workspace-identity.md) | `infra/dev-workstation/docker-compose.yml` (`./workspace/Aida`) |
 

@@ -5,7 +5,9 @@ import { AGENT_REGISTER_PATHS } from "@digital-worker/agent-register-protocol";
 
 import { parseCli } from "./cli.js";
 import { buildAgentEndpointUrl, resolveAdvertisedHost } from "./endpoint.js";
+import { createLlmAgent } from "./llm-agent.js";
 import { deregisterAgent, registerAgent } from "./registration.js";
+import { loadWorkspace } from "./workspace/index.js";
 import {
   createTestHarness,
   disposeTestHarness,
@@ -13,6 +15,7 @@ import {
   TEST_AGENT_ID,
   TEST_SESSION_ID,
 } from "./test-helpers.js";
+import { registerFauxProvider } from "@earendil-works/pi-ai";
 
 const baseCliArgs = [
   "node",
@@ -151,6 +154,38 @@ describe("createApp", () => {
       });
     } finally {
       await disposeTestHarness(harness);
+    }
+  });
+});
+
+describe("createLlmAgent tool allowlist", () => {
+  it("includes refresh_skills and loads workspace skills into the system prompt", async () => {
+    const loaded = await loadWorkspace({
+      agentName: "Aida",
+      workspaceDir: repoWorkspacePath(),
+    });
+    const registration = registerFauxProvider();
+    try {
+      const model = registration.getModel();
+      const agent = await createLlmAgent({
+        llm: { provider: model.provider, modelId: model.id },
+        model,
+        apiKey: "faux-test-key",
+        toolsCwd: repoWorkspacePath(),
+        browserEnabled: false,
+        identity: loaded.identity,
+        identityStore: loaded.identityStore,
+        userStore: loaded.userStore,
+        getIdentity: () => loaded.identity,
+        setIdentityContent: () => {},
+        setUserContent: () => {},
+      });
+
+      const toolNames = agent.state.tools?.map((tool) => tool.name) ?? [];
+      expect(toolNames).toContain("refresh_skills");
+      expect(agent.state.systemPrompt).toContain("skill-authoring");
+    } finally {
+      registration.unregister();
     }
   });
 });

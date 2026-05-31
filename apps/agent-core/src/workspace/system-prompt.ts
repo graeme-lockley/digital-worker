@@ -1,7 +1,10 @@
 import type { WorkspaceIdentity } from "./load.js";
 
-export function buildSystemPrompt(identity: WorkspaceIdentity): string {
-  return [
+export function buildSystemPrompt(
+  identity: WorkspaceIdentity,
+  skillsSection = "",
+): string {
+  const parts = [
     "You are a digital worker agent. Follow Mandate and Soul at all times.",
     "You may update durable self-knowledge via update_identity and operator facts via update_user; do not contradict Mandate or Soul.",
     "",
@@ -16,7 +19,11 @@ export function buildSystemPrompt(identity: WorkspaceIdentity): string {
     "",
     "# User (operator — maintain via update_user per Mandate)",
     identity.user.trim(),
-  ].join("\n");
+  ];
+  if (skillsSection.length > 0) {
+    parts.push(skillsSection);
+  }
+  return parts.join("\n");
 }
 
 export function extractPurposeFromMandate(mandate: string, maxLength = 500): string {

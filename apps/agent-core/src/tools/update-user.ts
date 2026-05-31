@@ -9,6 +9,7 @@ export type UpdateUserDeps = {
   userStore: UserStore;
   getIdentity: () => WorkspaceIdentity;
   setUserContent: (content: string) => void;
+  getSkillsSection: () => string;
   agent: Agent;
 };
 
@@ -25,7 +26,10 @@ export function createUpdateUserTool(
       await deps.userStore.write(params.content);
       deps.setUserContent(params.content);
       const identity = deps.getIdentity();
-      deps.agent.state.systemPrompt = buildSystemPrompt(identity);
+      deps.agent.state.systemPrompt = buildSystemPrompt(
+        identity,
+        deps.getSkillsSection(),
+      );
       return {
         content: [
           {

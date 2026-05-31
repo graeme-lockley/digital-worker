@@ -92,8 +92,9 @@ Clients may send `sessionId` on each request for correlation; the server validat
 
 - Model and provider come from CLI (`--provider`, `--model`) or env API keys.
 - Streaming maps pi `message_update` events with `assistantMessageEvent.type === "text_delta"` to SSE `token` events.
-- Tools: pi builtins `read`, `write`, `bash`, `ls` (from `@earendil-works/pi-coding-agent`, scoped to `--tools-cwd`, defaulting to the workspace directory), `update_identity` and `update_user` (see [workspace-identity](./workspace-identity.md)), and optionally `agent_browser` from [pi-agent-browser-native](https://www.npmjs.com/package/pi-agent-browser-native) (see [web-browsing](./web-browsing.md)). Pass `--no-browser` to omit the browser tool.
-- Agent construction uses `createAgentSession()` with a `DefaultResourceLoader` that sets `systemPromptOverride` to the workspace MANDATE/SOUL/IDENTITY/USER prompt and loads the browser extension via `additionalExtensionPaths` when enabled.
+- Tools: pi builtins `read`, `write`, `bash`, `ls` (from `@earendil-works/pi-coding-agent`, scoped to `--tools-cwd`, defaulting to the workspace directory), `update_identity`, `update_user`, and `refresh_skills` (see [workspace-identity](./workspace-identity.md) and [skills](./skills.md)), and optionally `agent_browser` from [pi-agent-browser-native](https://www.npmjs.com/package/pi-agent-browser-native) (see [web-browsing](./web-browsing.md)). Pass `--no-browser` to omit the browser tool.
+- Workspace **Agent Skills** under `skills/` are scanned at startup via `SkillRegistry` and listed in the system prompt; full `SKILL.md` bodies are loaded on demand with `read`. Call `refresh_skills` after skill changes.
+- Agent construction uses `createAgentSession()` with a `DefaultResourceLoader` that sets `systemPromptOverride` to the workspace MANDATE/SOUL/IDENTITY/USER prompt plus the skills index, and loads the browser extension via `additionalExtensionPaths` when enabled.
 
 ## Startup order
 

@@ -20,9 +20,10 @@ I am deployed as part of a **digital-worker** monorepo running on Alpine Linux v
 - **Runtime tools available (baked into the image):** `python3` (3.12.13), `pip3` (25.1.1), `curl` (8.19.0), `git` (2.52.0), `openssh-client` (OpenSSH_10.2p1), and `build-base` (gcc 15.2.0, g++ 15.2.0, make 4.4.1) — all pre-installed as part of the container image.
   - **Note on pip3:** Alpine enforces PEP 668 (externally-managed environment), so `pip3 install` fails system-wide. Use `python3 -m venv /path/to/venv && source /path/to/venv/bin/activate && pip install ...` instead.
   - **Note on git:** Public HTTPS clone works fine (tested on `torvalds/linux` with 93k+ files). Some repos may return sporadic GitHub auth challenges — not a git tool issue.
-- **Agent tools available:** `read`, `write`, `bash`, `ls` (all scoped to my workspace), plus `update_identity` and `update_user` for durable markdown updates.
+- **Agent tools available:** `read`, `write`, `bash`, `ls` (all scoped to my workspace), `update_identity` and `update_user` for durable markdown updates, and `refresh_skills` to rescan `skills/` and update the available-skills list in my system prompt.
 - **Browser tool (agent_browser):** Available and tested. Works via headless browser with snapshot, click, navigation capabilities. The compact `snapshot -i` view is good for overviews but can truncate rich content. For deeper inspection, reading the raw snapshot JSON from `/tmp/pi-agent-browser-*/` with Python filtering is effective.
-- **Registered skills:** `pnpm-workspace` and `conventional-commits` (metadata only until skill loading is implemented).
+- **Workspace skills:** Agent Skills live under `skills/<name>/SKILL.md` (Agent Skills format). At startup and after `refresh_skills`, only each skill's name and description appear in my system prompt; I load the full `SKILL.md` with `read` when a task matches. Use the `skill-authoring` skill when creating or maintaining skills.
+- **Registration metadata:** `pnpm-workspace` and `conventional-commits` are advertised on agent-register for discovery — separate from workspace skills loaded from `skills/`.
 
 ### Network context
 
@@ -43,5 +44,5 @@ I am deployed as part of a **digital-worker** monorepo running on Alpine Linux v
 
 ### What's not yet known
 
-- The exact content/entrypoints of my `pnpm-workspace` and `conventional-commits` skills (directories exist but appear to be empty at runtime).
+- The exact content/entrypoints of the `pnpm-workspace` and `conventional-commits` registration metadata (not loaded as workspace skills unless added under `skills/`).
 - The Dockerfile build context on the host machine (the infra directory).

@@ -17,6 +17,9 @@ workspace/
     SOUL.md
     IDENTITY.md
     USER.md
+    skills/              # Agent Skills (optional); see skills.md
+      <skill-name>/
+        SKILL.md
 ```
 
 CLI flag `--agent-name` selects `<agentName>`. Override path with `--workspace-dir`.
@@ -55,7 +58,11 @@ You may update durable self-knowledge via update_identity and operator facts via
 
 # User (operator — maintain via update_user per Mandate)
 {contents of USER.md}
+
+{optional <available_skills> block from workspace/skills — see skills.md}
 ```
+
+See [skills](./skills.md) for skill discovery, `refresh_skills`, and progressive disclosure.
 
 ## Registration metadata
 
@@ -63,7 +70,7 @@ You may update durable self-knowledge via update_identity and operator facts via
 |----------------|--------|
 | `name` | `--name` or `--agent-name` |
 | `purpose` | First substantive paragraph of MANDATE.md, unless `--purpose` override |
-| `skills` | `--skills` CLI (metadata only today) |
+| `skills` | `--skills` CLI (register metadata; distinct from workspace `skills/` — see [skills](./skills.md)) |
 
 ## update_identity tool
 

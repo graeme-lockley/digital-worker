@@ -23,7 +23,9 @@ import {
 } from "./tools/pi-browser-plugin.js";
 import { createUpdateIdentityTool, type UpdateIdentityDeps } from "./tools/update-identity.js";
 import { createUpdateUserTool, type UpdateUserDeps } from "./tools/update-user.js";
-import { buildSystemPrompt, type WorkspaceIdentity } from "./workspace/index.js";
+import { createRefreshSkillsTool } from "./tools/refresh-skills.js";
+import { SkillRegistry } from "./skills/skill-registry.js";
+import { buildSystemPrompt, skillsDir, type WorkspaceIdentity } from "./workspace/index.js";
 
 const BASE_TOOL_NAMES = [
   "read",
@@ -32,6 +34,7 @@ const BASE_TOOL_NAMES = [
   "ls",
   "update_identity",
   "update_user",
+  "refresh_skills",
 ] as const;
 
 function buildToolAllowlist(browserEnabled: boolean): string[] {
@@ -84,6 +87,9 @@ export async function createLlmAgent(options: CreateLlmAgentOptions): Promise<Ag
   const agentDir = path.join(options.toolsCwd, ".agent-core-pi");
   const settingsManager = SettingsManager.create(options.toolsCwd, agentDir);
 
+  const skillRegistry = new SkillRegistry(skillsDir(options.toolsCwd));
+  await skillRegistry.refresh();
+
   const resourceLoader = new DefaultResourceLoader({
     cwd: options.toolsCwd,
     agentDir,
@@ -96,7 +102,8 @@ export async function createLlmAgent(options: CreateLlmAgentOptions): Promise<Ag
     additionalExtensionPaths: browserEnabled
       ? [resolvePiAgentBrowserExtensionPath()]
       : [],
-    systemPromptOverride: () => buildSystemPrompt(options.getIdentity()),
+    systemPromptOverride: () =>
+      buildSystemPrompt(options.getIdentity(), skillRegistry.formatForPrompt()),
   });
   await resourceLoader.reload();
 
@@ -109,17 +116,25 @@ export async function createLlmAgent(options: CreateLlmAgentOptions): Promise<Ag
 
   const agentRef: { current?: Agent } = {};
   const agentProxy = createAgentProxy(agentRef);
+  const getSkillsSection = () => skillRegistry.formatForPrompt();
 
   const identityTool = createUpdateIdentityTool({
     identityStore: options.identityStore,
     getIdentity: options.getIdentity,
     setIdentityContent: options.setIdentityContent,
+    getSkillsSection,
     agent: agentProxy,
   });
   const userTool = createUpdateUserTool({
     userStore: options.userStore,
     getIdentity: options.getIdentity,
     setUserContent: options.setUserContent,
+    getSkillsSection,
+    agent: agentProxy,
+  });
+  const refreshSkillsTool = createRefreshSkillsTool({
+    skillRegistry,
+    getIdentity: options.getIdentity,
     agent: agentProxy,
   });
 
@@ -131,7 +146,7 @@ export async function createLlmAgent(options: CreateLlmAgentOptions): Promise<Ag
     settingsManager,
     authStorage,
     modelRegistry,
-    customTools: [identityTool, userTool],
+    customTools: [identityTool, userTool, refreshSkillsTool],
     tools,
   });
 

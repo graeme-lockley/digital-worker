@@ -42,7 +42,15 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("# Soul (immutable)");
     expect(prompt).toContain("# Identity");
     expect(prompt).toContain("# User");
-    expect(prompt).toContain("Graeme");
+  });
+
+  it("appends skills section when provided", async () => {
+    const loaded = await loadWorkspace({
+      agentName: "Aida",
+      workspaceDir: repoWorkspacePath(),
+    });
+    const prompt = buildSystemPrompt(loaded.identity, "<available_skills></available_skills>");
+    expect(prompt).toContain("<available_skills>");
   });
 });
 

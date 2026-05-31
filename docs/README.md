@@ -48,6 +48,7 @@ docs/
   specs/                 ← normative behaviour
     worker-runtime.md
     workspace-identity.md
+    skills.md
     agent-core-api.md
     agent-register-api.md
     chat-streaming.md
@@ -67,6 +68,7 @@ docs/
 | Change registration or discovery | [specs/agent-register-api.md](./specs/agent-register-api.md) |
 | Change worker queue or LLM loop | [specs/worker-runtime.md](./specs/worker-runtime.md) |
 | Change MANDATE / SOUL / IDENTITY | [specs/workspace-identity.md](./specs/workspace-identity.md) |
+| Change workspace skills or refresh | [specs/skills.md](./specs/skills.md) |
 | Run locally or in Docker | [deployment/local-development.md](./deployment/local-development.md), [deployment/dev-workstation.md](./deployment/dev-workstation.md) |
 | Add an app or package | [project-structure.md](./project-structure.md) |
 | Pick or replace a library | [architecture.md](./architecture.md) |

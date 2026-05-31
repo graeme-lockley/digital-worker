@@ -12,10 +12,6 @@ Workers should communicate through a core runtime message bus rather than direct
 
 The Docker dev-workstation stack loads project-root `.env` automatically, but local `pnpm dev` for agent-core still requires manually exporting API keys or passing `--api-key`. Loading `.env` at startup (via Node `--env-file` or explicit dotenv) would align local development with Docker and remove a recurring friction point documented in [local-development.md](./deployment/local-development.md).
 
-### Skills from markdown
-
-Registration currently accepts `--skills` as metadata strings only — they appear in the agent list but are not loaded into the LLM context. Loading skill content from markdown files under `workspace/<agentName>/skills/` (similar to Cursor skills) would let operators extend agent capability without code changes. Skill bodies would be composed into the system prompt or made available on demand.
-
 ### Register persistence
 
 `AgentRegistryStore` in agent-register is in-memory. Restarting the register service loses the agent list until workers re-register. Durable storage (file, SQLite, or external DB) is needed for production deployments where the registry must survive process restarts and provide a stable discovery surface.
