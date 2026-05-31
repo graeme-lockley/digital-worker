@@ -28,7 +28,7 @@ The dev-workstation stack runs **agent-register** (discovery + heartbeat) and **
 | Priority / judgment dequeue | **Not started** | [roadmap](./roadmap.md) | FIFO only today |
 | Skills loaded from markdown | **Not started** | [roadmap](./roadmap.md) | `--skills` is register metadata |
 | Register persistence | **Not started** | [roadmap](./roadmap.md) | In-memory store |
-| IDENTITY.md compose volume (dev) | **Optional** | [workspace-identity](./specs/workspace-identity.md) | Documented, not wired |
+| Workspace bind mount (Docker dev) | **Done** | [workspace-identity](./specs/workspace-identity.md) | `infra/dev-workstation/docker-compose.yml` (`./workspace/Aida`) |
 
 ## Protocol packages
 

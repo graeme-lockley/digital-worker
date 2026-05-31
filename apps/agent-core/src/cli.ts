@@ -42,7 +42,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     .option(
       "--agent-name <name>",
       "workspace folder name under workspace/",
-      "agent-core",
+      "Aida",
     )
     .option("--name <name>", "registration display name (defaults to agent-name)")
     .option(
@@ -64,7 +64,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     )
     .option(
       "--tools-cwd <path>",
-      "working directory for read/write/bash/ls tools (default: process cwd)",
+      "working directory for read/write/bash/ls tools (default: workspace directory)",
     )
     .option("--api-key <key>", "LLM API key override");
 
@@ -131,7 +131,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     purpose: opts.purpose?.trim() || undefined,
     skills,
     workspaceDir: path.resolve(workspaceDir),
-    toolsCwd: path.resolve(opts.toolsCwd ?? process.cwd()),
+    toolsCwd: path.resolve(opts.toolsCwd ?? workspaceDir),
     llm,
     apiKey: opts.apiKey?.trim() || undefined,
   };

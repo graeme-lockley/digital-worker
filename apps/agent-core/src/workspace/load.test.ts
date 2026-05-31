@@ -8,14 +8,14 @@ import { buildSystemPrompt, extractPurposeFromMandate, loadWorkspace } from "./i
 import { MANDATE_FILE, SOUL_FILE, IDENTITY_FILE } from "./paths.js";
 
 describe("loadWorkspace", () => {
-  it("loads seeded agent-core workspace from repo", async () => {
+  it("loads seeded Aida workspace from repo", async () => {
     const loaded = await loadWorkspace({
-      agentName: "agent-core",
+      agentName: "Aida",
       workspaceDir: repoWorkspacePath(),
     });
 
-    expect(loaded.identity.mandate).toContain("agent-core");
-    expect(loaded.identity.soul).toContain("Determinism");
+    expect(loaded.identity.mandate).toContain("Aida");
+    expect(loaded.identity.soul).toContain("Helpfulness");
     expect(loaded.identity.identity).toContain("Self-knowledge");
   });
 
@@ -34,7 +34,7 @@ describe("loadWorkspace", () => {
 describe("buildSystemPrompt", () => {
   it("includes mandate soul and identity sections", async () => {
     const loaded = await loadWorkspace({
-      agentName: "agent-core",
+      agentName: "Aida",
       workspaceDir: repoWorkspacePath(),
     });
     const prompt = buildSystemPrompt(loaded.identity);

@@ -16,7 +16,7 @@ import { WorkerRuntime } from "./worker-runtime.js";
 export const TEST_SESSION_ID = "test-worker-session";
 export const TEST_AGENT_ID = "test-agent-id";
 
-export function repoWorkspacePath(agentName = "agent-core"): string {
+export function repoWorkspacePath(agentName = "Aida"): string {
   const srcDir = path.dirname(fileURLToPath(import.meta.url));
   const repoRoot = path.resolve(srcDir, "../../..");
   return path.join(repoRoot, "workspace", agentName);
@@ -39,7 +39,7 @@ export async function createTestHarness(
   const model = registration.getModel();
 
   const loaded = await loadWorkspace({
-    agentName: "agent-core",
+    agentName: "Aida",
     workspaceDir: repoWorkspacePath(),
   });
 

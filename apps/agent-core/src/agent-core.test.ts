@@ -41,7 +41,7 @@ describe("parseCli", () => {
         "--agent-id",
         "agent-1",
         "--agent-name",
-        "agent-core",
+        "Aida",
         "--skills",
         "a, b",
       ]),
@@ -50,7 +50,7 @@ describe("parseCli", () => {
       port: 8080,
       registerUrl: "http://127.0.0.1:3001",
       agentId: "agent-1",
-      agentName: "agent-core",
+      agentName: "Aida",
       skills: ["a", "b"],
       llm: { provider: "deepseek", modelId: "deepseek-v4-flash" },
     });
@@ -85,6 +85,12 @@ describe("parseCli", () => {
       provider: "deepseek",
       modelId: "deepseek-v4-pro",
     });
+  });
+
+  it("defaults agent-name to Aida and tools-cwd to workspace-dir", () => {
+    const opts = parseCli(baseCliArgs);
+    expect(opts.agentName).toBe("Aida");
+    expect(opts.toolsCwd).toBe(opts.workspaceDir);
   });
 });
 
@@ -167,7 +173,7 @@ describe("registration client", () => {
     const options = {
       registerUrl: "http://127.0.0.1:3001",
       agentId: "agent-1",
-      name: "agent-core",
+      name: "Aida",
       purpose: "core",
       skills: ["pnpm-workspace"],
       endpointUrl: "http://127.0.0.1:3000",

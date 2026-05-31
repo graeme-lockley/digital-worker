@@ -65,7 +65,8 @@ docker-compose --env-file .env --project-directory . \
 - Wrapped by `restart-loop.sh` — `/restart` exits with code 75 and the entrypoint relaunches the worker (reloads plugins and process state)
 - Registers with `http://agent-register:3001`
 - Advertises `http://agent-core:3000` inside the Compose network
-- Workspace: `/app/workspace/agent-core`
+- Agent **Aida** (`--agent-name Aida`); workspace: `/app/workspace/Aida` (bind-mounted from `./workspace/Aida` on the host)
+- Builtin tools default to the workspace directory (no separate `--tools-cwd`)
 - LLM: `--provider deepseek --model deepseek-v4-flash`
 - Requires `DEEPSEEK_API_KEY` from `.env`
 
@@ -96,7 +97,7 @@ agent-tui is **not** in the compose file. Run on the host:
 
 ```bash
 pnpm build
-pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001 --agent-name agent-core
+pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001 --agent-name Aida
 ```
 
 The TUI rewrites Docker-internal agent URLs to `127.0.0.1` when the register is local.

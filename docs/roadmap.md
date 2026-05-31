@@ -20,10 +20,6 @@ Registration currently accepts `--skills` as metadata strings only — they appe
 
 `AgentRegistryStore` in agent-register is in-memory. Restarting the register service loses the agent list until workers re-register. Durable storage (file, SQLite, or external DB) is needed for production deployments where the registry must survive process restarts and provide a stable discovery surface.
 
-### IDENTITY persistence in Docker dev
-
-`IDENTITY.md` is mutable at runtime via the `update_identity` tool, but Docker dev rebuilds bake workspace files into the image and reset self-knowledge. An optional Compose volume for `workspace/<agentName>/IDENTITY.md` would preserve accumulated identity across image rebuilds during development. The pattern is documented in [workspace-identity.md](./specs/workspace-identity.md) but not wired in compose today.
-
 ### Priority / judgment dequeue
 
 The worker runtime today dequeues chat jobs in strict FIFO order. Replacing or augmenting that with prioritized message selection would let urgent or high-value work run ahead of routine chat. The extension point is likely an optional `priority` field on queued jobs; the dequeue logic in `WorkerRuntime` would choose the next job by priority rather than arrival time alone.

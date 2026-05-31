@@ -96,11 +96,11 @@ pnpm --filter @digital-worker/agent-register dev                            # te
 pnpm --filter @digital-worker/agent-core dev -- \
   -r http://127.0.0.1:3001 \
   --provider deepseek --model deepseek-v4-flash \
-  --agent-name agent-core   # terminal 2 (port 3000; set DEEPSEEK_API_KEY)
+  --agent-name Aida   # terminal 2 (port 3000; set DEEPSEEK_API_KEY)
 
 pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001
 # or with agent name prefix:
-pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001 --agent-name agent-core
+pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001 --agent-name Aida
 ```
 
 Chat uses **SSE** token streaming on `POST /api/v1/chat` (see [docs/specs/chat-streaming.md](docs/specs/chat-streaming.md)).
@@ -120,7 +120,7 @@ pnpm --filter @digital-worker/agent-register dev
 pnpm --filter @digital-worker/agent-core dev -- \
   --register-url http://127.0.0.1:3001 \
   --provider deepseek --model deepseek-v4-flash \
-  --agent-name agent-core
+  --agent-name Aida
 ```
 
 ## Documentation

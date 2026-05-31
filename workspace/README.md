@@ -2,7 +2,7 @@
 
 Operator notes for per-agent deployment folders. **Normative spec:** [docs/specs/workspace-identity.md](../docs/specs/workspace-identity.md).
 
-Each digital worker (agent-core process) is deployed with a flat workspace folder:
+Each digital worker is deployed with a flat workspace folder — the agent's world (identity, working files, and default tool sandbox):
 
 ```
 workspace/
@@ -14,8 +14,10 @@ workspace/
 
 ## Build-time folding
 
-Docker and other infra copy `workspace/` into the image (see `infra/dev-workstation/Dockerfile.agent-core`).
-At runtime, pass `--workspace-dir` pointing at the agent folder (e.g. `/app/workspace/agent-core`).
+Docker copies `workspace/` into the image at build time (see `infra/dev-workstation/Dockerfile.agent-core`).
+At runtime, pass `--workspace-dir` pointing at the agent folder (e.g. `/app/workspace/Aida`). Builtin tools default to the same directory unless `--tools-cwd` overrides.
+
+For dev-workstation, compose bind-mounts `./workspace/Aida` so identity updates and other workspace files persist across container restarts and rebuilds.
 
 ## MANDATE.md
 
@@ -29,6 +31,6 @@ Defines communication style, constraints, and values. **Do not edit at runtime.*
 ## IDENTITY.md
 
 Seed with minimal self-description. The agent may update this file via the `update_identity` tool when it learns something durable about itself.
-For persistence across container rebuilds, mount this file as a volume in compose (optional).
+In Docker dev, the whole workspace folder is bind-mounted for persistence (see compose).
 
 LLM API keys for Docker dev are set in `.env` at the **project root** (see `.env.example`); that file is gitignored.

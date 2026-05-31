@@ -55,11 +55,9 @@ services:
       - --agent-id
       - dev-workstation-agent-core
       - --agent-name
-      - agent-core
+      - Aida
       - --workspace-dir
-      - /app/workspace/agent-core
-      - --tools-cwd
-      - /app
+      - /app/workspace/Aida
       - --provider
       - deepseek
       - --model
@@ -70,6 +68,8 @@ services:
       - .env
     environment:
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+    volumes:
+      - ./workspace/Aida:/app/workspace/Aida
     healthcheck:
       test:
         [

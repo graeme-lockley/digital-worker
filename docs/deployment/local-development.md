@@ -34,19 +34,19 @@ pnpm --filter @digital-worker/agent-core dev -- \
   --register-url http://127.0.0.1:3001 \
   --provider deepseek \
   --model deepseek-v4-flash \
-  --agent-name agent-core
+  --agent-name Aida
 ```
 
-Or pass `--api-key` instead of exporting.
+Or pass `--api-key` instead of exporting. Omitting `--agent-name` defaults to `Aida`; builtin tools default to the workspace directory.
 
-Optional flags: `--host`, `--port`, `--agent-id`, `--workspace-dir`, `--endpoint-url`, `--skills`, `--purpose`.
+Optional flags: `--host`, `--port`, `--agent-id`, `--workspace-dir`, `--tools-cwd`, `--endpoint-url`, `--skills`, `--purpose`.
 
 ### Terminal 3 — agent-tui
 
 ```bash
 pnpm --filter @digital-worker/agent-tui dev -- \
   -r http://127.0.0.1:3001 \
-  --agent-name agent-core
+  --agent-name Aida
 ```
 
 ## Verify
@@ -58,12 +58,12 @@ curl http://127.0.0.1:3000/api/v1
 
 ## Workspace
 
-Default workspace: `./workspace/agent-core/` relative to the **current working directory** when starting agent-core (typically `apps/agent-core` or project root depending how you invoke pnpm).
+Default workspace: `./workspace/Aida/` relative to the **current working directory** when starting agent-core (typically `apps/agent-core` or project root depending how you invoke pnpm). Builtin tools use the same directory unless `--tools-cwd` overrides.
 
 Use explicit path if needed:
 
 ```bash
---workspace-dir /path/to/digital-worker/workspace/agent-core
+--workspace-dir /path/to/digital-worker/workspace/Aida
 ```
 
 See [specs/workspace-identity.md](../specs/workspace-identity.md).

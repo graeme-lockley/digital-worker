@@ -80,7 +80,7 @@ Spec: [specs/worker-runtime.md](./specs/worker-runtime.md)
 
 ## Workspace identity
 
-Before serving traffic, agent-core loads three files from `workspace/<agentName>/`:
+Before serving traffic, agent-core loads three files from `workspace/<agentName>/` (default agent **Aida** at `workspace/Aida/`):
 
 | File | Mutability | Purpose |
 |------|------------|---------|
@@ -88,7 +88,7 @@ Before serving traffic, agent-core loads three files from `workspace/<agentName>
 | `SOUL.md` | Immutable | Style and values |
 | `IDENTITY.md` | Mutable | Self-knowledge |
 
-They are composed into the LLM system prompt. The agent may update `IDENTITY.md` via the `update_identity` tool.
+They are composed into the LLM system prompt. The agent may update `IDENTITY.md` via the `update_identity` tool. The workspace is also the default sandbox for builtin file tools (`read`, `write`, `bash`, `ls`). Docker dev bind-mounts `./workspace/Aida` for persistence across restarts.
 
 Spec: [specs/workspace-identity.md](./specs/workspace-identity.md)
 

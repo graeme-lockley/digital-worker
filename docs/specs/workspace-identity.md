@@ -20,7 +20,9 @@ workspace/
 
 CLI flag `--agent-name` selects `<agentName>`. Override path with `--workspace-dir`.
 
-Docker copies `workspace/` into the image at build time; runtime uses e.g. `/app/workspace/agent-core`.
+The workspace is the agent's **frame of reference**: identity files and the default working directory for builtin tools (`read`, `write`, `bash`, `ls`). Override tool scope with `--tools-cwd` if needed.
+
+Docker copies `workspace/` into the image at build time; dev-workstation bind-mounts `./workspace/<agentName>` (e.g. `./workspace/Aida` → `/app/workspace/Aida`) so runtime writes persist on the host.
 
 ## File semantics
 
@@ -75,11 +77,11 @@ On success:
 
 ## Persistence
 
-| Environment | IDENTITY persistence |
-|-------------|---------------------|
+| Environment | Workspace persistence |
+|-------------|----------------------|
 | Local file workspace | Survives restarts |
-| Docker container | Writable layer until image recreate |
-| Optional compose volume | Recommended for dev if identity should survive rebuilds (not wired by default) |
+| Docker dev-workstation | Bind mount `./workspace/<agentName>` (wired in compose for Aida) |
+| Docker without volume | Writable container layer until image recreate |
 
 ## Startup validation
 
@@ -87,4 +89,4 @@ Startup **must fail** if any of the three files is missing under the configured 
 
 ## Seeded example
 
-The repository includes `workspace/agent-core/` with starter content for the default dev-workstation agent.
+The repository includes `workspace/Aida/` with starter content for the default dev-workstation agent.
