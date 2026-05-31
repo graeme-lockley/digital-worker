@@ -15,6 +15,7 @@ import {
   parseSlashCommand,
   sendCommand,
 } from "../command-client.js";
+import { MarkdownText } from "./MarkdownText.js";
 
 export type ChatMessage = {
   id: string;
@@ -54,9 +55,14 @@ function MessageBlock({
       <Text bold color={labelColor}>
         {label}
       </Text>
-      <Text wrap="wrap" color={message.role === "system" ? "gray" : undefined}>
-        {message.content}
-      </Text>
+      {message.role === "user" ? (
+        <Text wrap="wrap">{message.content}</Text>
+      ) : (
+        <MarkdownText
+          content={message.content}
+          color={message.role === "system" ? "gray" : undefined}
+        />
+      )}
     </Box>
   );
 }
