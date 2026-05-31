@@ -17,7 +17,7 @@ The root [README.md](../README.md) is a quick start (install, run, endpoints). E
 | Library and pattern choices | [architecture.md](./architecture.md) |
 | Monorepo layout and commands | [project-structure.md](./project-structure.md) |
 | What is implemented *right now* | [build-state.md](./build-state.md) |
-| What comes next | [roadmap.md](./roadmap.md) |
+| Planned work (ordered backlog) | [roadmap.md](./roadmap.md) |
 | Deployment operator notes | [deployment/](./deployment/) |
 | Per-agent workspace files at deploy time | [workspace/README.md](../workspace/README.md) |
 
@@ -43,7 +43,7 @@ docs/
   build-state.md         ← current implementation status
   architecture.md        ← technology choices (why Hono, pi-agent-core, …)
   project-structure.md   ← pnpm monorepo conventions
-  roadmap.md             ← planned work
+  roadmap.md             ← ordered planned work with descriptions
 
   specs/                 ← normative behaviour
     worker-runtime.md
