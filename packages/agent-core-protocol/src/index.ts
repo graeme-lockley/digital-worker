@@ -4,6 +4,17 @@ export {
   type ApiError,
   type ApiErrorResponse,
 } from "./error.js";
+export {
+  AGENT_COMMAND,
+  type AbandonResult,
+  type ActiveJobStatus,
+  type AgentCommandName,
+  type CommandRequest,
+  type CommandResponse,
+  type RestartResult,
+  type ShutdownResult,
+  type StatusResult,
+} from "./command.js";
 export { AGENT_CORE_PATHS, CHAT_STREAM_ACCEPT } from "./paths.js";
 export type { HeartbeatRequest, HeartbeatResponse } from "./heartbeat.js";
 export {

@@ -35,6 +35,7 @@ services:
     build:
       context: .
       dockerfile: infra/dev-workstation/Dockerfile.agent-core
+    entrypoint: ["/app/apps/agent-core/restart-loop.sh"]
     ports:
       - "3000:3000"
     depends_on:

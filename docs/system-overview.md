@@ -72,8 +72,9 @@ Each **agent-core process** is exactly **one digital worker**:
 - One **inbox** (FIFO queue of chat jobs).
 - One **pi Agent** (conversation state).
 - One **outer loop** that processes at most one LLM run at a time.
+- One **command path** (`POST /api/v1/command`) for operator control that bypasses the chat inbox.
 
-Command preemption and priority dequeue are **not implemented**; see [roadmap.md](./roadmap.md).
+Operator commands (`/status`, `/abandon`, `/restart`, `/shutdown`) are served out-of-band. `/abandon` aborts the active LLM run and drains queued chat jobs. `/restart` deregisters and exits for relaunch (Docker uses `restart-loop.sh`; local dev spawns a replacement). Priority dequeue remains **not implemented**; see [roadmap.md](./roadmap.md).
 
 Spec: [specs/worker-runtime.md](./specs/worker-runtime.md)
 

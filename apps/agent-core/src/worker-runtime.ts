@@ -3,6 +3,8 @@ import {
   AGENT_CORE_ERROR_CODES,
   CHAT_STREAM_EVENT,
   type ChatStreamEvent,
+  type AbandonResult,
+  type StatusResult,
 } from "@digital-worker/agent-core-protocol";
 
 export type ChatJob = {
@@ -21,12 +23,26 @@ type PendingJob = ChatJob & {
   reject: (error: Error) => void;
 };
 
+/** Job failure after the chat stream already received an SSE error event. */
+export class WorkerJobFailedError extends Error {
+  readonly streamNotified: boolean;
+
+  constructor(message: string, streamNotified = false) {
+    super(message);
+    this.name = "WorkerJobFailedError";
+    this.streamNotified = streamNotified;
+  }
+}
+
 export class WorkerRuntime {
   private readonly inbox: PendingJob[] = [];
   private readonly waiters: Array<() => void> = [];
+  private readonly startedAt = Date.now();
   private loopPromise?: Promise<void>;
   private stopped = false;
   private currentJob?: PendingJob;
+  private currentJobStartedAt?: number;
+  private operatorAbandonRequested = false;
 
   constructor(
     private readonly agent: Agent,
@@ -63,6 +79,45 @@ export class WorkerRuntime {
     });
   }
 
+  getStatus(): StatusResult {
+    return {
+      sessionId: this.sessionId,
+      queueDepth: this.queueDepth,
+      queuedCount: this.inbox.length,
+      active: this.currentJob
+        ? {
+            jobId: this.currentJob.id,
+            clientId: this.currentJob.clientId,
+            runningForMs:
+              Date.now() - (this.currentJobStartedAt ?? Date.now()),
+          }
+        : null,
+      uptimeMs: Date.now() - this.startedAt,
+    };
+  }
+
+  abandon(): AbandonResult {
+    let abandonedActive = false;
+    let drainedQueued = 0;
+
+    while (this.inbox.length > 0) {
+      const job = this.inbox.shift();
+      if (!job) {
+        break;
+      }
+      drainedQueued += 1;
+      void this.rejectJobWithStream(job, "abandoned by operator");
+    }
+
+    if (this.currentJob) {
+      abandonedActive = true;
+      this.operatorAbandonRequested = true;
+      this.agent.abort();
+    }
+
+    return { abandonedActive, drainedQueued };
+  }
+
   get queueDepth(): number {
     return this.inbox.length + (this.currentJob ? 1 : 0);
   }
@@ -97,6 +152,18 @@ export class WorkerRuntime {
     }
   }
 
+  private async rejectJobWithStream(
+    job: PendingJob,
+    message: string,
+  ): Promise<void> {
+    await job.emit({
+      type: CHAT_STREAM_EVENT.ERROR,
+      code: AGENT_CORE_ERROR_CODES.INTERNAL_ERROR,
+      message,
+    });
+    job.reject(new WorkerJobFailedError(message, true));
+  }
+
   private async runLoop(): Promise<void> {
     while (!this.stopped) {
       await this.waitForWork();
@@ -115,13 +182,17 @@ export class WorkerRuntime {
       }
 
       this.currentJob = job;
+      this.currentJobStartedAt = Date.now();
       try {
         await this.runJob(job);
         job.resolve();
       } catch (error) {
-        job.reject(error instanceof Error ? error : new Error(String(error)));
+        job.reject(
+          error instanceof Error ? error : new Error(String(error)),
+        );
       } finally {
         this.currentJob = undefined;
+        this.currentJobStartedAt = undefined;
       }
     }
   }
@@ -162,16 +233,26 @@ export class WorkerRuntime {
         messageId: job.messageId,
       });
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "LLM request failed";
+      const operatorAbandon = this.operatorAbandonRequested;
+      this.operatorAbandonRequested = false;
+
+      const message = operatorAbandon
+        ? "abandoned by operator"
+        : error instanceof Error
+          ? error.message
+          : "LLM request failed";
+
       await job.emit({
         type: CHAT_STREAM_EVENT.ERROR,
         code: AGENT_CORE_ERROR_CODES.INTERNAL_ERROR,
         message,
       });
-      if (!job.signal.aborted) {
-        throw error;
+
+      if (job.signal.aborted) {
+        return;
       }
+
+      throw new WorkerJobFailedError(message, true);
     } finally {
       job.signal.removeEventListener("abort", abortOnDisconnect);
       unsubscribe();

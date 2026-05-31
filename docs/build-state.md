@@ -2,7 +2,7 @@
 
 Living snapshot of what this repository implements. Update this file when features land or priorities shift.
 
-**Last updated:** 2026-05-24
+**Last updated:** 2026-05-31
 
 ## Summary
 
@@ -24,7 +24,7 @@ The dev-workstation stack runs **agent-register** (discovery + heartbeat) and **
 | Docker dev-workstation | **Done** | [dev-workstation](./deployment/dev-workstation.md) | `infra/dev-workstation/` |
 | Project-root `.env` for API keys | **Done** | [dev-workstation](./deployment/dev-workstation.md) | `package.json` `docker:dev` |
 | Inter-agent message delivery | **Not started** | [roadmap](./roadmap.md) | Types in `agent-core-protocol` only |
-| Command queue (`/status`, `/abandon`, …) | **Not started** | [roadmap](./roadmap.md) | — |
+| Command queue (`/status`, `/abandon`, `/restart`, `/shutdown`) | **Done** | [agent-core-api](./specs/agent-core-api.md), [worker-runtime](./specs/worker-runtime.md) | `apps/agent-core`, `apps/agent-tui` |
 | Priority / judgment dequeue | **Not started** | [roadmap](./roadmap.md) | FIFO only today |
 | Skills loaded from markdown | **Not started** | [roadmap](./roadmap.md) | `--skills` is register metadata |
 | Register persistence | **Not started** | [roadmap](./roadmap.md) | In-memory store |

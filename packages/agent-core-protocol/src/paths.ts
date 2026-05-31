@@ -2,6 +2,7 @@
 export const AGENT_CORE_PATHS = {
   heartbeat: "/api/v1/heartbeat",
   chat: "/api/v1/chat",
+  command: "/api/v1/command",
   health: "/health",
 } as const;
 

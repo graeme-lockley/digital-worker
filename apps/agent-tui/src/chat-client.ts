@@ -31,14 +31,24 @@ export async function streamChat(options: StreamChatOptions): Promise<void> {
     sessionId: options.sessionId,
   };
 
-  const response = await fetchFn(url, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      accept: CHAT_STREAM_ACCEPT,
-    },
-    body: JSON.stringify(body),
-  });
+  let response: Response;
+  try {
+    response = await fetchFn(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: CHAT_STREAM_ACCEPT,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new ChatClientError(
+        "agent unreachable (is it still starting after a restart?)",
+      );
+    }
+    throw error;
+  }
 
   if (!response.ok) {
     throw new ChatClientError(

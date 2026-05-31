@@ -9,7 +9,7 @@ import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 
 import type { AppContext } from "./server.js";
-import type { ChatJob } from "./worker-runtime.js";
+import { WorkerJobFailedError, type ChatJob } from "./worker-runtime.js";
 
 export function registerChatRoute(
   app: {
@@ -93,7 +93,9 @@ async function handleChat(c: Context, ctx: AppContext): Promise<Response> {
     try {
       await ctx.runtime.enqueue(job);
     } catch (error) {
-      if (!abortController.signal.aborted) {
+      const streamNotified =
+        error instanceof WorkerJobFailedError && error.streamNotified;
+      if (!abortController.signal.aborted && !streamNotified) {
         const event: ChatStreamEvent = {
           type: CHAT_STREAM_EVENT.ERROR,
           code: AGENT_CORE_ERROR_CODES.INTERNAL_ERROR,

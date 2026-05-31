@@ -4,10 +4,6 @@ Ordered list of planned work not yet implemented. Items here are **not** current
 
 For what is already built see [build-state.md](./build-state.md) and git history.
 
-### Command queue with preemption
-
-Operator commands such as `/status`, `/abandon`, and `/shutdown` need dedicated handling on a separate queue that preempts normal chat messages. Today every request goes through the same FIFO inbox, so an operator cannot inspect or control a busy worker without waiting behind queued chat jobs. A command queue would let operators manage the worker at any time while long LLM runs are in progress. Design should extend [worker-runtime.md](./specs/worker-runtime.md).
-
 ### Inter-agent message bus
 
 Workers should communicate through a core runtime message bus rather than direct HTTP calls between agents. The `DeliverMessage` request and response types already exist in `@digital-worker/agent-core-protocol`, but no HTTP routes are mounted on agent-core yet. Implementing delivery endpoints enables multi-agent workflows — one worker enqueueing work or passing context to another — which is central to the platform story in [system-overview.md](./system-overview.md).

@@ -20,5 +20,8 @@ RUN pnpm --filter @digital-worker/agent-core-protocol run build \
 FROM base AS runtime
 COPY --from=build /app /app
 WORKDIR /app/apps/agent-core
+COPY infra/dev-workstation/agent-core-restart-loop.sh ./restart-loop.sh
+RUN chmod +x ./restart-loop.sh
 EXPOSE 3000
+ENTRYPOINT ["/app/apps/agent-core/restart-loop.sh"]
 CMD ["node", "dist/index.js", "--host", "0.0.0.0", "--port", "3000"]

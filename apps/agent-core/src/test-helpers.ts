@@ -66,6 +66,8 @@ export async function createTestHarness(
     agentId: TEST_AGENT_ID,
     sessionId: TEST_SESSION_ID,
     runtime,
+    onShutdown: async () => {},
+    onRestart: async () => {},
   };
 
   return {

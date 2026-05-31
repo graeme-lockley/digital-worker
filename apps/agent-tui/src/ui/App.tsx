@@ -1,4 +1,5 @@
 import {
+  AGENT_COMMAND,
   CHAT_STREAM_EVENT,
   type ChatStreamEvent,
 } from "@digital-worker/agent-core-protocol";
@@ -6,7 +7,14 @@ import { Box, Static, Text, useApp, useInput } from "ink";
 import TextInput from "ink-text-input";
 import React, { useCallback, useState } from "react";
 
+import { AgentHealthError, waitForAgentHealth } from "../agent-health.js";
 import { ChatClientError, streamChat } from "../chat-client.js";
+import {
+  CommandClientError,
+  formatCommandResponse,
+  parseSlashCommand,
+  sendCommand,
+} from "../command-client.js";
 
 export type ChatMessage = {
   id: string;
@@ -70,12 +78,13 @@ export function App({
     {
       id: "system-connected",
       role: "system",
-      content: `Connected to ${agentName} at ${agentBaseUrl}${endpointNote}. Type a message and press Enter. Ctrl+C to quit.`,
+      content: `Connected to ${agentName} at ${agentBaseUrl}${endpointNote}. Type a message and press Enter. Commands: /status, /abandon, /restart, /shutdown. Ctrl+C to quit.`,
     },
   ]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState("");
   const [busy, setBusy] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
 
@@ -88,7 +97,73 @@ export function App({
   const submit = useCallback(
     async (prompt: string) => {
       const trimmed = prompt.trim();
-      if (!trimmed || busy) {
+      if (!trimmed) {
+        return;
+      }
+
+      const command = parseSlashCommand(trimmed);
+      if (command) {
+        setError(undefined);
+        setMessages((prev) => [
+          ...prev,
+          { id: crypto.randomUUID(), role: "user", content: trimmed },
+        ]);
+        setInput("");
+
+        try {
+          const response = await sendCommand({
+            agentBaseUrl,
+            clientId,
+            command,
+            sessionId,
+          });
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              role: "system",
+              content: formatCommandResponse(response),
+            },
+          ]);
+
+          if (command === AGENT_COMMAND.RESTART) {
+            setSessionId(undefined);
+            setReconnecting(true);
+            try {
+              await waitForAgentHealth(agentBaseUrl);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: crypto.randomUUID(),
+                  role: "system",
+                  content: "Agent restarted and is ready.",
+                },
+              ]);
+            } catch (err) {
+              const message =
+                err instanceof AgentHealthError
+                  ? err.message
+                  : err instanceof Error
+                    ? err.message
+                    : "agent did not come back online";
+              setError(message);
+            } finally {
+              setReconnecting(false);
+            }
+          }
+        } catch (err) {
+          const message =
+            err instanceof CommandClientError
+              ? err.message
+              : err instanceof Error
+                ? err.message
+                : "command failed";
+          setError(message);
+        }
+        return;
+      }
+
+      if (busy || reconnecting) {
         return;
       }
 
@@ -118,13 +193,34 @@ export function App({
       };
 
       try {
-        await streamChat({
-          agentBaseUrl,
-          clientId,
-          prompt: trimmed,
-          sessionId,
-          onEvent,
-        });
+        let activeSessionId = sessionId;
+        try {
+          await streamChat({
+            agentBaseUrl,
+            clientId,
+            prompt: trimmed,
+            sessionId: activeSessionId,
+            onEvent,
+          });
+        } catch (err) {
+          if (
+            activeSessionId &&
+            err instanceof ChatClientError &&
+            err.message.includes("409")
+          ) {
+            activeSessionId = undefined;
+            setSessionId(undefined);
+            await streamChat({
+              agentBaseUrl,
+              clientId,
+              prompt: trimmed,
+              sessionId: undefined,
+              onEvent,
+            });
+          } else {
+            throw err;
+          }
+        }
 
         setMessages((prev) => [
           ...prev,
@@ -147,7 +243,7 @@ export function App({
         setBusy(false);
       }
     },
-    [agentBaseUrl, busy, clientId, sessionId],
+    [agentBaseUrl, busy, clientId, reconnecting, sessionId],
   );
 
   return (
@@ -175,12 +271,20 @@ export function App({
           </Box>
         ) : null}
         <Box borderStyle="single" borderColor="gray" paddingX={1}>
-          <Text color="gray">{busy ? "⋯ " : "> "}</Text>
+          <Text color="gray">
+            {reconnecting ? "↻ " : busy ? "⋯ " : "> "}
+          </Text>
           <TextInput
             value={input}
             onChange={setInput}
             onSubmit={submit}
-            placeholder={busy ? "Waiting for agent…" : "Message"}
+            placeholder={
+              reconnecting
+                ? "Waiting for agent restart…"
+                : busy
+                  ? "Waiting for agent…"
+                  : "Message"
+            }
           />
         </Box>
       </Box>

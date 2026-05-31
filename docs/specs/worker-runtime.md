@@ -15,9 +15,10 @@ Normative behaviour for the **agent-core** execution loop: one process, one inbo
 
 | Component | Responsibility |
 |-----------|----------------|
-| `WorkerRuntime` | FIFO inbox, outer loop, job lifecycle |
+| `WorkerRuntime` | FIFO inbox, outer loop, job lifecycle, operator commands |
 | `Agent` (pi-agent-core) | LLM calls, transcript, tools |
 | Chat HTTP handler | Validate request, enqueue `ChatJob`, stream SSE from job callbacks |
+| Command HTTP handler | Validate request, run operator commands out-of-band — see [agent-core-api](./agent-core-api.md#post-apiv1command) |
 
 ## ChatJob
 
@@ -58,9 +59,28 @@ while not stopped:
 | Second chat while first is running | Enqueue; HTTP connection blocks until job is dequeued and completes |
 | Client disconnect during **queued** job | Reject job before dequeue; do not call LLM |
 | Client disconnect during **active** job | Call `agent.abort()`; emit error if appropriate |
-| Shutdown (`SIGINT` / `SIGTERM`) | Stop loop, abort agent, drain registration |
+| Operator **`/abandon`** while busy | Abort active job via `agent.abort()`; reject and drain all queued chat jobs with SSE `error` |
+| Operator **`/status`** while busy | Return runtime snapshot immediately (out-of-band; does not enter inbox) |
+| Operator **`/shutdown`** | Ack JSON response, then run graceful shutdown (stop loop, deregister, exit) |
+| Operator **`/restart`** | Ack JSON response, then deregister, spawn a replacement process with the same argv, and exit |
+| Shutdown (`SIGINT` / `SIGTERM` / `/shutdown`) | Stop loop, abort agent, drain registration |
 
-Priority dequeue and command preemption are **deferred** — see [roadmap.md](../roadmap.md).
+Priority dequeue is **deferred** — see [roadmap.md](../roadmap.md).
+
+## Operator commands
+
+Operator commands are served on **`POST /api/v1/command`**, not through the chat inbox. They act on `WorkerRuntime` / `Agent` state directly and therefore preempt queued or active chat work without waiting behind the FIFO inbox.
+
+| Command | Behaviour |
+|---------|-----------|
+| `status` | Synchronous read: `sessionId`, `queueDepth`, `queuedCount`, active job metadata, `uptimeMs` |
+| `abandon` | Abort the active LLM run (if any) and reject every queued chat job; each affected chat stream receives one SSE `error` |
+| `shutdown` | Return `{ accepted: true, action: "shutdown" }`, then run the same shutdown path as `SIGINT` / `SIGTERM` |
+| `restart` | Return `{ accepted: true, action: "restart" }`, then deregister and exit with code **75** so a parent restart loop can relaunch the process (Docker entrypoint). Outside a restart loop, spawn a detached replacement process instead. |
+
+Clients such as **agent-tui** may expose these as slash commands (`/status`, `/abandon`, `/restart`, `/shutdown`) that POST to the command endpoint. Slash syntax is client sugar only — commands never enter the pi transcript.
+
+Implementation: `apps/agent-core/src/command.ts`, `WorkerRuntime.getStatus()`, `WorkerRuntime.abandon()`.
 
 ## Multi-turn conversation
 

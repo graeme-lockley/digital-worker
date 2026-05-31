@@ -1,6 +1,7 @@
 import { parseCli } from "./cli.js";
 import { buildAgentEndpointUrl } from "./endpoint.js";
 import { createLlmAgent } from "./llm-agent.js";
+import { spawnReplacementProcess, usesRestartLoop, RESTART_EXIT_CODE } from "./process-restart.js";
 import { deregisterAgent, registerAgent } from "./registration.js";
 import { startServer } from "./server.js";
 import {
@@ -57,6 +58,32 @@ async function main(): Promise<void> {
     }
   };
 
+  const restart = async (signal: string): Promise<void> => {
+    console.log(`received ${signal}, restarting worker ${options.agentId}`);
+    try {
+      await runtime.stop();
+      await deregisterAgent({
+        registerUrl: options.registerUrl,
+        agentId: options.agentId,
+      });
+      if (usesRestartLoop()) {
+        console.log(
+          `deregistered agent ${options.agentId}, exiting for restart loop`,
+        );
+        process.exit(RESTART_EXIT_CODE);
+      }
+      console.log(
+        `deregistered agent ${options.agentId}, spawning replacement`,
+      );
+      spawnReplacementProcess();
+    } catch (error) {
+      console.error("restart failed:", error);
+      process.exit(1);
+      return;
+    }
+    process.exit(0);
+  };
+
   process.once("SIGINT", () => {
     void shutdown("SIGINT");
   });
@@ -66,7 +93,7 @@ async function main(): Promise<void> {
 
   startServer(
     options,
-    { agentId: options.agentId, sessionId, runtime },
+    { agentId: options.agentId, sessionId, runtime, onShutdown: shutdown, onRestart: restart },
     async () => {
       await registerAgent({
         registerUrl: options.registerUrl,

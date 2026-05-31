@@ -16,6 +16,7 @@ Each agent registers an `endpoint.url` (e.g. `http://127.0.0.1:3000`). All paths
 | `GET` | `/api/v1` | Service metadata |
 | `POST` | `/api/v1/heartbeat` | Register poll target |
 | `POST` | `/api/v1/chat` | Streaming chat — see [chat-streaming](./chat-streaming.md) |
+| `POST` | `/api/v1/command` | Operator commands — see below |
 
 Constants: `AGENT_CORE_PATHS` in `packages/agent-core-protocol/src/paths.ts`.
 
@@ -75,6 +76,74 @@ Empty or invalid JSON body is tolerated (handler treats as empty object).
 
 See [chat-streaming.md](./chat-streaming.md).
 
+## POST /api/v1/command
+
+Operator control plane. Handled **out-of-band** — does not enqueue on the chat inbox. See [worker-runtime.md](./worker-runtime.md#operator-commands).
+
+**Request body**
+
+```typescript
+interface CommandRequest {
+  command: "status" | "abandon" | "shutdown" | "restart";
+  clientId: string;
+  sessionId?: string;
+}
+```
+
+**Responses 200**
+
+`status`:
+
+```typescript
+interface StatusResult {
+  sessionId: string;
+  queueDepth: number;
+  queuedCount: number;
+  active: { jobId: string; clientId: string; runningForMs: number } | null;
+  uptimeMs: number;
+}
+```
+
+`abandon`:
+
+```typescript
+interface AbandonResult {
+  abandonedActive: boolean;
+  drainedQueued: number;
+}
+```
+
+`shutdown`:
+
+```typescript
+interface ShutdownResult {
+  accepted: true;
+  action: "shutdown";
+}
+```
+
+`restart`:
+
+```typescript
+interface RestartResult {
+  accepted: true;
+  action: "restart";
+}
+```
+
+After responding, restart deregisters and exits with code **75** (`RESTART_EXIT_CODE`). The Docker dev-workstation image wraps agent-core in `restart-loop.sh`, which relaunches the process on that exit code. Local `pnpm dev` without the loop spawns a detached replacement process instead.
+
+**Validation errors**
+
+| Condition | HTTP | Error code |
+|-----------|------|------------|
+| Invalid JSON | 400 | `INVALID_REQUEST` |
+| Missing/blank `clientId` | 400 | `INVALID_REQUEST` |
+| Unknown `command` | 400 | `UNKNOWN_COMMAND` |
+| `sessionId` mismatch | 409 | `SESSION_MISMATCH` |
+
+Constants: `AGENT_COMMAND` in `packages/agent-core-protocol/src/command.ts`.
+
 ## Error responses (JSON)
 
 Non-SSE errors use:
@@ -95,6 +164,7 @@ interface ApiErrorResponse {
 |------|----------------|
 | `INVALID_REQUEST` | 400 |
 | `SESSION_MISMATCH` | 409 |
+| `UNKNOWN_COMMAND` | 400 |
 | `NOT_FOUND` | 404 |
 | `INTERNAL_ERROR` | 500 (also SSE `error` events) |
 

@@ -62,6 +62,7 @@ docker-compose --env-file .env --project-directory . \
 
 ### agent-core
 
+- Wrapped by `restart-loop.sh` — `/restart` exits with code 75 and the entrypoint relaunches the worker (reloads plugins and process state)
 - Registers with `http://agent-register:3001`
 - Advertises `http://agent-core:3000` inside the Compose network
 - Workspace: `/app/workspace/agent-core`
