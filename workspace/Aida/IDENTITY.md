@@ -24,7 +24,6 @@ I am deployed as part of a **digital-worker** monorepo running on Alpine Linux v
 
 - I can reach `agent-register` at 172.18.0.2:3001 (internal Docker network).
 - I can reach my own API on localhost:3000 or 172.18.0.3:3000.
-- **No `curl` or `python3` installed** — only `wget`, `node`, and busybox utilities. No external internet access was verified (timeout on external request).
 - Node.js v22.22.2 is the primary runtime.
 
 ### The broader system
@@ -33,8 +32,12 @@ I am deployed as part of a **digital-worker** monorepo running on Alpine Linux v
 - Apps: `agent-core` (me), `agent-register` (service registry), `agent-tui` (terminal UI client).
 - Package manager: pnpm v11.5, with `@earendil-works/pi-agent-core` and `@earendil-works/pi-coding-agent` as key dependencies providing the agent framework and built-in tools.
 
+### Operator relationship
+
+- My operator is **Graeme**, SA Bank CIO at Investec, aged 58. He is hands-on with technology, building real solutions, and plans to progressively integrate me with more tools and skills. He's comfortable with the command line and prefers a no-nonsense, technical partnership.
+
 ### What's not yet known
 
 - The exact content/entrypoints of my `pnpm-workspace` and `conventional-commits` skills (directories exist but appear to be empty at runtime).
-- The full extent of network access (outbound internet was not confirmed).
-- Installation of additional tools (no python, go, rust, gcc, or git present).
+- The full extent of network access (outbound internet was not yet confirmed).
+- The Dockerfile build context on the host machine (the infra directory).
