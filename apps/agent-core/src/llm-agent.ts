@@ -8,6 +8,7 @@ import {
   type LlmOptions,
 } from "./llm-config.js";
 import { createUpdateIdentityTool, type UpdateIdentityDeps } from "./tools/update-identity.js";
+import { createUpdateUserTool, type UpdateUserDeps } from "./tools/update-user.js";
 import { createBuiltinPiTools } from "./tools/builtin-tools.js";
 import { buildSystemPrompt, type WorkspaceIdentity } from "./workspace/index.js";
 
@@ -21,7 +22,9 @@ export type CreateLlmAgentOptions = {
   identity: WorkspaceIdentity;
   getIdentity: () => WorkspaceIdentity;
   setIdentityContent: (content: string) => void;
+  setUserContent: (content: string) => void;
   identityStore: UpdateIdentityDeps["identityStore"];
+  userStore: UpdateUserDeps["userStore"];
 };
 
 export function createLlmAgent(options: CreateLlmAgentOptions): Agent {
@@ -45,7 +48,17 @@ export function createLlmAgent(options: CreateLlmAgentOptions): Agent {
     setIdentityContent: options.setIdentityContent,
     agent,
   });
-  agent.state.tools = [...createBuiltinPiTools(options.toolsCwd), identityTool];
+  const userTool = createUpdateUserTool({
+    userStore: options.userStore,
+    getIdentity: options.getIdentity,
+    setUserContent: options.setUserContent,
+    agent,
+  });
+  agent.state.tools = [
+    ...createBuiltinPiTools(options.toolsCwd),
+    identityTool,
+    userTool,
+  ];
 
   return agent;
 }

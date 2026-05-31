@@ -29,9 +29,13 @@ async function main(): Promise<void> {
     toolsCwd: options.toolsCwd,
     identity: identitySnapshot,
     identityStore: loaded.identityStore,
+    userStore: loaded.userStore,
     getIdentity: () => identitySnapshot,
     setIdentityContent: (content) => {
       identitySnapshot = { ...identitySnapshot, identity: content };
+    },
+    setUserContent: (content) => {
+      identitySnapshot = { ...identitySnapshot, user: content };
     },
   });
 

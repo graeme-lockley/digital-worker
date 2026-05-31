@@ -9,7 +9,8 @@ workspace/
   <agentName>/
     MANDATE.md    # Immutable — purpose within the solution
     SOUL.md       # Immutable — temperament and values
-    IDENTITY.md   # Mutable — self-knowledge (updated by the agent at runtime)
+    IDENTITY.md   # Mutable — self-knowledge (update_identity)
+    USER.md       # Mutable — operator facts (update_user)
 ```
 
 ## Build-time folding
@@ -31,6 +32,11 @@ Defines communication style, constraints, and values. **Do not edit at runtime.*
 ## IDENTITY.md
 
 Seed with minimal self-description. The agent may update this file via the `update_identity` tool when it learns something durable about itself.
+
+## USER.md
+
+Seed with known facts about the operator. The agent must maintain this file via `update_user` when it learns durable facts about the person it works with (see Mandate).
+
 In Docker dev, the whole workspace folder is bind-mounted for persistence (see compose).
 
 LLM API keys for Docker dev are set in `.env` at the **project root** (see `.env.example`); that file is gitignored.

@@ -1,6 +1,6 @@
 # Workspace identity specification
 
-Normative rules for **MANDATE.md**, **SOUL.md**, and **IDENTITY.md** — how they are loaded, composed, and updated.
+Normative rules for **MANDATE.md**, **SOUL.md**, **IDENTITY.md**, and **USER.md** — how they are loaded, composed, and updated.
 
 **Operator guide:** [workspace/README.md](../../workspace/README.md)
 
@@ -16,6 +16,7 @@ workspace/
     MANDATE.md
     SOUL.md
     IDENTITY.md
+    USER.md
 ```
 
 CLI flag `--agent-name` selects `<agentName>`. Override path with `--workspace-dir`.
@@ -31,8 +32,9 @@ Docker copies `workspace/` into the image at build time; dev-workstation bind-mo
 | **MANDATE.md** | **Immutable** at runtime | This actor’s purpose within the digital-worker solution |
 | **SOUL.md** | **Immutable** at runtime | Temperament, communication style, values, constraints |
 | **IDENTITY.md** | **Mutable** | Durable self-knowledge the agent accumulates |
+| **USER.md** | **Mutable** | Durable facts about the operator the agent accumulates |
 
-Runtime code must **never** write to MANDATE or SOUL. Only `IdentityStore` may write IDENTITY.
+Runtime code must **never** write to MANDATE or SOUL. Only `IdentityStore` may write IDENTITY; only `UserStore` may write USER (via `update_user`).
 
 ## System prompt composition
 
@@ -40,7 +42,7 @@ At startup (and after identity updates), the pi Agent `systemPrompt` is built as
 
 ```
 You are a digital worker agent. Follow Mandate and Soul at all times.
-You may update durable self-knowledge via the update_identity tool; do not contradict Mandate or Soul.
+You may update durable self-knowledge via update_identity and operator facts via update_user; do not contradict Mandate or Soul.
 
 # Mandate (immutable)
 {contents of MANDATE.md}
@@ -50,6 +52,9 @@ You may update durable self-knowledge via the update_identity tool; do not contr
 
 # Identity (self-knowledge — you may update via update_identity)
 {contents of IDENTITY.md}
+
+# User (operator — maintain via update_user per Mandate)
+{contents of USER.md}
 ```
 
 ## Registration metadata
@@ -75,6 +80,21 @@ On success:
 2. In-memory identity snapshot updates.
 3. `agent.state.systemPrompt` rebuilds with new identity section.
 
+## update_user tool
+
+The agent **must** maintain **`USER.md`** per Mandate: call **`update_user`** when it learns durable facts about the operator (preferences, role, context, working style) — not transient task state.
+
+| Parameter | Constraint |
+|-----------|------------|
+| `content` | Full new USER.md body; 1–32 000 chars |
+| `reason` | Why the update is worth persisting; 1–500 chars |
+
+On success:
+
+1. File is written to disk.
+2. In-memory user snapshot updates.
+3. `agent.state.systemPrompt` rebuilds with new user section.
+
 ## Persistence
 
 | Environment | Workspace persistence |
@@ -85,7 +105,7 @@ On success:
 
 ## Startup validation
 
-Startup **must fail** if any of the three files is missing under the configured workspace directory.
+Startup **must fail** if any of the four files is missing under the configured workspace directory.
 
 ## Seeded example
 

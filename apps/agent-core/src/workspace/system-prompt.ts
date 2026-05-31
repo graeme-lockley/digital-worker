@@ -3,7 +3,7 @@ import type { WorkspaceIdentity } from "./load.js";
 export function buildSystemPrompt(identity: WorkspaceIdentity): string {
   return [
     "You are a digital worker agent. Follow Mandate and Soul at all times.",
-    "You may update durable self-knowledge via the update_identity tool; do not contradict Mandate or Soul.",
+    "You may update durable self-knowledge via update_identity and operator facts via update_user; do not contradict Mandate or Soul.",
     "",
     "# Mandate (immutable)",
     identity.mandate.trim(),
@@ -13,6 +13,9 @@ export function buildSystemPrompt(identity: WorkspaceIdentity): string {
     "",
     "# Identity (self-knowledge — you may update via update_identity)",
     identity.identity.trim(),
+    "",
+    "# User (operator — maintain via update_user per Mandate)",
+    identity.user.trim(),
   ].join("\n");
 }
 

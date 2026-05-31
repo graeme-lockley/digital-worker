@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { repoWorkspacePath } from "../test-helpers.js";
 import { buildSystemPrompt, extractPurposeFromMandate, loadWorkspace } from "./index.js";
-import { MANDATE_FILE, SOUL_FILE, IDENTITY_FILE } from "./paths.js";
+import { MANDATE_FILE, SOUL_FILE, IDENTITY_FILE, USER_FILE } from "./paths.js";
 
 describe("loadWorkspace", () => {
   it("loads seeded Aida workspace from repo", async () => {
@@ -41,6 +41,8 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("# Mandate (immutable)");
     expect(prompt).toContain("# Soul (immutable)");
     expect(prompt).toContain("# Identity");
+    expect(prompt).toContain("# User");
+    expect(prompt).toContain("Graeme");
   });
 });
 
@@ -60,6 +62,7 @@ describe("identity store", () => {
       await writeFile(path.join(dir, MANDATE_FILE), "# M\n\nMandate text.");
       await writeFile(path.join(dir, SOUL_FILE), "# S\n\nSoul text.");
       await writeFile(path.join(dir, IDENTITY_FILE), "# I\n\nOld identity.");
+      await writeFile(path.join(dir, USER_FILE), "# U\n\nOld user.");
 
       const loaded = await loadWorkspace({
         agentName: "test",
