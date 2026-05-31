@@ -35,4 +35,5 @@ Thumbs.db
 # Pi loader state under agent workspace (agent-core DefaultResourceLoader)
 **/.agent-core-pi/
 
-./workspace/Aida/USER.md
+# Agent memory (runtime state; markdown + derived index)
+workspace/Aida/memory/

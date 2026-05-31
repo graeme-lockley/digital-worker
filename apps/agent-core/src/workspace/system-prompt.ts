@@ -3,10 +3,12 @@ import type { WorkspaceIdentity } from "./load.js";
 export function buildSystemPrompt(
   identity: WorkspaceIdentity,
   skillsSection = "",
+  memorySection = "",
 ): string {
   const parts = [
     "You are a digital worker agent. Follow Mandate and Soul at all times.",
     "You may update durable self-knowledge via update_identity and operator facts via update_user; do not contradict Mandate or Soul.",
+    "Use remember for episodic memory (daily logs) and memory_search to recall older context.",
     "",
     "# Mandate (immutable)",
     identity.mandate.trim(),
@@ -20,6 +22,9 @@ export function buildSystemPrompt(
     "# User (operator — maintain via update_user per Mandate)",
     identity.user.trim(),
   ];
+  if (memorySection.trim().length > 0) {
+    parts.push("", memorySection.trim());
+  }
   if (skillsSection.length > 0) {
     parts.push(skillsSection);
   }

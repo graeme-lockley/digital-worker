@@ -4,7 +4,11 @@ export const AGENT_COMMAND = {
   ABANDON: "abandon",
   SHUTDOWN: "shutdown",
   RESTART: "restart",
+  MAINTAIN_MEMORY: "maintain_memory",
 } as const;
+
+/** Scope for maintain_memory maintenance runs. */
+export type MaintainMemoryScope = "weekly" | "monthly" | "reindex" | "prune";
 
 export type AgentCommandName =
   (typeof AGENT_COMMAND)[keyof typeof AGENT_COMMAND];
@@ -17,6 +21,8 @@ export interface CommandRequest {
   clientId: string;
   /** Optional session for correlation with the worker session id. */
   sessionId?: string;
+  /** Scope for maintain_memory (defaults to weekly + monthly when omitted). */
+  scope?: MaintainMemoryScope;
 }
 
 export interface ActiveJobStatus {
@@ -48,8 +54,17 @@ export interface RestartResult {
   action: "restart";
 }
 
+export interface MaintainMemoryResult {
+  scope: MaintainMemoryScope | "all";
+  processedPeriods: string[];
+  deduped: number;
+  promoted: number;
+  durationMs: number;
+}
+
 export type CommandResponse =
   | StatusResult
   | AbandonResult
   | ShutdownResult
-  | RestartResult;
+  | RestartResult
+  | MaintainMemoryResult;

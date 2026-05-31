@@ -1,13 +1,18 @@
 import { parseCli } from "./cli.js";
 import { buildAgentEndpointUrl } from "./endpoint.js";
 import { createLlmAgent } from "./llm-agent.js";
+import {
+  MemoryIndex,
+  MemoryManager,
+  MemoryStore,
+} from "./memory/index.js";
 import { spawnReplacementProcess, usesRestartLoop, RESTART_EXIT_CODE } from "./process-restart.js";
 import { deregisterAgent, registerAgent } from "./registration.js";
+import { getConfiguredModel, resolveApiKey } from "./llm-config.js";
 import { startServer } from "./server.js";
 import {
   extractPurposeFromMandate,
   loadWorkspace,
-  type WorkspaceIdentity,
 } from "./workspace/index.js";
 import { WorkerRuntime } from "./worker-runtime.js";
 
@@ -22,6 +27,29 @@ async function main(): Promise<void> {
   });
 
   let identitySnapshot = { ...loaded.identity };
+
+  const memoryStore = new MemoryStore(options.workspaceDir);
+  const memoryIndex = new MemoryIndex(memoryStore.paths);
+  const model = getConfiguredModel(options.llm);
+  const apiKey = resolveApiKey(options.llm.provider, options.apiKey) ?? "";
+
+  let memoryManager: MemoryManager | undefined;
+  if (options.memory.enabled) {
+    memoryManager = new MemoryManager({
+      store: memoryStore,
+      index: memoryIndex,
+      config: options.memory,
+      model,
+      apiKey,
+      getAgent: () => undefined,
+      rebuildSystemPrompt: () => {},
+    });
+    await memoryManager.initialize();
+  }
+
+  const initialMemorySection = memoryManager
+    ? await memoryManager.loadBootstrap()
+    : "";
 
   const agent = await createLlmAgent({
     llm: options.llm,
@@ -38,10 +66,12 @@ async function main(): Promise<void> {
     setUserContent: (content) => {
       identitySnapshot = { ...identitySnapshot, user: content };
     },
+    memoryManager,
+    initialMemorySection,
   });
 
   const sessionId = crypto.randomUUID();
-  const runtime = new WorkerRuntime(agent, sessionId);
+  const runtime = new WorkerRuntime(agent, sessionId, memoryManager);
   runtime.start();
 
   const purpose =
@@ -51,6 +81,7 @@ async function main(): Promise<void> {
     console.log(`received ${signal}, stopping worker ${options.agentId}`);
     try {
       await runtime.stop();
+      memoryIndex.close();
       await deregisterAgent({
         registerUrl: options.registerUrl,
         agentId: options.agentId,
@@ -67,6 +98,7 @@ async function main(): Promise<void> {
     console.log(`received ${signal}, restarting worker ${options.agentId}`);
     try {
       await runtime.stop();
+      memoryIndex.close();
       await deregisterAgent({
         registerUrl: options.registerUrl,
         agentId: options.agentId,
@@ -98,7 +130,14 @@ async function main(): Promise<void> {
 
   startServer(
     options,
-    { agentId: options.agentId, sessionId, runtime, onShutdown: shutdown, onRestart: restart },
+    {
+      agentId: options.agentId,
+      sessionId,
+      runtime,
+      memoryManager,
+      onShutdown: shutdown,
+      onRestart: restart,
+    },
     async () => {
       await registerAgent({
         registerUrl: options.registerUrl,

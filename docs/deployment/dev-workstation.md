@@ -62,13 +62,17 @@ docker-compose --env-file .env --project-directory . \
 
 ### agent-core
 
-- Wrapped by `restart-loop.sh` — `/restart` exits with code 75 and the entrypoint relaunches the worker (reloads plugins and process state)
+- Entrypoint: `agent-core-entrypoint.sh` — starts Ollama (local embeddings), cron (memory maintenance), then `restart-loop.sh`
+- Wrapped by restart loop — `/restart` exits with code 75 and relaunches the worker
 - Registers with `http://agent-register:3001`
 - Advertises `http://agent-core:3000` inside the Compose network
 - Agent **Aida** (`--agent-name Aida`); workspace: `/app/workspace/Aida` (bind-mounted from `./workspace/Aida` on the host)
+- Memory: episodic daily logs, flush on compaction/shutdown, cron roll-ups (Distill + Ollama)
 - Builtin tools default to the workspace directory (no separate `--tools-cwd`)
 - LLM: `--provider deepseek --model deepseek-v4-flash`
 - Requires `DEEPSEEK_API_KEY` from `.env`
+- Image includes: **Ollama** + `nomic-embed-text` (baked at build), **Distill** CLI, **cron**, **sqlite3**
+- Image base: `node:22-bookworm-slim` (agent-core runtime; register remains alpine)
 
 ## Build context
 
@@ -76,7 +80,8 @@ Both images build from **project root** (`context: .` in compose):
 
 - Copies `packages/`, `apps/`, `workspace/`
 - Compiles protocol packages and both apps
-- Base image: `node:22-alpine`
+- agent-register base: `node:22-alpine`
+- agent-core runtime base: `node:22-bookworm-slim` (Ollama, Distill, cron)
 
 Keep `Dockerfile.agent-register` and `Dockerfile.agent-core` build stages in sync when dependencies change.
 

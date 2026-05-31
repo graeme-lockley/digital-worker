@@ -8,6 +8,7 @@ import { buildSystemPrompt, type WorkspaceIdentity } from "../workspace/index.js
 export type RefreshSkillsDeps = {
   skillRegistry: SkillRegistry;
   getIdentity: () => WorkspaceIdentity;
+  getMemorySection: () => Promise<string>;
   agent: Agent;
 };
 
@@ -23,9 +24,11 @@ export function createRefreshSkillsTool(
     execute: async (_toolCallId, params) => {
       const skills = await deps.skillRegistry.refresh();
       const skillsSection = deps.skillRegistry.formatForPrompt();
+      const memorySection = await deps.getMemorySection();
       deps.agent.state.systemPrompt = buildSystemPrompt(
         deps.getIdentity(),
         skillsSection,
+        memorySection,
       );
       const names = skills.map((skill) => skill.name);
       return {

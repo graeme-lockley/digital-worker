@@ -1,0 +1,14 @@
+# Aida memory maintenance — runs inside agent-core container
+# Only touches completed periods (never today's daily); see docs/specs/memory.md
+
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Weekly roll-up: Sunday 02:15 UTC
+15 2 * * 0 root /app/infra/dev-workstation/memory-maintenance.sh weekly >> /var/log/aida-memory.log 2>&1
+
+# Monthly roll-up: 1st of month 03:15 UTC
+15 3 1 * * root /app/infra/dev-workstation/memory-maintenance.sh monthly >> /var/log/aida-memory.log 2>&1
+
+# Reindex safety net: every 6 hours
+0 */6 * * * root /app/infra/dev-workstation/memory-maintenance.sh reindex >> /var/log/aida-memory.log 2>&1

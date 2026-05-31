@@ -63,7 +63,8 @@ while not stopped:
 | Operator **`/status`** while busy | Return runtime snapshot immediately (out-of-band; does not enter inbox) |
 | Operator **`/shutdown`** | Ack JSON response, then run graceful shutdown (stop loop, deregister, exit) |
 | Operator **`/restart`** | Ack JSON response, then deregister, spawn a replacement process with the same argv, and exit |
-| Shutdown (`SIGINT` / `SIGTERM` / `/shutdown`) | Stop loop, abort agent, drain registration |
+| Operator **`maintain_memory`** | Run memory roll-up or reindex out-of-band — see [memory](./memory.md) |
+| Shutdown (`SIGINT` / `SIGTERM` / `/shutdown`) | Memory flush (if enabled), stop loop, abort agent, drain registration |
 
 Priority dequeue is **deferred** — see [roadmap.md](../roadmap.md).
 
@@ -77,10 +78,11 @@ Operator commands are served on **`POST /api/v1/command`**, not through the chat
 | `abandon` | Abort the active LLM run (if any) and reject every queued chat job; each affected chat stream receives one SSE `error` |
 | `shutdown` | Return `{ accepted: true, action: "shutdown" }`, then run the same shutdown path as `SIGINT` / `SIGTERM` |
 | `restart` | Return `{ accepted: true, action: "restart" }`, then deregister and exit with code **75** so a parent restart loop can relaunch the process (Docker entrypoint). Outside a restart loop, spawn a detached replacement process instead. |
+| `maintain_memory` | Run memory maintenance (`scope`: `weekly`, `monthly`, `reindex`, `prune`; default weekly+monthly). Returns `MaintainMemoryResult`. |
 
-Clients such as **agent-tui** may expose these as slash commands (`/status`, `/abandon`, `/restart`, `/shutdown`) that POST to the command endpoint. Slash syntax is client sugar only — commands never enter the pi transcript.
+Clients such as **agent-tui** may expose these as slash commands (`/status`, `/abandon`, `/restart`, `/shutdown`) that POST to the command endpoint. Slash syntax is client sugar only — commands never enter the pi transcript. Cron inside the Docker image POSTs `maintain_memory` on schedule.
 
-Implementation: `apps/agent-core/src/command.ts`, `WorkerRuntime.getStatus()`, `WorkerRuntime.abandon()`.
+Implementation: `apps/agent-core/src/command.ts`, `WorkerRuntime.getStatus()`, `WorkerRuntime.abandon()`, `MemoryManager.runMaintenance()`.
 
 ## Multi-turn conversation
 
@@ -92,7 +94,7 @@ Clients may send `sessionId` on each request for correlation; the server validat
 
 - Model and provider come from CLI (`--provider`, `--model`) or env API keys.
 - Streaming maps pi `message_update` events with `assistantMessageEvent.type === "text_delta"` to SSE `token` events.
-- Tools: pi builtins `read`, `write`, `bash`, `ls` (from `@earendil-works/pi-coding-agent`, scoped to `--tools-cwd`, defaulting to the workspace directory), `update_identity`, `update_user`, and `refresh_skills` (see [workspace-identity](./workspace-identity.md) and [skills](./skills.md)), and optionally `agent_browser` from [pi-agent-browser-native](https://www.npmjs.com/package/pi-agent-browser-native) (see [web-browsing](./web-browsing.md)). Pass `--no-browser` to omit the browser tool.
+- Tools: pi builtins `read`, `write`, `bash`, `ls` (from `@earendil-works/pi-coding-agent`, scoped to `--tools-cwd`, defaulting to the workspace directory), `update_identity`, `update_user`, `remember`, `memory_search`, and `refresh_skills` (see [workspace-identity](./workspace-identity.md), [memory](./memory.md), and [skills](./skills.md)), and optionally `agent_browser` from [pi-agent-browser-native](https://www.npmjs.com/package/pi-agent-browser-native) (see [web-browsing](./web-browsing.md)). Pass `--no-browser` to omit the browser tool.
 - Workspace **Agent Skills** under `skills/` are scanned at startup via `SkillRegistry` and listed in the system prompt; full `SKILL.md` bodies are loaded on demand with `read`. Call `refresh_skills` after skill changes.
 - Agent construction uses `createAgentSession()` with a `DefaultResourceLoader` that sets `systemPromptOverride` to the workspace MANDATE/SOUL/IDENTITY/USER prompt plus the skills index, and loads the browser extension via `additionalExtensionPaths` when enabled.
 
@@ -107,9 +109,10 @@ Clients may send `sessionId` on each request for correlation; the server validat
 
 ## Shutdown order
 
-1. Stop worker loop (`runtime.stop()`).
-2. Deregister from agent-register.
-3. Exit process.
+1. Memory flush (`MemoryManager.runFlush`) when `--memory` is enabled.
+2. Stop worker loop (`runtime.stop()`).
+3. Deregister from agent-register.
+4. Exit process.
 
 ## Testing expectations
 

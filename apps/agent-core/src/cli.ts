@@ -7,6 +7,7 @@ import {
   resolveLlmOptions,
   type LlmOptions,
 } from "./llm-config.js";
+import { DEFAULT_MEMORY_CONFIG, type MemoryConfig } from "./memory/index.js";
 import { userArgv } from "./user-argv.js";
 import { resolveWorkspaceDir } from "./workspace/paths.js";
 
@@ -26,6 +27,7 @@ export type ServerOptions = {
   apiKey?: string;
   /** When false, skip loading pi-agent-browser-native (no agent_browser tool). */
   browserEnabled: boolean;
+  memory: MemoryConfig;
 };
 
 export function parseCli(argv: readonly string[] = process.argv): ServerOptions {
@@ -72,7 +74,35 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     .option(
       "--no-browser",
       "disable web browsing (do not load pi-agent-browser-native)",
-    );
+    )
+    .option("--memory", "enable episodic memory subsystem", true)
+    .option("--no-memory", "disable episodic memory subsystem")
+    .option(
+      "--memory-flush-soft-threshold-tokens <n>",
+      "token margin below compaction threshold to trigger memory flush",
+      String(DEFAULT_MEMORY_CONFIG.flushSoftThresholdTokens),
+    )
+    .option(
+      "--memory-flush-min-turns <n>",
+      "minimum turns before a memory flush can run",
+      String(DEFAULT_MEMORY_CONFIG.flushMinTurns),
+    )
+    .option(
+      "--memory-nudge-interval <n>",
+      "turns between periodic memory flushes (0 disables)",
+      String(DEFAULT_MEMORY_CONFIG.nudgeInterval),
+    )
+    .option(
+      "--memory-bootstrap-budget <n>",
+      "max characters for Recent memory in system prompt",
+      String(DEFAULT_MEMORY_CONFIG.bootstrapBudget),
+    )
+    .option(
+      "--memory-context-window <n>",
+      "context window size for compaction threshold (default 128000)",
+      String(DEFAULT_MEMORY_CONFIG.contextWindow),
+    )
+    .option("--no-memory-search", "disable memory_search tool");
 
   program.parse(userArgv(argv), { from: "user" });
 
@@ -92,6 +122,13 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     toolsCwd?: string;
     apiKey?: string;
     browser?: boolean;
+    memory?: boolean;
+    memoryFlushSoftThresholdTokens: string;
+    memoryFlushMinTurns: string;
+    memoryNudgeInterval: string;
+    memoryBootstrapBudget: string;
+    memoryContextWindow: string;
+    memorySearch?: boolean;
   }>();
 
   const port = Number(opts.port);
@@ -127,6 +164,38 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
 
   const llm = resolveLlmConfig(program, opts.provider, opts.model, opts.apiKey);
 
+  const memory: MemoryConfig = {
+    ...DEFAULT_MEMORY_CONFIG,
+    enabled: opts.memory !== false,
+    flushSoftThresholdTokens: parsePositiveInt(
+      opts.memoryFlushSoftThresholdTokens,
+      "memory-flush-soft-threshold-tokens",
+      program,
+    ),
+    flushMinTurns: parsePositiveInt(
+      opts.memoryFlushMinTurns,
+      "memory-flush-min-turns",
+      program,
+    ),
+    nudgeInterval: parseNonNegativeInt(
+      opts.memoryNudgeInterval,
+      "memory-nudge-interval",
+      program,
+    ),
+    bootstrapBudget: parsePositiveInt(
+      opts.memoryBootstrapBudget,
+      "memory-bootstrap-budget",
+      program,
+    ),
+    contextWindow: parsePositiveInt(
+      opts.memoryContextWindow,
+      "memory-context-window",
+      program,
+    ),
+    searchEnabled: opts.memorySearch !== false,
+    ollamaBaseUrl: process.env.OLLAMA_HOST ?? DEFAULT_MEMORY_CONFIG.ollamaBaseUrl,
+  };
+
   return {
     host: opts.host,
     port,
@@ -142,7 +211,24 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     llm,
     apiKey: opts.apiKey?.trim() || undefined,
     browserEnabled: opts.browser !== false,
+    memory,
   };
+}
+
+function parsePositiveInt(value: string, label: string, program: Command): number {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 1) {
+    program.error(`invalid ${label}: ${value}`);
+  }
+  return n;
+}
+
+function parseNonNegativeInt(value: string, label: string, program: Command): number {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 0) {
+    program.error(`invalid ${label}: ${value}`);
+  }
+  return n;
 }
 
 function resolveLlmConfig(

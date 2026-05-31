@@ -110,6 +110,21 @@ async function handleCommand(c: Context, ctx: AppContext): Promise<Response> {
       });
       return response;
     }
+    case AGENT_COMMAND.MAINTAIN_MEMORY: {
+      if (!ctx.memoryManager) {
+        return c.json(
+          {
+            error: {
+              code: AGENT_CORE_ERROR_CODES.INTERNAL_ERROR,
+              message: "memory subsystem is disabled",
+            },
+          },
+          503,
+        );
+      }
+      const result = await ctx.memoryManager.runMaintenance(body.scope);
+      return c.json(result);
+    }
     default:
       return c.json(
         {

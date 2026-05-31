@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   AGENT_COMMAND,
   AGENT_CORE_PATHS,
+  type MaintainMemoryResult,
 } from "@digital-worker/agent-core-protocol";
 
 import {
@@ -152,6 +153,32 @@ describe("POST /api/v1/command", () => {
       await vi.waitFor(() => {
         expect(onRestart).toHaveBeenCalledWith("command");
       });
+    } finally {
+      await disposeTestHarness(harness);
+    }
+  });
+
+  it("runs maintain_memory reindex when memory is enabled", async () => {
+    const harness = await createTestHarness();
+    try {
+      const response = await harness.app.request(AGENT_CORE_PATHS.command, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          command: AGENT_COMMAND.MAINTAIN_MEMORY,
+          clientId: "cron",
+          scope: "reindex",
+        }),
+      });
+
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as MaintainMemoryResult;
+      expect(body).toMatchObject({
+        scope: "reindex",
+        deduped: 0,
+        promoted: 0,
+      });
+      expect(typeof body.durationMs).toBe("number");
     } finally {
       await disposeTestHarness(harness);
     }

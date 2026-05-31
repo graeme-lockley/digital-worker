@@ -35,7 +35,7 @@ services:
     build:
       context: .
       dockerfile: infra/dev-workstation/Dockerfile.agent-core
-    entrypoint: ["/app/apps/agent-core/restart-loop.sh"]
+    entrypoint: ["/app/infra/dev-workstation/agent-core-entrypoint.sh"]
     ports:
       - "3000:3000"
     depends_on:
@@ -63,11 +63,22 @@ services:
       - --model
       - deepseek-v4-flash
       - --skills
-      - pnpm-workspace,conventional-commits
+      - pnpm-workspace,conventional-commits,memory-curation
+      - --memory-flush-soft-threshold-tokens
+      - "4000"
+      - --memory-flush-min-turns
+      - "6"
+      - --memory-nudge-interval
+      - "10"
+      - --memory-bootstrap-budget
+      - "8000"
     env_file:
       - .env
     environment:
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      OLLAMA_HOST: 127.0.0.1:11434
+      AGENT_CORE_HOST: 127.0.0.1
+      AGENT_CORE_PORT: "3000"
     volumes:
       - ./workspace/Aida:/app/workspace/Aida
     healthcheck:

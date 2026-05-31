@@ -39,6 +39,7 @@ describe("createRefreshSkillsTool", () => {
       const tool = createRefreshSkillsTool({
         skillRegistry: registry,
         getIdentity: () => loaded.identity,
+        getMemorySection: async () => "",
         agent,
       });
 

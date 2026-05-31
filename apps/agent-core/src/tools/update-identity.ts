@@ -10,6 +10,7 @@ export type UpdateIdentityDeps = {
   getIdentity: () => WorkspaceIdentity;
   setIdentityContent: (content: string) => void;
   getSkillsSection: () => string;
+  getMemorySection: () => Promise<string>;
   agent: Agent;
 };
 
@@ -26,9 +27,11 @@ export function createUpdateIdentityTool(
       await deps.identityStore.write(params.content);
       deps.setIdentityContent(params.content);
       const identity = deps.getIdentity();
+      const memorySection = await deps.getMemorySection();
       deps.agent.state.systemPrompt = buildSystemPrompt(
         identity,
         deps.getSkillsSection(),
+        memorySection,
       );
       return {
         content: [

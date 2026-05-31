@@ -93,6 +93,18 @@ They are composed into the LLM system prompt. The agent may update `IDENTITY.md`
 
 Spec: [specs/workspace-identity.md](./specs/workspace-identity.md)
 
+## Episodic memory
+
+Aida persists session continuity through markdown memory files under `workspace/Aida/memory/`:
+
+- **Daily logs** (`memory/daily/YYYY-MM-DD.md`) — append-only episodic notes via `remember`
+- **Curated long-term** (`memory/MEMORY.md`) — standing decisions promoted during roll-ups
+- **Search index** (`memory/index.db`) — derived SQLite FTS5 for `memory_search`
+
+At startup, `# Recent memory` injects MEMORY.md plus today and yesterday's dailies. Automatic **memory flushes** run before context compaction, on periodic nudge, and on shutdown. **Cron** inside the Docker image POSTs `maintain_memory` for weekly/monthly roll-ups (Distill dedup + local Ollama embeddings).
+
+Spec: [specs/memory.md](./specs/memory.md)
+
 ## Deployment units
 
 | Environment | Doc | What runs |

@@ -1,0 +1,15 @@
+# Distill configuration for Aida memory roll-up deduplication.
+# Used by: distill pipeline during weekly/monthly maintenance.
+
+embedding:
+  provider: ollama
+  model: nomic-embed-text
+  host: "http://127.0.0.1:11434"
+  batch_size: 32
+
+dedup:
+  threshold: 0.15
+  method: agglomerative
+  linkage: average
+  lambda: 0.5
+  enable_mmr: true

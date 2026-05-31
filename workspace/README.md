@@ -11,7 +11,14 @@ workspace/
     SOUL.md       # Immutable — temperament and values
     IDENTITY.md   # Mutable — self-knowledge (update_identity)
     USER.md       # Mutable — operator facts (update_user)
+    memory/       # Episodic + long-term memory (remember, roll-ups)
+      MEMORY.md   # Curated long-term facts
+      daily/      # Append-only daily logs
+      index.db    # Derived search index (gitignored)
+    skills/       # Agent Skills (see skills/)
 ```
+
+**Memory spec:** [docs/specs/memory.md](../docs/specs/memory.md)
 
 ## Build-time folding
 

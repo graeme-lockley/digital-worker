@@ -9,12 +9,14 @@ import { Hono } from "hono";
 import { registerChatRoute } from "./chat.js";
 import { registerCommandRoute } from "./command.js";
 import type { ServerOptions } from "./cli.js";
+import type { MemoryManager } from "./memory/index.js";
 import type { WorkerRuntime } from "./worker-runtime.js";
 
 export type AppContext = {
   agentId: string;
   sessionId: string;
   runtime: WorkerRuntime;
+  memoryManager?: MemoryManager;
   onShutdown: (reason: string) => Promise<void>;
   onRestart: (reason: string) => Promise<void>;
 };

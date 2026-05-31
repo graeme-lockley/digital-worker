@@ -7,6 +7,8 @@ import {
   type StatusResult,
 } from "@digital-worker/agent-core-protocol";
 
+import type { MemoryManager } from "./memory/index.js";
+
 export type ChatJob = {
   id: string;
   messageId: string;
@@ -47,6 +49,7 @@ export class WorkerRuntime {
   constructor(
     private readonly agent: Agent,
     readonly sessionId: string,
+    private readonly memoryManager?: MemoryManager,
   ) {}
 
   start(): void {
@@ -57,6 +60,9 @@ export class WorkerRuntime {
   }
 
   async stop(): Promise<void> {
+    if (this.memoryManager) {
+      await this.memoryManager.runFlush("shutdown");
+    }
     this.stopped = true;
     this.notifyWaiters();
     this.agent.abort();
@@ -186,6 +192,7 @@ export class WorkerRuntime {
       try {
         await this.runJob(job);
         job.resolve();
+        await this.afterJobSettled();
       } catch (error) {
         job.reject(
           error instanceof Error ? error : new Error(String(error)),
@@ -257,5 +264,16 @@ export class WorkerRuntime {
       job.signal.removeEventListener("abort", abortOnDisconnect);
       unsubscribe();
     }
+  }
+
+  private async afterJobSettled(): Promise<void> {
+    if (!this.memoryManager) {
+      return;
+    }
+    await this.memoryManager.recordTurn();
+    if (await this.memoryManager.shouldFlush()) {
+      await this.memoryManager.runFlush("turn");
+    }
+    this.memoryManager.resetFlushCycle();
   }
 }

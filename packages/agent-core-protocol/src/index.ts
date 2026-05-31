@@ -11,6 +11,8 @@ export {
   type AgentCommandName,
   type CommandRequest,
   type CommandResponse,
+  type MaintainMemoryResult,
+  type MaintainMemoryScope,
   type RestartResult,
   type ShutdownResult,
   type StatusResult,

@@ -53,6 +53,8 @@ Apps import these packages — do not duplicate request/response shapes in appli
 | LLM | [@earendil-works/pi-agent-core](https://github.com/earendil-works/pi) + [pi-ai](https://github.com/earendil-works/pi) | `0.75.5` | Agent loop, streaming, tools |
 | Worker loop | `WorkerRuntime` | in-app | [specs/worker-runtime.md](./specs/worker-runtime.md) |
 | Identity | workspace markdown | baked in image | [specs/workspace-identity.md](./specs/workspace-identity.md) |
+| Memory | markdown + `node:sqlite` FTS | workspace bind mount | [specs/memory.md](./specs/memory.md) |
+| Roll-up dedup | Distill CLI + Ollama | in Docker image | `nomic-embed-text` local embeddings |
 
 **Node requirement:** agent-core needs **Node ≥ 22.19** (pi-agent-core). Docker images use `node:22-alpine`.
 

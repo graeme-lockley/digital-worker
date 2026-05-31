@@ -84,9 +84,10 @@ Operator control plane. Handled **out-of-band** — does not enqueue on the chat
 
 ```typescript
 interface CommandRequest {
-  command: "status" | "abandon" | "shutdown" | "restart";
+  command: "status" | "abandon" | "shutdown" | "restart" | "maintain_memory";
   clientId: string;
   sessionId?: string;
+  scope?: "weekly" | "monthly" | "reindex" | "prune"; // maintain_memory only
 }
 ```
 
@@ -132,6 +133,20 @@ interface RestartResult {
 ```
 
 After responding, restart deregisters and exits with code **75** (`RESTART_EXIT_CODE`). The Docker dev-workstation image wraps agent-core in `restart-loop.sh`, which relaunches the process on that exit code. Local `pnpm dev` without the loop spawns a detached replacement process instead.
+
+`maintain_memory`:
+
+```typescript
+interface MaintainMemoryResult {
+  scope: "weekly" | "monthly" | "reindex" | "prune" | "all";
+  processedPeriods: string[];
+  deduped: number;
+  promoted: number;
+  durationMs: number;
+}
+```
+
+Runs memory roll-up or reindex out-of-band. Invoked by in-container cron or operators. See [memory.md](./memory.md).
 
 **Validation errors**
 
@@ -194,6 +209,12 @@ Required and common flags for agent-core:
 | `--endpoint-url` | no | Advertised URL when bind address is not routable |
 | `--skills` | no | Comma-separated register metadata |
 | `--purpose` | no | Override MANDATE-derived purpose |
+| `--memory` / `--no-memory` | no | Episodic memory (default on) |
+| `--memory-flush-soft-threshold-tokens` | no | Pre-compaction flush margin (default 4000) |
+| `--memory-flush-min-turns` | no | Minimum turns before flush (default 6) |
+| `--memory-nudge-interval` | no | Periodic flush interval in turns (default 10) |
+| `--memory-bootstrap-budget` | no | Recent memory chars in prompt (default 8000) |
+| `--no-memory-search` | no | Disable memory_search tool |
 
 Full local run: [deployment/local-development.md](../deployment/local-development.md).
 

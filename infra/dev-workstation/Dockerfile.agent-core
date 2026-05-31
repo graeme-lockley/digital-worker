@@ -1,6 +1,5 @@
 # syntax=docker/dockerfile:1
 # Builds agent-core from the monorepo root (compose build context: project root).
-# The build stage matches Dockerfile.agent-register — keep both in sync.
 
 FROM node:22-alpine AS base
 RUN corepack enable && corepack prepare pnpm@11.5.0 --activate
@@ -17,8 +16,12 @@ RUN pnpm --filter @digital-worker/agent-core-protocol run build \
   && pnpm --filter @digital-worker/agent-register run build \
   && pnpm --filter @digital-worker/agent-core run build
 
+FROM golang:1.24-bookworm AS distill-build
+RUN go install github.com/Siddhant-K-code/distill@latest
+
 FROM node:22-bookworm-slim AS runtime
 RUN corepack enable && corepack prepare pnpm@11.5.0 --activate
+
 # Shell/tooling for the agent workspace (bash builtin, pip, git, ssh).
 RUN apt-get update && apt-get install -y --no-install-recommends \
   python3 \
@@ -28,9 +31,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   openssh-client \
   build-essential \
   ca-certificates \
+  cron \
+  sqlite3 \
+  zstd \
   && rm -rf /var/lib/apt/lists/*
-# agent-browser CLI + browser binary. amd64: Chrome for Testing via agent-browser.
-# arm64: Chrome for Testing is unavailable — use Debian chromium + AGENT_BROWSER_EXECUTABLE_PATH.
+
+# Ollama for local embedding model (Distill dedup during roll-ups).
+RUN curl -fsSL https://ollama.com/install.sh | sh
+
+# agent-browser CLI + browser binary.
 RUN npm install -g agent-browser \
   && arch="$(dpkg --print-architecture)" \
   && if [ "$arch" = "arm64" ]; then \
@@ -41,10 +50,39 @@ RUN npm install -g agent-browser \
      else \
        agent-browser install --with-deps; \
      fi
+
+# Bake embedding model at build time for offline runtime.
+RUN ollama serve >/tmp/ollama-build.log 2>&1 & \
+  OLLAMA_PID=$!; \
+  for i in $(seq 1 90); do \
+    curl -sf http://127.0.0.1:11434/api/tags >/dev/null 2>&1 && break; \
+    sleep 2; \
+  done; \
+  ollama pull nomic-embed-text || true; \
+  kill "$OLLAMA_PID" 2>/dev/null || true; \
+  wait "$OLLAMA_PID" 2>/dev/null || true
+
+COPY --from=distill-build /go/bin/distill /usr/local/bin/distill
 COPY --from=build /app /app
+
 WORKDIR /app/apps/agent-core
+
+# Cron + entrypoint scripts
 COPY infra/dev-workstation/agent-core-restart-loop.sh ./restart-loop.sh
-RUN chmod +x ./restart-loop.sh
+COPY infra/dev-workstation/agent-core-entrypoint.sh /app/infra/dev-workstation/agent-core-entrypoint.sh
+COPY infra/dev-workstation/memory-maintenance.sh /app/infra/dev-workstation/memory-maintenance.sh
+COPY infra/dev-workstation/memory-crontab /etc/cron.d/aida-memory
+COPY infra/dev-workstation/distill.yaml /etc/distill.yaml
+
+RUN chmod +x ./restart-loop.sh \
+  && chmod +x /app/infra/dev-workstation/agent-core-entrypoint.sh \
+  && chmod +x /app/infra/dev-workstation/memory-maintenance.sh \
+  && chmod 644 /etc/cron.d/aida-memory \
+  && touch /var/log/aida-memory.log
+
+ENV OLLAMA_HOST=127.0.0.1:11434
+ENV DISTILL_CONFIG=/etc/distill.yaml
+
 EXPOSE 3000
-ENTRYPOINT ["/app/apps/agent-core/restart-loop.sh"]
+ENTRYPOINT ["/app/infra/dev-workstation/agent-core-entrypoint.sh"]
 CMD ["node", "dist/index.js", "--host", "0.0.0.0", "--port", "3000"]

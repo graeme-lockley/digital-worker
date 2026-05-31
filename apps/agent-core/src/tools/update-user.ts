@@ -10,6 +10,7 @@ export type UpdateUserDeps = {
   getIdentity: () => WorkspaceIdentity;
   setUserContent: (content: string) => void;
   getSkillsSection: () => string;
+  getMemorySection: () => Promise<string>;
   agent: Agent;
 };
 
@@ -26,9 +27,11 @@ export function createUpdateUserTool(
       await deps.userStore.write(params.content);
       deps.setUserContent(params.content);
       const identity = deps.getIdentity();
+      const memorySection = await deps.getMemorySection();
       deps.agent.state.systemPrompt = buildSystemPrompt(
         identity,
         deps.getSkillsSection(),
+        memorySection,
       );
       return {
         content: [

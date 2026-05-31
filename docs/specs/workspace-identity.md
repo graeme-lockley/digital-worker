@@ -20,7 +20,16 @@ workspace/
     skills/              # Agent Skills (optional); see skills.md
       <skill-name>/
         SKILL.md
+    memory/              # Episodic + long-term memory; see memory.md
+      MEMORY.md
+      daily/
+      weekly/
+      monthly/
+      archive/
+      index.db           # derived FTS index (gitignored)
 ```
+
+Episodic memory is specified in [memory.md](./memory.md). Do not store session logs in USER or IDENTITY.
 
 CLI flag `--agent-name` selects `<agentName>`. Override path with `--workspace-dir`.
 
@@ -58,6 +67,9 @@ You may update durable self-knowledge via update_identity and operator facts via
 
 # User (operator — maintain via update_user per Mandate)
 {contents of USER.md}
+
+# Recent memory
+{MEMORY.md + today + yesterday daily files, bounded}
 
 {optional <available_skills> block from workspace/skills — see skills.md}
 ```

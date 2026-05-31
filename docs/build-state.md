@@ -30,6 +30,8 @@ The dev-workstation stack runs **agent-register** (discovery + heartbeat) and **
 | Skills loaded from markdown | **Done** | [skills](./specs/skills.md) | `SkillRegistry`, `refresh_skills` |
 | Register persistence | **Not started** | [roadmap](./roadmap.md) | In-memory store |
 | Workspace bind mount (Docker dev) | **Done** | [workspace-identity](./specs/workspace-identity.md) | `infra/dev-workstation/docker-compose.yml` (`./workspace/Aida`) |
+| Episodic memory (daily logs, flush, search) | **Done** | [memory](./specs/memory.md) | `apps/agent-core/src/memory/` |
+| Memory roll-up + cron maintenance | **Done** | [memory](./specs/memory.md) | Distill + Ollama in Docker image |
 
 ## Protocol packages
 

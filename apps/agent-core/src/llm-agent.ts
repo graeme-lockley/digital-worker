@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import type { Agent } from "@earendil-works/pi-agent-core";
+import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { Model } from "@earendil-works/pi-ai";
 import {
   AuthStorage,
@@ -17,14 +18,17 @@ import {
   resolveApiKey,
   type LlmOptions,
 } from "./llm-config.js";
+import type { MemoryManager } from "./memory/index.js";
+import { SkillRegistry } from "./skills/skill-registry.js";
+import { createMemorySearchTool } from "./tools/memory-search.js";
 import {
   AGENT_BROWSER_TOOL_NAME,
   resolvePiAgentBrowserExtensionPath,
 } from "./tools/pi-browser-plugin.js";
+import { createRefreshSkillsTool } from "./tools/refresh-skills.js";
+import { createRememberTool } from "./tools/remember.js";
 import { createUpdateIdentityTool, type UpdateIdentityDeps } from "./tools/update-identity.js";
 import { createUpdateUserTool, type UpdateUserDeps } from "./tools/update-user.js";
-import { createRefreshSkillsTool } from "./tools/refresh-skills.js";
-import { SkillRegistry } from "./skills/skill-registry.js";
 import { buildSystemPrompt, skillsDir, type WorkspaceIdentity } from "./workspace/index.js";
 
 const BASE_TOOL_NAMES = [
@@ -35,12 +39,18 @@ const BASE_TOOL_NAMES = [
   "update_identity",
   "update_user",
   "refresh_skills",
+  "remember",
+  "memory_search",
 ] as const;
 
-function buildToolAllowlist(browserEnabled: boolean): string[] {
-  return browserEnabled
-    ? [...BASE_TOOL_NAMES, AGENT_BROWSER_TOOL_NAME]
-    : [...BASE_TOOL_NAMES];
+function buildToolAllowlist(
+  browserEnabled: boolean,
+  memorySearchEnabled: boolean,
+): string[] {
+  const names = BASE_TOOL_NAMES.filter(
+    (n) => memorySearchEnabled || n !== "memory_search",
+  );
+  return browserEnabled ? [...names, AGENT_BROWSER_TOOL_NAME] : [...names];
 }
 
 /** Proxy so identity tools can mutate agent.state before the session Agent exists. */
@@ -76,19 +86,51 @@ export type CreateLlmAgentOptions = {
   setUserContent: (content: string) => void;
   identityStore: UpdateIdentityDeps["identityStore"];
   userStore: UpdateUserDeps["userStore"];
+  memoryManager?: MemoryManager;
+  initialMemorySection?: string;
 };
 
 export async function createLlmAgent(options: CreateLlmAgentOptions): Promise<Agent> {
   assertApiKeyConfigured(options.llm.provider, options.apiKey);
   const model = options.model ?? getConfiguredModel(options.llm);
   const browserEnabled = options.browserEnabled ?? true;
-  const tools = buildToolAllowlist(browserEnabled);
+  const memoryEnabled = options.memoryManager?.config.enabled ?? false;
+  const memorySearchEnabled =
+    memoryEnabled && (options.memoryManager?.config.searchEnabled ?? true);
+  const tools = buildToolAllowlist(browserEnabled, memorySearchEnabled);
 
   const agentDir = path.join(options.toolsCwd, ".agent-core-pi");
   const settingsManager = SettingsManager.create(options.toolsCwd, agentDir);
 
   const skillRegistry = new SkillRegistry(skillsDir(options.toolsCwd));
   await skillRegistry.refresh();
+
+  let memorySection = options.initialMemorySection ?? "";
+
+  const getMemorySection = async (): Promise<string> => {
+    if (options.memoryManager) {
+      memorySection = await options.memoryManager.loadBootstrap();
+    }
+    return memorySection;
+  };
+
+  const rebuildSystemPrompt = (): void => {
+    const agent = agentRef.current;
+    if (!agent) {
+      return;
+    }
+    void getMemorySection().then((section) => {
+      agent.state.systemPrompt = buildSystemPrompt(
+        options.getIdentity(),
+        skillRegistry.formatForPrompt(),
+        section,
+      );
+    });
+  };
+
+  if (options.memoryManager) {
+    options.memoryManager.setRebuildSystemPrompt(rebuildSystemPrompt);
+  }
 
   const resourceLoader = new DefaultResourceLoader({
     cwd: options.toolsCwd,
@@ -103,7 +145,11 @@ export async function createLlmAgent(options: CreateLlmAgentOptions): Promise<Ag
       ? [resolvePiAgentBrowserExtensionPath()]
       : [],
     systemPromptOverride: () =>
-      buildSystemPrompt(options.getIdentity(), skillRegistry.formatForPrompt()),
+      buildSystemPrompt(
+        options.getIdentity(),
+        skillRegistry.formatForPrompt(),
+        memorySection,
+      ),
   });
   await resourceLoader.reload();
 
@@ -123,6 +169,7 @@ export async function createLlmAgent(options: CreateLlmAgentOptions): Promise<Ag
     getIdentity: options.getIdentity,
     setIdentityContent: options.setIdentityContent,
     getSkillsSection,
+    getMemorySection,
     agent: agentProxy,
   });
   const userTool = createUpdateUserTool({
@@ -130,13 +177,33 @@ export async function createLlmAgent(options: CreateLlmAgentOptions): Promise<Ag
     getIdentity: options.getIdentity,
     setUserContent: options.setUserContent,
     getSkillsSection,
+    getMemorySection,
     agent: agentProxy,
   });
   const refreshSkillsTool = createRefreshSkillsTool({
     skillRegistry,
     getIdentity: options.getIdentity,
+    getMemorySection,
     agent: agentProxy,
   });
+
+  const customTools: AgentTool[] = [identityTool, userTool, refreshSkillsTool];
+  if (options.memoryManager) {
+    customTools.push(
+      createRememberTool({
+        memoryManager: options.memoryManager,
+        getIdentity: options.getIdentity,
+        getSkillsSection,
+        getMemorySection,
+        agent: agentProxy,
+      }),
+    );
+    if (memorySearchEnabled) {
+      customTools.push(
+        createMemorySearchTool({ memoryManager: options.memoryManager }),
+      );
+    }
+  }
 
   const { session } = await createAgentSession({
     resourceLoader,
@@ -146,10 +213,13 @@ export async function createLlmAgent(options: CreateLlmAgentOptions): Promise<Ag
     settingsManager,
     authStorage,
     modelRegistry,
-    customTools: [identityTool, userTool, refreshSkillsTool],
+    customTools,
     tools,
   });
 
   agentRef.current = session.agent;
+  if (options.memoryManager) {
+    options.memoryManager.setGetAgent(() => agentRef.current);
+  }
   return session.agent;
 }
