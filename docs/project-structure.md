@@ -45,11 +45,11 @@ Each subdirectory is a publishable or internal library. Packages are compiled to
 ## Prerequisites
 
 - **Node.js** ≥ 20 (see `.node-version` and `engines` in root `package.json`)
-- **pnpm** 10.x — the root `packageManager` field pins `pnpm@10.14.0`. Enable via [Corepack](https://nodejs.org/api/corepack.html):
+- **pnpm** 11.x — the root `packageManager` field pins `pnpm@11.5.0`. Enable via [Corepack](https://nodejs.org/api/corepack.html):
 
   ```bash
   corepack enable
-  corepack prepare pnpm@10.14.0 --activate
+  corepack prepare pnpm@11.5.0 --activate
   ```
 
 ## Getting started

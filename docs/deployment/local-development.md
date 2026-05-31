@@ -7,7 +7,7 @@ For Docker-based stack see [dev-workstation.md](./dev-workstation.md).
 ## Prerequisites
 
 - Node.js ≥ 20 (agent-core requires **≥ 22.19** for pi-agent-core)
-- pnpm 10.x (`corepack enable`)
+- pnpm 11.x (`corepack enable`)
 
 ## One-time setup
 

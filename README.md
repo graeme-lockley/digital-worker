@@ -5,7 +5,7 @@ TypeScript monorepo for digital worker agents: shared protocol packages, **agent
 ## Prerequisites
 
 - Node.js ≥ 20
-- [pnpm](https://pnpm.io/) 10.x (`corepack enable`)
+- [pnpm](https://pnpm.io/) 11.x (`corepack enable`)
 - [Colima](https://github.com/abiosoft/colima) with Docker CLI and **docker-compose** (Homebrew: `colima`, `docker`, `docker-compose`)
 
 This project does not use Docker Desktop. Compose scripts call `docker-compose`, not `docker compose`.
