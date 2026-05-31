@@ -18,6 +18,14 @@ RUN pnpm --filter @digital-worker/agent-core-protocol run build \
   && pnpm --filter @digital-worker/agent-core run build
 
 FROM base AS runtime
+# Shell/tooling for the agent workspace (bash builtin, pip, git, ssh).
+RUN apk add --no-cache \
+  python3 \
+  py3-pip \
+  curl \
+  git \
+  openssh-client \
+  build-base
 COPY --from=build /app /app
 WORKDIR /app/apps/agent-core
 COPY infra/dev-workstation/agent-core-restart-loop.sh ./restart-loop.sh
