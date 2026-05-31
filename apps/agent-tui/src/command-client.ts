@@ -3,6 +3,7 @@ import {
   type AgentCommandName,
   type CommandRequest,
   type CommandResponse,
+  type StatusResult,
 } from "@digital-worker/agent-core-protocol";
 
 export type SendCommandOptions = {
@@ -55,6 +56,66 @@ export async function sendCommand(
   return (await response.json()) as CommandResponse;
 }
 
+export function formatDuration(ms: number): string {
+  if (ms < 1000) {
+    return `${ms}ms`;
+  }
+
+  const totalSeconds = Math.floor(ms / 1000);
+  if (totalSeconds < 60) {
+    return `${totalSeconds}s`;
+  }
+
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes < 60) {
+    return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remMinutes = minutes % 60;
+  return remMinutes > 0 ? `${hours}h ${remMinutes}m` : `${hours}h`;
+}
+
+function formatShortId(id: string): string {
+  return id.split("-")[0] ?? id.slice(0, 8);
+}
+
+function formatQueueSummary(status: StatusResult): string {
+  if (status.queuedCount === 0) {
+    return status.active ? "None waiting" : "Empty";
+  }
+
+  if (status.active) {
+    const waiting =
+      status.queuedCount === 1 ? "1 request" : `${status.queuedCount} requests`;
+    return `${waiting} waiting behind current job`;
+  }
+
+  return status.queuedCount === 1
+    ? "1 request waiting"
+    : `${status.queuedCount} requests waiting`;
+}
+
+function formatWorkerSummary(status: StatusResult): string {
+  if (!status.active) {
+    return "Idle";
+  }
+
+  return `Processing (${formatDuration(status.active.runningForMs)})`;
+}
+
+export function formatStatusResult(status: StatusResult): string {
+  return [
+    "**Status**",
+    "",
+    `- **Session:** \`${formatShortId(status.sessionId)}\``,
+    `- **Worker:** ${formatWorkerSummary(status)}`,
+    `- **Queue:** ${formatQueueSummary(status)}`,
+    `- **Uptime:** ${formatDuration(status.uptimeMs)}`,
+  ].join("\n");
+}
+
 export function formatCommandResponse(response: CommandResponse): string {
   if ("accepted" in response) {
     if (response.action === "restart") {
@@ -72,15 +133,10 @@ export function formatCommandResponse(response: CommandResponse): string {
     }
     return parts.length > 0 ? parts.join("; ") : "No active or queued jobs.";
   }
-  const active = response.active
-    ? `active job ${response.active.jobId} (${response.active.runningForMs}ms)`
-    : "idle";
-  return [
-    `session ${response.sessionId}`,
-    `queue depth ${response.queueDepth} (${response.queuedCount} queued)`,
-    active,
-    `uptime ${response.uptimeMs}ms`,
-  ].join("\n");
+  if ("processedPeriods" in response) {
+    return `Memory maintenance (${response.scope}) completed in ${formatDuration(response.durationMs)}.`;
+  }
+  return formatStatusResult(response);
 }
 
 export function parseSlashCommand(

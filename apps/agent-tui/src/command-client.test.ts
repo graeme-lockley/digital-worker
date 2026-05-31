@@ -7,6 +7,7 @@ import {
 
 import {
   formatCommandResponse,
+  formatDuration,
   parseSlashCommand,
   sendCommand,
 } from "./command-client.js";
@@ -23,21 +24,47 @@ describe("parseSlashCommand", () => {
 });
 
 describe("formatCommandResponse", () => {
-  it("formats status results", () => {
+  it("formats status results for human-readable display", () => {
     const text = formatCommandResponse({
-      sessionId: "s1",
+      sessionId: "s1-0000-0000-0000-000000000000",
       queueDepth: 2,
       queuedCount: 1,
       active: {
         jobId: "job-1",
         clientId: "client-1",
-        runningForMs: 42,
+        runningForMs: 90_000,
       },
-      uptimeMs: 1000,
+      uptimeMs: 3_700_000,
     });
-    expect(text).toContain("session s1");
-    expect(text).toContain("queue depth 2");
-    expect(text).toContain("active job job-1");
+
+    expect(text).toContain("**Status**");
+    expect(text).toContain("**Session:** `s1`");
+    expect(text).toContain("**Worker:** Processing (1m 30s)");
+    expect(text).toContain("**Queue:** 1 request waiting behind current job");
+    expect(text).toContain("**Uptime:** 1h 1m");
+  });
+
+  it("formats idle status with an empty queue", () => {
+    const text = formatCommandResponse({
+      sessionId: "abc-def",
+      queueDepth: 0,
+      queuedCount: 0,
+      active: null,
+      uptimeMs: 45_000,
+    });
+
+    expect(text).toContain("**Worker:** Idle");
+    expect(text).toContain("**Queue:** Empty");
+    expect(text).toContain("**Uptime:** 45s");
+  });
+});
+
+describe("formatDuration", () => {
+  it("formats sub-minute, minute, and hour durations", () => {
+    expect(formatDuration(500)).toBe("500ms");
+    expect(formatDuration(45_000)).toBe("45s");
+    expect(formatDuration(251_115)).toBe("4m 11s");
+    expect(formatDuration(3_700_000)).toBe("1h 1m");
   });
 });
 
