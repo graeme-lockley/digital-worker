@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 
+import type { CorrelationRegistry } from "./correlation-registry.js";
 import type { Mailbox } from "./mailbox.js";
 import type { Notifier } from "./notifier.js";
 import type { TelegramAdapter } from "./telegram/adapter.js";
@@ -10,12 +11,16 @@ import {
   type AckResponse,
   type OutboundRequest,
   type OutboundResponse,
+  type ReplyRequest,
+  type ReplyResponse,
 } from "@digital-worker/agent-gateway-protocol";
 
 export type GatewayContext = {
   mailbox: Mailbox;
   telegram: TelegramAdapter;
   notifier: Notifier;
+  correlations: CorrelationRegistry;
+  persist: () => Promise<void>;
 };
 
 export function createApp(ctx: GatewayContext): Hono {
@@ -48,6 +53,59 @@ export function createApp(ctx: GatewayContext): Hono {
 
     const response: AckResponse = { acked: ctx.mailbox.ack(body.ids) };
     return c.json(response);
+  });
+
+  app.post(GATEWAY_PATHS.reply, async (c) => {
+    let body: ReplyRequest;
+    try {
+      body = await c.req.json<ReplyRequest>();
+    } catch {
+      return c.json({ error: { message: "invalid JSON body" } }, 400);
+    }
+
+    if (!body.correlationId?.trim() || !body.text?.trim()) {
+      return c.json(
+        { error: { message: "correlationId and text are required" } },
+        400,
+      );
+    }
+
+    const route = ctx.correlations.resolve(body.correlationId.trim());
+    if (!route) {
+      return c.json(
+        { error: { message: `unknown correlation: ${body.correlationId}` } },
+        404,
+      );
+    }
+
+    if (route.channel !== "telegram") {
+      return c.json(
+        { error: { message: `unsupported channel: ${route.channel}` } },
+        400,
+      );
+    }
+
+    try {
+      const result = await ctx.telegram.send(
+        body.text.trim(),
+        route.threadId,
+      );
+      const messageIds = body.messageIds ?? [];
+      if (messageIds.length > 0) {
+        ctx.mailbox.ack(messageIds);
+        ctx.notifier.onReplyDelivered(messageIds);
+        await ctx.persist();
+      }
+
+      const response: ReplyResponse = {
+        delivered: true,
+        providerMessageId: result.providerMessageId,
+      };
+      return c.json(response);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return c.json({ error: { message } }, 502);
+    }
   });
 
   app.post(GATEWAY_PATHS.outbound, async (c) => {

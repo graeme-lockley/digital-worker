@@ -25,6 +25,7 @@ export type AppContext = {
   runtime: WorkerRuntime;
   observer: ObserverHub;
   memoryManager?: MemoryManager;
+  gatewayUrl?: string;
   onShutdown: (reason: string) => Promise<void>;
   onRestart: (reason: string) => Promise<void>;
 };

@@ -1,5 +1,7 @@
 import type { ChannelAdapter, NormalizedInbound } from "../channel-adapter.js";
 
+import { markdownToTelegramHtml } from "./format-markdown.js";
+
 export type { NormalizedInbound } from "../channel-adapter.js";
 
 export type TelegramUpdate = {
@@ -18,6 +20,8 @@ export type TelegramAdapterOptions = {
   allowedChatIds: Set<string>;
   fetchFn?: typeof fetch;
   pollTimeoutSeconds?: number;
+  /** When true (default), convert markdown to HTML and set parse_mode. */
+  formatMarkdown?: boolean;
   onError?: (error: unknown) => void;
 };
 
@@ -85,12 +89,35 @@ export class TelegramAdapter implements ChannelAdapter {
       throw new Error("no telegram chat id configured");
     }
 
+    const useFormatting = this.options.formatMarkdown !== false;
+    if (useFormatting) {
+      try {
+        const html = markdownToTelegramHtml(text);
+        return await this.postMessage(chatId, html, "HTML");
+      } catch {
+        return await this.postMessage(chatId, text);
+      }
+    }
+
+    return await this.postMessage(chatId, text);
+  }
+
+  private async postMessage(
+    chatId: string,
+    text: string,
+    parseMode?: "HTML",
+  ): Promise<{ providerMessageId?: string }> {
     const fetchFn = this.options.fetchFn ?? fetch;
     const url = `https://api.telegram.org/bot${this.options.token}/sendMessage`;
+    const body: Record<string, string> = { chat_id: chatId, text };
+    if (parseMode) {
+      body.parse_mode = parseMode;
+    }
+
     const response = await fetchFn(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {

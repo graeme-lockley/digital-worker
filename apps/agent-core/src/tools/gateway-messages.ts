@@ -14,7 +14,7 @@ export function createCheckMessagesTool(
     name: "check_messages",
     label: "Check Messages",
     description:
-      "Pull unread messages from the agent-gateway mailbox (Telegram and future channels). Use after a doorbell notification or when checking for external messages.",
+      "Pull unread messages from the agent-gateway mailbox for catch-up or audit. Inbound channel messages are injected into your queue automatically — you normally do not need this tool.",
     parameters: checkMessagesParameters,
     execute: async (_toolCallId, params) => {
       const fetchFn = deps.fetchFn ?? fetch;
@@ -82,7 +82,7 @@ export function createSendMessageTool(
     name: "send_message",
     label: "Send Message",
     description:
-      "Send an outbound message via agent-gateway (Telegram today; other channels later). Use for replies and proactive notifications.",
+      "Send a message via agent-gateway to a specific channel/thread. Use for proactive updates or to reach a different conversation than the current turn. When a turn is labelled [conversation …], your text reply is delivered automatically — do not call this tool to answer that turn.",
     parameters: sendMessageParameters,
     execute: async (_toolCallId, params) => {
       const fetchFn = deps.fetchFn ?? fetch;

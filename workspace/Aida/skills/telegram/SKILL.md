@@ -1,66 +1,69 @@
 ---
 name: telegram
-description: Read and send Telegram messages via the agent-gateway mailbox. Use when notified of new Telegram messages or when proactively messaging Graeme.
+description: Send and receive Telegram messages via agent-gateway with automatic reply delivery.
 ---
 
 # Telegram Messaging Skill
 
-## Overview
+## How Telegram works
 
-Telegram is handled by **agent-gateway** — not directly by this workspace. The gateway stores inbound messages in a mailbox and notifies you when new ones arrive. You decide when to read and respond.
+Telegram messages flow through **agent-gateway**, not directly to this workspace. The gateway manages the bot connection, receives inbound messages, and delivers them **into your message queue**.
 
-## Configuration
+Credentials (bot token, chat IDs) live on the gateway only — nothing is stored in the workspace.
 
-Gateway URL is provided by the environment:
+Each inbound turn is prefixed with a **conversation label**:
 
-```bash
-echo "$GATEWAY_URL"   # e.g. http://agent-gateway:3002 (Docker) or http://127.0.0.1:3002 (local)
+```
+[conversation telegram:<chatId> from <sender>]
+<sender>: <message text>
 ```
 
-No bot tokens or chat IDs live in the workspace. Credentials are configured on the gateway only.
+The label is your **correlation id** — it tells you which conversation this turn belongs to when several are active at once.
 
-## Read unread messages
+**Your text reply in that turn is sent back to that conversation automatically.** You do not call a tool to post the reply.
 
-When you receive a doorbell notification ("you have N new Telegram message(s)"), pull the mailbox:
+## What to do on a labelled Telegram turn
 
-```bash
-curl -s "$GATEWAY_URL/api/v1/messages"
-```
+1. Read the conversation label and the user's message.
+2. **Answer normally in your assistant text** (markdown is fine; the gateway converts it for Telegram).
+3. **Do not** call `send_message` to reply to the same conversation — that would duplicate the auto-delivered reply.
 
-Returns JSON: `{ "messages": [...], "unreadCount": N }`. Reading marks messages as read.
+## When to use `send_message`
 
-To preview without marking read (Phase 2):
+- **Proactive updates** (alerts, reminders) when no labelled turn is active for that chat.
+- Replying to a **different** Telegram chat/thread than the one in the current turn's label.
+- Never as the default reply path for a `[conversation …]` turn.
 
-```bash
-curl -s "$GATEWAY_URL/api/v1/messages?peek=true"
-```
+## When to use `check_messages`
 
-Then acknowledge explicitly:
+- **Catch-up or audit** — verifying mailbox state after a restart, not the normal inbound path.
+- Optional `peek=true` if you need unread messages without marking them read (rare).
 
-```bash
-curl -s -X POST "$GATEWAY_URL/api/v1/ack" \
-  -H "Content-Type: application/json" \
-  -d '{"ids":["telegram-42"]}'
-```
+## Multiple concurrent conversations
 
-Prefer the **`check_messages`** and **`send_message`** tools when available — they wrap these endpoints.
+- Turns from different chats interleave in one transcript; each has its own label.
+- Keep replies scoped to the label on **that** turn — do not mix up chats.
+- If Graeme messages on Telegram while you are in a TUI turn, treat each channel independently (existing channel discipline).
 
-## Send a message
+## Markdown formatting
 
-```bash
-curl -s -X POST "$GATEWAY_URL/api/v1/outbound" \
-  -H "Content-Type: application/json" \
-  -d '{"channel":"telegram","text":"Your message here"}'
-```
+Write markdown in replies (bold, italic, code, lists, tables). The gateway converts markdown to Telegram-safe HTML automatically.
 
-Optional `threadId` (chat id) if replying in a specific thread; defaults to the configured allowlisted chat.
+## Channel discipline
 
-## When to use
+Only reply on the channel where the conversation is happening:
 
-- After a doorbell notification about new Telegram messages
-- Proactive updates (news, alerts, task completion)
-- Replying to Graeme on Telegram
+- Graeme on **Telegram** (labelled turn) → answer in your assistant text; delivery is automatic
+- Graeme on **TUI/console** → reply in this workspace
+- Do not cross-post or echo conversations across channels unless explicitly asked
 
-## Note
+## What you must NOT do
 
-Do not log or write gateway URLs with embedded secrets. The gateway holds all Telegram credentials.
+- Do not pull messages after every inbound turn — messages are already in context.
+- Do not call `send_message` as a habit after every Telegram reply.
+- Do not store or log gateway credentials.
+
+## Notes
+
+- Gateway URL and credentials are handled automatically by the runtime
+- All Telegram-specific state (chat ID, bot config) lives on the gateway, not in workspace files

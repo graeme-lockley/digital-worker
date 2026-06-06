@@ -8,5 +8,6 @@ describe("GATEWAY_PATHS", () => {
     expect(GATEWAY_PATHS.messages).toBe("/api/v1/messages");
     expect(GATEWAY_PATHS.outbound).toBe("/api/v1/outbound");
     expect(GATEWAY_PATHS.ack).toBe("/api/v1/ack");
+    expect(GATEWAY_PATHS.reply).toBe("/api/v1/reply");
   });
 });

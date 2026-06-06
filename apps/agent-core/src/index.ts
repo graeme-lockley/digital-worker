@@ -156,6 +156,7 @@ async function main(): Promise<void> {
       runtime,
       observer,
       memoryManager,
+      gatewayUrl: options.gatewayUrl,
       onShutdown: shutdown,
       onRestart: restart,
     },

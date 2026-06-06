@@ -17,7 +17,7 @@ Each agent registers an `endpoint.url` (e.g. `http://127.0.0.1:3000`). All paths
 | `POST` | `/api/v1/heartbeat` | Register poll target |
 | `POST` | `/api/v1/chat` | Streaming chat — see [chat-streaming](./chat-streaming.md) |
 | `POST` | `/api/v1/command` | Operator commands — see below |
-| `POST` | `/api/v1/notify` | Async doorbell notifications — see below |
+| `POST` | `/api/v1/notify` | Async channel-message ingress with auto-reply — see below |
 | `GET` | `/api/v1/observer` | Live operator observability SSE — see [observer](./observer.md) |
 
 Constants: `AGENT_CORE_PATHS` in `packages/agent-core-protocol/src/paths.ts`.
@@ -80,7 +80,7 @@ See [chat-streaming.md](./chat-streaming.md).
 
 ## POST /api/v1/notify
 
-Async doorbell ingress from **agent-gateway** (and future external triggers). Handled like chat jobs but **without SSE** — returns immediately. See [gateway.md](./gateway.md) and [worker-runtime.md](./worker-runtime.md#notification-jobs).
+Async channel-message ingress from **agent-gateway** (and future external triggers). Handled like chat jobs but **without SSE** — returns immediately. When `correlationId` is present, the runtime auto-delivers the assistant reply to the gateway. See [gateway.md](./gateway.md) and [worker-runtime.md](./worker-runtime.md#notification-jobs).
 
 **Request body**
 
@@ -91,8 +91,15 @@ interface NotifyRequest {
   sessionId?: string;
   channel?: string;
   unreadCount?: number;
+  /** Conversation correlation (e.g. telegram:123456789). Enables auto-reply. */
+  correlationId?: string;
+  threadId?: string;
+  sender?: string;
+  messageIds?: string[];
 }
 ```
+
+When `correlationId` is present, `prompt` is the raw inbound message text; agent-core wraps it in a labelled conversation prompt before `agent.prompt()`.
 
 **Response 202**
 

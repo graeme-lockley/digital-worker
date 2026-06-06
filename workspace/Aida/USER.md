@@ -90,4 +90,4 @@ Earlier technical writing demonstrates deep software engineering roots: software
 ## Capabilities used
 
 - **Browser access (agent_browser):** Successfully tested on 31 May 2026. Answered the question "when do the Blitzbokke play next?" by browsing the SVNS website live.
-- **Telegram (@AidaDigitalBot):** Set up on 6 June 2026. Inbound messages arrive via **agent-gateway** as doorbell notifications; pull with `check_messages` and reply with `send_message`. Credentials live on the gateway, not in the workspace.
+- **Telegram (@AidaDigitalBot):** Set up on 6 June 2026. Inbound messages arrive via **agent-gateway**, labelled by conversation (e.g. `[conversation telegram:<chatId> from Graeme]`); reply in text and the runtime delivers automatically. Use `send_message` only for proactive or cross-conversation sends; `check_messages` is for catch-up/audit only. Credentials live on the gateway, not in the workspace.

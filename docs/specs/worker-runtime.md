@@ -47,15 +47,21 @@ Each accepted notify request becomes a job:
 | `id` | Unique job id (returned as `jobId` in 202 response) |
 | `messageId` | Internal correlation id |
 | `clientId` | Client-supplied correlation id (e.g. `agent-gateway`) |
-| `prompt` | Doorbell text (no external message payload) |
+| `prompt` | Labelled conversation text (channel-message mode) or legacy doorbell text |
 | `sessionId` | Stable worker session id |
+| `correlationId` | Optional conversation id (e.g. `telegram:123456789`) |
+| `channel` | Source channel name |
+| `threadId` | Thread/chat id for reply routing |
+| `sender` | Sender display name |
+| `messageIds` | Gateway mailbox ids included in this turn |
+| `deliver` | Optional callback POSTing assistant text to gateway `/api/v1/reply` |
 | `signal` | Abort signal (typically never aborted) |
 
-Notify jobs call `agent.prompt()` like chat jobs but **do not emit SSE events**. The HTTP handler returns **202** immediately after enqueue.
+Notify jobs call `agent.prompt()` like chat jobs but **do not emit SSE events**. When `deliver` is attached, the runtime accumulates assistant text during the turn and calls `deliver(text, messageIds)` on success. A dedup guard skips auto-delivery if the model calls `send_message` targeting the same `threadId`. The HTTP handler returns **202** immediately after enqueue.
 
 ## Notification jobs
 
-Doorbell notifications from agent-gateway enter the same FIFO inbox as chat. They share the single pi Agent transcript. See [gateway.md](./gateway.md).
+Channel messages from agent-gateway enter the same FIFO inbox as chat. They share the single pi Agent transcript; each turn is labelled by conversation. See [gateway.md](./gateway.md).
 
 ## Loop algorithm (FIFO)
 

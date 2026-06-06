@@ -1,12 +1,11 @@
 import {
   AGENT_CORE_PATHS,
-  CHAT_STREAM_ACCEPT,
-  CHAT_STREAM_EVENT,
-  type ChatPromptRequest,
-  type ChatStreamEvent,
   type NotifyRequest,
 } from "@digital-worker/agent-core-protocol";
 
+import type { InboundMessage } from "@digital-worker/agent-gateway-protocol";
+
+import { buildCorrelationId } from "./correlation-registry.js";
 import type { Mailbox } from "./mailbox.js";
 
 export type NotifierOptions = {
@@ -15,147 +14,184 @@ export type NotifierOptions = {
   clientId: string;
   /** Debounce rapid bursts before notifying (ms). */
   debounceMs?: number;
-  /** Re-notify if unread messages remain after this interval (ms). */
-  renotifyIntervalMs?: number;
-  /** Use async notify endpoint instead of chat (Phase 2). */
-  useNotifyEndpoint?: boolean;
+  /** Retry in-flight notify after this interval if still unread (ms). */
+  inFlightTimeoutMs?: number;
   fetchFn?: typeof fetch;
   onError?: (error: unknown) => void;
 };
 
+type ThreadKey = string;
+
 export class Notifier {
-  private notificationOutstanding = false;
-  private debounceTimer?: ReturnType<typeof setTimeout>;
-  private renotifyTimer?: ReturnType<typeof setTimeout>;
-  private lastUnreadBeforeNotify = 0;
+  private readonly debounceTimers = new Map<ThreadKey, ReturnType<typeof setTimeout>>();
+  private readonly inFlightByThread = new Map<ThreadKey, Set<string>>();
+  private readonly retryTimers = new Map<ThreadKey, ReturnType<typeof setTimeout>>();
 
   constructor(private readonly options: NotifierOptions) {}
 
-  /** Call when new messages arrive in the mailbox. */
+  /** Call when new messages arrive in the mailbox or on startup replay. */
   onMailboxChanged(): void {
-    if (this.options.mailbox.unreadCount() === 0) {
-      return;
-    }
-
-    if (this.notificationOutstanding) {
-      return;
-    }
-
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
-    }
-
-    this.debounceTimer = setTimeout(() => {
-      this.debounceTimer = undefined;
-      void this.sendNotification();
-    }, this.options.debounceMs ?? 500);
-  }
-
-  dispose(): void {
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
-    }
-    if (this.renotifyTimer) {
-      clearTimeout(this.renotifyTimer);
-    }
-  }
-
-  buildPrompt(unreadCount: number, senders: string[]): string {
-    const senderList = [...new Set(senders)].join(", ");
-    const noun =
-      unreadCount === 1 ? "Telegram message" : "Telegram messages";
-    return `You have ${unreadCount} new ${noun} from ${senderList}. Read them with your telegram skill when you choose to.`;
-  }
-
-  private async sendNotification(): Promise<void> {
-    if (this.notificationOutstanding) {
-      return;
-    }
-
     const unread = this.options.mailbox.peekUnread();
     if (unread.length === 0) {
       return;
     }
 
-    this.notificationOutstanding = true;
-    this.lastUnreadBeforeNotify = unread.length;
+    const byThread = groupUnreadByThread(unread);
+    for (const [threadKey, messages] of byThread) {
+      this.scheduleThreadNotify(threadKey, messages);
+    }
+  }
 
-    const prompt = this.buildPrompt(
-      unread.length,
-      unread.map((m) => m.sender),
+  /** Replay any still-unread messages (e.g. after restart). */
+  replayUnread(): void {
+    this.onMailboxChanged();
+  }
+
+  /** Clear in-flight tracking after a successful reply delivery. */
+  onReplyDelivered(messageIds: string[]): void {
+    for (const [threadKey, ids] of this.inFlightByThread) {
+      for (const id of messageIds) {
+        ids.delete(id);
+      }
+      if (ids.size === 0) {
+        this.inFlightByThread.delete(threadKey);
+        const retryTimer = this.retryTimers.get(threadKey);
+        if (retryTimer) {
+          clearTimeout(retryTimer);
+          this.retryTimers.delete(threadKey);
+        }
+      }
+    }
+  }
+
+  /** Clear in-flight tracking on notify failure so messages can be retried. */
+  onNotifyFailed(threadKey: ThreadKey, messageIds: string[]): void {
+    const ids = this.inFlightByThread.get(threadKey);
+    if (!ids) {
+      return;
+    }
+    for (const id of messageIds) {
+      ids.delete(id);
+    }
+    if (ids.size === 0) {
+      this.inFlightByThread.delete(threadKey);
+    }
+    this.scheduleRetry(threadKey);
+  }
+
+  dispose(): void {
+    for (const timer of this.debounceTimers.values()) {
+      clearTimeout(timer);
+    }
+    for (const timer of this.retryTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.debounceTimers.clear();
+    this.retryTimers.clear();
+  }
+
+  private scheduleThreadNotify(
+    threadKey: ThreadKey,
+    messages: InboundMessage[],
+  ): void {
+    const pending = messages.filter(
+      (m) => !this.isMessageInFlight(threadKey, m.id),
+    );
+    if (pending.length === 0) {
+      return;
+    }
+
+    const existing = this.debounceTimers.get(threadKey);
+    if (existing) {
+      clearTimeout(existing);
+    }
+
+    this.debounceTimers.set(
+      threadKey,
+      setTimeout(() => {
+        this.debounceTimers.delete(threadKey);
+        void this.sendThreadNotification(threadKey);
+      }, this.options.debounceMs ?? 500),
+    );
+  }
+
+  private scheduleRetry(threadKey: ThreadKey): void {
+    const timeout = this.options.inFlightTimeoutMs ?? 5 * 60 * 1000;
+    if (timeout <= 0) {
+      return;
+    }
+
+    const existing = this.retryTimers.get(threadKey);
+    if (existing) {
+      clearTimeout(existing);
+    }
+
+    this.retryTimers.set(
+      threadKey,
+      setTimeout(() => {
+        this.retryTimers.delete(threadKey);
+        void this.sendThreadNotification(threadKey);
+      }, timeout),
+    );
+  }
+
+  private isMessageInFlight(threadKey: ThreadKey, messageId: string): boolean {
+    return this.inFlightByThread.get(threadKey)?.has(messageId) ?? false;
+  }
+
+  private markInFlight(threadKey: ThreadKey, messageIds: string[]): void {
+    let ids = this.inFlightByThread.get(threadKey);
+    if (!ids) {
+      ids = new Set();
+      this.inFlightByThread.set(threadKey, ids);
+    }
+    for (const id of messageIds) {
+      ids.add(id);
+    }
+  }
+
+  private async sendThreadNotification(threadKey: ThreadKey): Promise<void> {
+    const unread = this.options.mailbox.peekUnread();
+    const threadMessages = unread.filter(
+      (m) => threadKeyForMessage(m) === threadKey,
+    );
+    const pending = threadMessages.filter(
+      (m) => !this.isMessageInFlight(threadKey, m.id),
     );
 
+    if (pending.length === 0) {
+      return;
+    }
+
+    const first = pending[0]!;
+    const channel = first.channel;
+    const threadId = first.threadId ?? threadKey;
+    const sender = first.sender;
+    const correlationId = buildCorrelationId(channel, threadId);
+    const messageIds = pending.map((m) => m.id);
+    const prompt = pending.map((m) => m.text.trim()).join("\n\n");
+
+    this.markInFlight(threadKey, messageIds);
+
     try {
-      if (this.options.useNotifyEndpoint) {
-        await this.postNotify(prompt, unread.length);
-      } else {
-        await this.postChat(prompt);
-      }
+      await this.postNotify({
+        clientId: this.options.clientId,
+        prompt,
+        channel,
+        correlationId,
+        threadId,
+        sender,
+        messageIds,
+      });
     } catch (error) {
+      this.onNotifyFailed(threadKey, messageIds);
       this.options.onError?.(error);
-    } finally {
-      this.notificationOutstanding = false;
-      this.scheduleRenotifyIfNeeded();
     }
   }
 
-  private scheduleRenotifyIfNeeded(): void {
-    if (this.renotifyTimer) {
-      clearTimeout(this.renotifyTimer);
-      this.renotifyTimer = undefined;
-    }
-
-    const interval = this.options.renotifyIntervalMs ?? 5 * 60 * 1000;
-    if (interval <= 0) {
-      return;
-    }
-
-    this.renotifyTimer = setTimeout(() => {
-      this.renotifyTimer = undefined;
-      const unread = this.options.mailbox.unreadCount();
-      if (unread > 0 && !this.notificationOutstanding) {
-        void this.sendNotification();
-      }
-    }, interval);
-  }
-
-  private async postChat(prompt: string): Promise<void> {
-    const fetchFn = this.options.fetchFn ?? fetch;
-    const url = new URL(AGENT_CORE_PATHS.chat, this.options.agentCoreUrl);
-    const body: ChatPromptRequest = {
-      clientId: this.options.clientId,
-      prompt,
-    };
-
-    const response = await fetchFn(url, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        accept: CHAT_STREAM_ACCEPT,
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      throw new Error(`chat notify failed: ${response.status}`);
-    }
-
-    if (!response.body) {
-      return;
-    }
-
-    await drainSse(response.body);
-  }
-
-  private async postNotify(prompt: string, unreadCount: number): Promise<void> {
+  private async postNotify(body: NotifyRequest): Promise<void> {
     const fetchFn = this.options.fetchFn ?? fetch;
     const url = new URL(AGENT_CORE_PATHS.notify, this.options.agentCoreUrl);
-    const body: NotifyRequest = {
-      clientId: this.options.clientId,
-      prompt,
-      channel: "telegram",
-      unreadCount,
-    };
     const response = await fetchFn(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -168,39 +204,19 @@ export class Notifier {
   }
 }
 
-async function drainSse(body: ReadableStream<Uint8Array>): Promise<void> {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
+function threadKeyForMessage(message: InboundMessage): ThreadKey {
+  return `${message.channel}:${message.threadId ?? "default"}`;
+}
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-
-    buffer += decoder.decode(value, { stream: true });
-    const blocks = buffer.split("\n\n");
-    buffer = blocks.pop() ?? "";
-
-    for (const block of blocks) {
-      const dataLine = block
-        .split("\n")
-        .find((line) => line.startsWith("data: "));
-      if (!dataLine) {
-        continue;
-      }
-      const json = dataLine.slice(6).trim();
-      if (!json) {
-        continue;
-      }
-      const event = JSON.parse(json) as ChatStreamEvent;
-      if (
-        event.type === CHAT_STREAM_EVENT.DONE ||
-        event.type === CHAT_STREAM_EVENT.ERROR
-      ) {
-        return;
-      }
-    }
+function groupUnreadByThread(
+  messages: InboundMessage[],
+): Map<ThreadKey, InboundMessage[]> {
+  const groups = new Map<ThreadKey, InboundMessage[]>();
+  for (const message of messages) {
+    const key = threadKeyForMessage(message);
+    const list = groups.get(key) ?? [];
+    list.push(message);
+    groups.set(key, list);
   }
+  return groups;
 }

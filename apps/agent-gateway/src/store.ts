@@ -1,11 +1,15 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import type { InboundMessage } from "@digital-worker/agent-gateway-protocol";
+import type {
+  CorrelationEntry,
+  InboundMessage,
+} from "@digital-worker/agent-gateway-protocol";
 
 export type PersistedState = {
   messages: InboundMessage[];
   telegramOffset: number;
+  correlations?: Record<string, CorrelationEntry>;
 };
 
 export class GatewayStore {

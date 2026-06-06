@@ -6,6 +6,8 @@ import {
 } from "@digital-worker/agent-core-protocol";
 import type { Context } from "hono";
 
+import { createGatewayReplyForCorrelation } from "./gateway-reply.js";
+import type { NotifyJob } from "./job-types.js";
 import type { AppContext } from "./server.js";
 
 export function registerNotifyRoute(
@@ -18,6 +20,17 @@ export function registerNotifyRoute(
   ctx: AppContext,
 ): void {
   app.post(AGENT_CORE_PATHS.notify, (c) => handleNotify(c, ctx));
+}
+
+export function buildChannelMessagePrompt(
+  correlationId: string,
+  sender: string,
+  text: string,
+): string {
+  return `[conversation ${correlationId} from ${sender}]
+${sender}: ${text}
+
+(Reply normally — your reply is delivered to this conversation automatically. Use send_message only to reach a different conversation.)`;
 }
 
 async function handleNotify(c: Context, ctx: AppContext): Promise<Response> {
@@ -64,21 +77,41 @@ async function handleNotify(c: Context, ctx: AppContext): Promise<Response> {
     );
   }
 
+  const correlationId = body.correlationId?.trim();
+  const sender = body.sender?.trim() ?? "unknown";
+  const prompt = correlationId
+    ? buildChannelMessagePrompt(correlationId, sender, body.prompt.trim())
+    : body.prompt.trim();
+
   const jobId = crypto.randomUUID();
   const messageId = crypto.randomUUID();
   const abortController = new AbortController();
 
+  const job: NotifyJob = {
+    kind: "notify",
+    id: jobId,
+    messageId,
+    clientId: body.clientId.trim(),
+    prompt,
+    sessionId: ctx.sessionId,
+    enqueueAt: Date.now(),
+    signal: abortController.signal,
+    correlationId,
+    channel: body.channel?.trim(),
+    threadId: body.threadId?.trim(),
+    sender: body.sender?.trim(),
+    messageIds: body.messageIds,
+  };
+
+  if (correlationId && ctx.gatewayUrl) {
+    job.deliver = createGatewayReplyForCorrelation(
+      ctx.gatewayUrl,
+      correlationId,
+    );
+  }
+
   void ctx.runtime
-    .enqueue({
-      kind: "notify",
-      id: jobId,
-      messageId,
-      clientId: body.clientId.trim(),
-      prompt: body.prompt.trim(),
-      sessionId: ctx.sessionId,
-      enqueueAt: Date.now(),
-      signal: abortController.signal,
-    })
+    .enqueue(job)
     .catch((error) => {
       console.error("notify job failed:", error);
     });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   parseAllowedChatIds,
@@ -71,6 +71,56 @@ describe("TelegramAdapter", () => {
     };
 
     expect(adapter.normalizeUpdate(update)).toBeNull();
+  });
+
+  it("sends markdown as HTML with parse_mode", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, result: { message_id: 1 } }),
+    });
+
+    const adapter = new TelegramAdapter({
+      token: "test-token",
+      allowedChatIds: allowed,
+      fetchFn: fetchMock as unknown as typeof fetch,
+    });
+
+    await adapter.send("Hello **world**", "8672094762");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string,
+    ) as { parse_mode?: string; text: string };
+    expect(body.parse_mode).toBe("HTML");
+    expect(body.text).toContain("<b>world</b>");
+  });
+
+  it("falls back to plain text when HTML send is rejected", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        text: async () => "Bad Request: can't parse entities",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true, result: { message_id: 2 } }),
+      });
+
+    const adapter = new TelegramAdapter({
+      token: "test-token",
+      allowedChatIds: allowed,
+      fetchFn: fetchMock as unknown as typeof fetch,
+    });
+
+    await adapter.send("Hello **world**", "8672094762");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const fallbackBody = JSON.parse(
+      (fetchMock.mock.calls[1]?.[1] as RequestInit).body as string,
+    ) as { parse_mode?: string; text: string };
+    expect(fallbackBody.parse_mode).toBeUndefined();
+    expect(fallbackBody.text).toBe("Hello **world**");
   });
 });
 

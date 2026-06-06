@@ -11,6 +11,7 @@ import {
   type ChatJob,
   type InboxJob,
   isChatJob,
+  isNotifyJob,
 } from "./job-types.js";
 import type { MemoryManager } from "./memory/index.js";
 import type { ObserverHub } from "./observer-hub.js";
@@ -250,19 +251,47 @@ export class WorkerRuntime {
     };
     job.signal.addEventListener("abort", abortOnDisconnect);
 
+    let accumulatedText = "";
+    let sendMessageToSameThread = false;
+    const notifyJob = isNotifyJob(job) ? job : undefined;
+    const deliver = notifyJob?.deliver;
+    const jobThreadId = notifyJob?.threadId;
+
     const unsubscribe = this.agent.subscribe(async (event) => {
-      if (!isChatJob(job) || event.type !== "message_update") {
+      if (event.type === "message_update") {
+        const deltaEvent = event.assistantMessageEvent;
+        if (deltaEvent.type !== "text_delta" || deltaEvent.delta.length === 0) {
+          return;
+        }
+        if (deliver) {
+          accumulatedText += deltaEvent.delta;
+        }
+        if (isChatJob(job)) {
+          await job.emit({
+            type: CHAT_STREAM_EVENT.TOKEN,
+            sessionId: job.sessionId,
+            token: deltaEvent.delta,
+          });
+        }
         return;
       }
-      const deltaEvent = event.assistantMessageEvent;
-      if (deltaEvent.type !== "text_delta" || deltaEvent.delta.length === 0) {
-        return;
+
+      if (
+        event.type === "tool_execution_start" &&
+        deliver &&
+        jobThreadId &&
+        event.toolName === "send_message"
+      ) {
+        const args = event.args as { threadId?: string; channel?: string };
+        const targetThread = args.threadId?.trim() || jobThreadId;
+        const channel = args.channel?.trim() || notifyJob?.channel;
+        if (
+          targetThread === jobThreadId &&
+          (!channel || channel === notifyJob?.channel)
+        ) {
+          sendMessageToSameThread = true;
+        }
       }
-      await job.emit({
-        type: CHAT_STREAM_EVENT.TOKEN,
-        sessionId: job.sessionId,
-        token: deltaEvent.delta,
-      });
     });
 
     try {
@@ -270,6 +299,14 @@ export class WorkerRuntime {
 
       if (job.signal.aborted) {
         throw new Error("request cancelled");
+      }
+
+      if (deliver && accumulatedText.trim() && !sendMessageToSameThread) {
+        try {
+          await deliver(accumulatedText.trim(), notifyJob?.messageIds);
+        } catch (error) {
+          console.error("auto-reply delivery failed:", error);
+        }
       }
 
       await this.emitEvent(job, {

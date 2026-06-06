@@ -36,10 +36,30 @@ export type AckResponse = {
   acked: number;
 };
 
+/** Registered conversation routing entry. */
+export type CorrelationEntry = {
+  channel: string;
+  threadId: string;
+  sender: string;
+};
+
+/** POST body for auto-reply delivery from agent-core. */
+export type ReplyRequest = {
+  correlationId: string;
+  text: string;
+  messageIds?: string[];
+};
+
+export type ReplyResponse = {
+  delivered: boolean;
+  providerMessageId?: string;
+};
+
 /** HTTP paths implemented by agent-gateway. */
 export const GATEWAY_PATHS = {
   health: "/health",
   messages: "/api/v1/messages",
   outbound: "/api/v1/outbound",
   ack: "/api/v1/ack",
+  reply: "/api/v1/reply",
 } as const;

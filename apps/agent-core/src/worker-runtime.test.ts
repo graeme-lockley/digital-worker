@@ -192,4 +192,34 @@ describe("WorkerRuntime", () => {
 
     await runtime.stop();
   });
+
+  it("auto-delivers accumulated assistant text for notify jobs with deliver sink", async () => {
+    const harness = await createTestHarness("Telegram reply body");
+    const deliver = vi.fn().mockResolvedValue(undefined);
+
+    try {
+      await harness.runtime.enqueue({
+        kind: "notify",
+        id: crypto.randomUUID(),
+        messageId: crypto.randomUUID(),
+        clientId: "gateway",
+        prompt: "[conversation telegram:123 from graeme]\ngraeme: hi",
+        sessionId: TEST_SESSION_ID,
+        enqueueAt: Date.now(),
+        signal: new AbortController().signal,
+        correlationId: "telegram:123",
+        channel: "telegram",
+        threadId: "123",
+        sender: "graeme",
+        messageIds: ["msg-1"],
+        deliver,
+      });
+
+      await vi.waitFor(() => {
+        expect(deliver).toHaveBeenCalledWith("Telegram reply body", ["msg-1"]);
+      });
+    } finally {
+      await disposeTestHarness(harness);
+    }
+  });
 });

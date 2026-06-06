@@ -1,9 +1,14 @@
 import type { ChatStreamEvent } from "@digital-worker/agent-core-protocol";
 
-/** Optional streaming sink for chat jobs; notify jobs omit this. */
+/** Optional streaming sink for chat jobs; notify jobs may attach deliver for auto-reply. */
 export type OutputSink = {
   emit?: (event: ChatStreamEvent) => Promise<void>;
 };
+
+export type DeliverReply = (
+  text: string,
+  messageIds?: string[],
+) => Promise<void>;
 
 export type JobBase = {
   id: string;
@@ -22,10 +27,20 @@ export type ChatJob = JobBase & {
 
 export type NotifyJob = JobBase & {
   kind: "notify";
+  correlationId?: string;
+  channel?: string;
+  threadId?: string;
+  sender?: string;
+  messageIds?: string[];
+  deliver?: DeliverReply;
 };
 
 export type InboxJob = ChatJob | NotifyJob;
 
 export function isChatJob(job: InboxJob): job is ChatJob {
   return job.kind === "chat";
+}
+
+export function isNotifyJob(job: InboxJob): job is NotifyJob {
+  return job.kind === "notify";
 }
