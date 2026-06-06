@@ -25,7 +25,10 @@ export type MemoryConfig = {
   contextWindow: number;
   flushTimeoutMs: number;
   searchEnabled: boolean;
+  /** Augment full-text recall with local embedding (cosine) retrieval. */
+  semanticSearchEnabled: boolean;
   ollamaBaseUrl: string;
+  embeddingModel: string;
   distillBinary: string;
 };
 
@@ -38,7 +41,9 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
   contextWindow: 128_000,
   flushTimeoutMs: 60_000,
   searchEnabled: true,
+  semanticSearchEnabled: true,
   ollamaBaseUrl: "http://127.0.0.1:11434",
+  embeddingModel: "nomic-embed-text",
   distillBinary: "distill",
 };
 
@@ -86,6 +91,17 @@ export class MemoryManager {
 
   get index(): MemoryIndex {
     return this.deps.index;
+  }
+
+  /**
+   * Recall from the memory archive. Uses hybrid (lexical + semantic) retrieval
+   * when embeddings are available, otherwise falls back to full-text search.
+   */
+  async searchMemory(query: string, limit = 10) {
+    if (this.deps.config.semanticSearchEnabled) {
+      return this.deps.index.searchHybrid(query, limit);
+    }
+    return this.deps.index.search(query, limit);
   }
 
   get config(): MemoryConfig {

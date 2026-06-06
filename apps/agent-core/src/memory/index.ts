@@ -1,6 +1,13 @@
 export { MemoryStore, type MemoryManifest } from "./memory-store.js";
 export { MemoryIndex, type MemorySearchHit } from "./memory-index.js";
 export {
+  EmbeddingClient,
+  cosineSimilarity,
+  serializeVector,
+  deserializeVector,
+  type Embedder,
+} from "./embeddings.js";
+export {
   MemoryManager,
   loadBootstrapSection,
   DEFAULT_MEMORY_CONFIG,

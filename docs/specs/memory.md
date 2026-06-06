@@ -155,12 +155,26 @@ weekly/*.md → [Distill dedup] → [LLM summarize] → monthly/YYYY-MM.md
 | `promoted` | number |
 | `durationMs` | number |
 
-## SQLite FTS index
+## Search index (hybrid recall)
 
 - **Library:** Node.js built-in `node:sqlite` (`DatabaseSync`) with FTS5.
 - **Location:** `memory/index.db`
-- **Schema:** `memory_fts(file_path, date, section, content)` virtual table.
+- **Schema:**
+  - `memory_fts(file_path, date, section, content)` — FTS5 virtual table (lexical / BM25).
+  - `memory_chunks(id, file_path, date, section, content, embedding, dim)` — canonical chunk rows plus embedding vectors. `id` is kept aligned with the FTS `rowid` so the two arms fuse cleanly.
 - **Rebuild:** On startup if missing; via `maintain_memory` scope `reindex`; after roll-ups.
+
+### Retrieval
+
+`memory_search` runs **hybrid retrieval**:
+
+1. **Lexical arm** — BM25 over `memory_fts` (top 30 candidates).
+2. **Semantic arm** — embed the query with the local Ollama model (`nomic-embed-text` by default, the same instance the roll-up dedup uses), then rank chunk vectors by cosine similarity (top 30 candidates).
+3. **Fusion** — combine both ranked lists with Reciprocal Rank Fusion (`k = 60`) and return the top results.
+
+This lets paraphrased queries (e.g. "rugby sevens results" → a note about "the Blitzbokke") surface even with no shared keywords.
+
+**Graceful degradation:** embeddings are best-effort. If Ollama is unreachable or `--no-memory-semantic-search` is set, recall falls back to pure FTS. The embedding client trips a circuit breaker after the first failure so the lexical path never pays repeated timeouts (relevant for local `pnpm dev` / CI where Ollama is absent).
 
 ## CLI flags
 
@@ -173,6 +187,8 @@ weekly/*.md → [Distill dedup] → [LLM summarize] → monthly/YYYY-MM.md
 | `--memory-bootstrap-budget` | 8000 |
 | `--memory-context-window` | 128000 |
 | `--no-memory-search` | search enabled |
+| `--no-memory-semantic-search` | semantic recall enabled |
+| `--memory-embedding-model` | `nomic-embed-text` |
 
 ## Docker / cron
 
@@ -204,7 +220,8 @@ Before any memory write, regex patterns redact API keys, tokens, bearer headers,
 | Curated long-term | `MEMORY.md` | tight char limits | `memory/MEMORY.md` |
 | Pre-compaction flush | Yes | `flushOnCompact` | Yes |
 | Shutdown flush | Daily reset | `flushOnShutdown` | Yes |
-| Search | `memory_search` | SQLite FTS5 | `memory_search` + `node:sqlite` FTS5 |
+| Search | `memory_search` | SQLite FTS5 | `memory_search` (hybrid BM25 + embedding RRF) |
+| Semantic recall | Keyword only | Keyword only | Cosine over local embeddings, fused with BM25 |
 | Roll-up cron | External | Built-in | In-image cron |
 
 ## Persistence
