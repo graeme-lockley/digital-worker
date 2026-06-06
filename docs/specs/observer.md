@@ -28,6 +28,7 @@ It is separate from [chat-streaming](./chat-streaming.md), which is per-request 
 | Response `Accept` | `text/event-stream` (constant `OBSERVER_STREAM_ACCEPT`) |
 | Response body | SSE stream; each event `data: <JSON>\n\n` |
 | Persistence | None in v1 (live-only) |
+| Keepalive | SSE comment `: ping` every 15s while idle |
 
 ## Connection handshake
 

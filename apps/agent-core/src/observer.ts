@@ -6,6 +6,10 @@ import {
 import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 
+import {
+  OBSERVER_SSE_PING_INTERVAL_MS,
+  startObserverKeepalive,
+} from "./observer-keepalive.js";
 import type { AppContext } from "./server.js";
 
 export function registerObserverRoute(
@@ -34,9 +38,15 @@ async function handleObserver(c: Context, ctx: AppContext): Promise<Response> {
     await emit(hello);
 
     const unsubscribe = ctx.observer.subscribe(emit);
+    const stopKeepalive = startObserverKeepalive(
+      (chunk): Promise<void> => stream.write(chunk).then(() => undefined),
+      OBSERVER_SSE_PING_INTERVAL_MS,
+      c.req.raw.signal,
+    );
 
     await new Promise<void>((resolve) => {
       c.req.raw.signal.addEventListener("abort", () => {
+        stopKeepalive();
         unsubscribe();
         resolve();
       });

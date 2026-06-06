@@ -5,10 +5,7 @@ import {
 import { Box, Static, Text, useApp, useInput } from "ink";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
-import {
-  ObserverClientError,
-  streamObserver,
-} from "../observer-client.js";
+import { runObserverReconnectLoop } from "../observer-reconnect.js";
 
 export type AppProps = {
   agentName: string;
@@ -17,6 +14,8 @@ export type AppProps = {
 };
 
 type LineKind = "system" | "job" | "thinking" | "text" | "tool" | "error";
+
+type ConnectionPhase = "connecting" | "live" | "reconnecting";
 
 type TranscriptLine = {
   id: string;
@@ -69,14 +68,17 @@ export function App({
 }: AppProps): React.ReactElement {
   const { exit } = useApp();
   const abortRef = useRef<AbortController | undefined>();
+  const sessionIdRef = useRef<string | undefined>();
 
   const endpointNote =
     registeredEndpoint !== agentBaseUrl
       ? ` (registered as ${registeredEndpoint})`
       : "";
 
-  const [connected, setConnected] = useState(false);
+  const [connectionPhase, setConnectionPhase] =
+    useState<ConnectionPhase>("connecting");
   const [sessionId, setSessionId] = useState<string | undefined>();
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [activeJobId, setActiveJobId] = useState<string | undefined>();
   const [lines, setLines] = useState<TranscriptLine[]>([
     {
@@ -125,11 +127,26 @@ export function App({
   const handleEvent = useCallback(
     (event: ObserverEvent) => {
       switch (event.type) {
-        case OBSERVER_EVENT.HELLO:
+        case OBSERVER_EVENT.HELLO: {
+          const previous = sessionIdRef.current;
+          sessionIdRef.current = event.sessionId;
           setSessionId(event.sessionId);
-          setConnected(true);
-          pushLine("system", `Connected · session ${event.sessionId}`);
+          setConnectionPhase("live");
+          setReconnectAttempt(0);
+          setError(undefined);
+
+          if (!previous) {
+            pushLine("system", `Connected · session ${event.sessionId}`);
+          } else if (previous !== event.sessionId) {
+            pushLine(
+              "system",
+              `Agent restarted · new session ${event.sessionId}`,
+            );
+          } else {
+            pushLine("system", `Reconnected · session ${event.sessionId}`);
+          }
           break;
+        }
         case OBSERVER_EVENT.JOB_ENQUEUED:
           pushLine(
             "job",
@@ -186,42 +203,47 @@ export function App({
   const handleEventRef = useRef(handleEvent);
   handleEventRef.current = handleEvent;
 
+  const flushLiveRef = useRef(flushLive);
+  flushLiveRef.current = flushLive;
+
+  const pushLineRef = useRef(pushLine);
+  pushLineRef.current = pushLine;
+
   useEffect(() => {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    void (async () => {
-      try {
-        await streamObserver({
-          agentBaseUrl,
-          signal: controller.signal,
-          onEvent: (event) => handleEventRef.current(event),
-        });
-        if (!controller.signal.aborted) {
-          flushLive();
-          pushLine("system", "Observer stream closed.");
-          setConnected(false);
-        }
-      } catch (err) {
-        if (controller.signal.aborted) {
-          return;
-        }
-        const message =
-          err instanceof ObserverClientError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : "observer connection failed";
+    void runObserverReconnectLoop({
+      agentBaseUrl,
+      signal: controller.signal,
+      onEvent: (event) => handleEventRef.current(event),
+      onStreamClosed: () => {
+        flushLiveRef.current();
+        setConnectionPhase("reconnecting");
+        setSessionId(undefined);
+        pushLineRef.current("system", "Observer stream closed; reconnecting…");
+      },
+      onReconnecting: (attempt, delayMs) => {
+        setConnectionPhase("reconnecting");
+        setReconnectAttempt(attempt);
+        setSessionId(undefined);
+        pushLineRef.current(
+          "system",
+          `Reconnecting in ${Math.ceil(delayMs / 1000)}s (attempt ${attempt})…`,
+        );
+      },
+      onTransientError: (message) => {
+        setConnectionPhase("reconnecting");
+        setSessionId(undefined);
         setError(message);
-        setConnected(false);
-        pushLine("error", message);
-      }
-    })();
+        pushLineRef.current("error", message);
+      },
+    });
 
     return () => {
       controller.abort();
     };
-  }, [agentBaseUrl, flushLive, pushLine]);
+  }, [agentBaseUrl]);
 
   useInput((_, key) => {
     if (key.ctrl) {
@@ -230,9 +252,20 @@ export function App({
     }
   });
 
-  const statusColor = connected ? "green" : "yellow";
+  const statusColor =
+    connectionPhase === "live"
+      ? "green"
+      : connectionPhase === "reconnecting"
+        ? "yellow"
+        : "cyan";
+  const statusLabel =
+    connectionPhase === "live"
+      ? "live"
+      : connectionPhase === "reconnecting"
+        ? `reconnecting (#${reconnectAttempt})`
+        : "connecting";
   const statusParts = [
-    connected ? "live" : "connecting",
+    statusLabel,
     sessionId ? `session ${sessionId.slice(0, 8)}…` : null,
     activeJobId ? `job ${activeJobId.slice(0, 8)}…` : null,
   ]
