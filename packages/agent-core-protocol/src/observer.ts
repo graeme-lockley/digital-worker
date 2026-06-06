@@ -1,5 +1,5 @@
 /** Job kinds that enter the worker inbox. */
-export type ObserverJobKind = "chat" | "notify";
+export type ObserverJobKind = "chat" | "notify" | "message";
 
 export const OBSERVER_EVENT = {
   HELLO: "hello",

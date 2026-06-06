@@ -32,7 +32,8 @@ The dev-workstation stack runs **agent-register** (discovery + heartbeat), **age
 | Gateway mailbox pull + outbound send | **Done** | [gateway](./specs/gateway.md) | `GET /api/v1/messages`, `POST /api/v1/outbound` |
 | `check_messages` / `send_message` tools | **Done** | [gateway](./specs/gateway.md) | `apps/agent-core/src/tools/gateway-messages.ts` |
 | Gateway mailbox persistence | **Done** | [gateway](./specs/gateway.md) | `apps/agent-gateway/src/store.ts` |
-| Inter-agent message delivery (`DeliverMessage`) | **Not started** | [roadmap](./roadmap.md) | Types in `agent-core-protocol` only |
+| Inter-agent message delivery (`DeliverMessage`) | **Done** | [inter-agent-bus](./specs/inter-agent-bus.md) | `apps/agent-core/src/deliver.ts` |
+| `list_agents` / `send_to_agent` tools | **Done** | [inter-agent-bus](./specs/inter-agent-bus.md) | `apps/agent-core/src/tools/agent-messages.ts` |
 | Command queue (`/status`, `/abandon`, `/restart`, `/shutdown`) | **Done** | [agent-core-api](./specs/agent-core-api.md), [worker-runtime](./specs/worker-runtime.md) | `apps/agent-core`, `apps/agent-tui` |
 | Priority / judgment dequeue | **Not started** | [roadmap](./roadmap.md) | FIFO only today |
 | Skills loaded from markdown | **Done** | [skills](./specs/skills.md) | `SkillRegistry`, `refresh_skills` |
@@ -64,5 +65,5 @@ The dev-workstation stack runs **agent-register** (discovery + heartbeat), **age
 
 - **Local `pnpm dev` for agent-core** does not auto-load `.env`; export `DEEPSEEK_API_KEY` or pass `--api-key` (see [local-development](./deployment/local-development.md)).
 - **Second chat request while busy** queues and holds the HTTP connection until the job runs (by design; see [worker-runtime](./specs/worker-runtime.md)).
-- **DeliverMessage** routes are specified in types only; no HTTP handler exists yet (inter-agent bus remains on roadmap).
+- **Inter-agent reply routing** not implemented; delivery is fire-and-forget (see [inter-agent-bus](./specs/inter-agent-bus.md)).
 - **Email channel** not implemented; gateway `ChannelAdapter` is ready for extension.

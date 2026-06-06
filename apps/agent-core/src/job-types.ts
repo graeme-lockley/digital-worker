@@ -35,7 +35,13 @@ export type NotifyJob = JobBase & {
   deliver?: DeliverReply;
 };
 
-export type InboxJob = ChatJob | NotifyJob;
+export type MessageJob = JobBase & {
+  kind: "message";
+  fromAgentId: string;
+  messageType: string;
+};
+
+export type InboxJob = ChatJob | NotifyJob | MessageJob;
 
 export function isChatJob(job: InboxJob): job is ChatJob {
   return job.kind === "chat";
@@ -43,4 +49,8 @@ export function isChatJob(job: InboxJob): job is ChatJob {
 
 export function isNotifyJob(job: InboxJob): job is NotifyJob {
   return job.kind === "notify";
+}
+
+export function isMessageJob(job: InboxJob): job is MessageJob {
+  return job.kind === "message";
 }

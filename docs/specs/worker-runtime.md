@@ -59,9 +59,27 @@ Each accepted notify request becomes a job:
 
 Notify jobs call `agent.prompt()` like chat jobs but **do not emit SSE events**. When `deliver` is attached, the runtime accumulates assistant text during the turn and calls `deliver(text, messageIds)` on success. A dedup guard skips auto-delivery if the model calls `send_message` targeting the same `threadId`. The HTTP handler returns **202** immediately after enqueue.
 
+## MessageJob
+
+Each accepted inter-agent deliver request becomes a job:
+
+| Field | Meaning |
+|-------|---------|
+| `kind` | `"message"` |
+| `id` | Unique job id (returned as `jobId` internally; HTTP returns `messageId`) |
+| `messageId` | Envelope message id |
+| `clientId` | Sender agent id (`fromAgentId`) |
+| `prompt` | Labelled inter-agent message text |
+| `sessionId` | Stable worker session id |
+| `fromAgentId` | Sender agent id |
+| `messageType` | Envelope type (default `"message"`) |
+| `signal` | Abort signal (typically never aborted) |
+
+Message jobs call `agent.prompt()` like notify jobs but have no `deliver` callback and no SSE. See [inter-agent-bus.md](./inter-agent-bus.md).
+
 ## Notification jobs
 
-Channel messages from agent-gateway enter the same FIFO inbox as chat. They share the single pi Agent transcript; each turn is labelled by conversation. See [gateway.md](./gateway.md).
+Channel messages from agent-gateway and inter-agent messages share the same FIFO inbox as chat. They share the single pi Agent transcript; each turn is labelled by conversation or sender. See [gateway.md](./gateway.md) and [inter-agent-bus.md](./inter-agent-bus.md).
 
 ## Loop algorithm (FIFO)
 

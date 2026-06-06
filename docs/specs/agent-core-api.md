@@ -18,6 +18,7 @@ Each agent registers an `endpoint.url` (e.g. `http://127.0.0.1:3000`). All paths
 | `POST` | `/api/v1/chat` | Streaming chat — see [chat-streaming](./chat-streaming.md) |
 | `POST` | `/api/v1/command` | Operator commands — see below |
 | `POST` | `/api/v1/notify` | Async channel-message ingress with auto-reply — see below |
+| `POST` | `/api/v1/deliver` | Inter-agent message ingress — see [inter-agent-bus](./inter-agent-bus.md) |
 | `GET` | `/api/v1/observer` | Live operator observability SSE — see [observer](./observer.md) |
 
 Constants: `AGENT_CORE_PATHS` in `packages/agent-core-protocol/src/paths.ts`.
@@ -111,6 +112,37 @@ interface NotifyResponse {
 ```
 
 Validation errors match chat (`INVALID_REQUEST`, `SESSION_MISMATCH`).
+
+## POST /api/v1/deliver
+
+Inter-agent message ingress from another digital worker. Handled like notify jobs but **without SSE or auto-reply** — returns immediately after enqueue. See [inter-agent-bus.md](./inter-agent-bus.md).
+
+**Request body**
+
+```typescript
+interface DeliverMessageRequest {
+  message: AgentMessage<AgentMessagePayload>;
+}
+
+interface AgentMessagePayload {
+  text: string;
+}
+```
+
+**Response 202**
+
+```typescript
+interface DeliverMessageResponse {
+  messageId: string;
+  acceptedAt: string;
+}
+```
+
+| Condition | HTTP | Error code |
+|-----------|------|------------|
+| Invalid JSON | 400 | `INVALID_REQUEST` |
+| Missing required envelope fields | 400 | `INVALID_REQUEST` |
+| `message.toAgentId` ≠ this worker | 404 | `NOT_FOUND` |
 
 ## POST /api/v1/command
 
@@ -244,14 +276,6 @@ interface ApiErrorResponse {
 | `NOT_FOUND` | 404 |
 | `INTERNAL_ERROR` | 500 (also SSE `error` events) |
 
-## Not implemented
-
-| Planned | Protocol types |
-|---------|------------------|
-| Inter-agent message delivery | `DeliverMessageRequest`, `DeliverMessageResponse` in `message.ts` |
-
-No DeliverMessage route is mounted yet — see [roadmap.md](../roadmap.md). External human channels use **agent-gateway** instead — see [gateway.md](./gateway.md).
-
 ## CLI configuration
 
 Required and common flags for agent-core:
@@ -277,6 +301,8 @@ Required and common flags for agent-core:
 | `--memory-bootstrap-budget` | no | Recent memory chars in prompt (default 8000) |
 | `--no-memory-search` | no | Disable memory_search tool |
 | `--gateway-url <url>` | no | agent-gateway base URL for `check_messages` / `send_message` (or `GATEWAY_URL` env) |
+
+Inter-agent tools (`list_agents`, `send_to_agent`) are enabled when `--register-url` and `--agent-id` are set (register URL is always required; agent id is generated if omitted).
 
 Full local run: [deployment/local-development.md](../deployment/local-development.md).
 

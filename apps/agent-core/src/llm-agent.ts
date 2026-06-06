@@ -27,6 +27,10 @@ import {
   createSendMessageTool,
 } from "./tools/gateway-messages.js";
 import {
+  createListAgentsTool,
+  createSendToAgentTool,
+} from "./tools/agent-messages.js";
+import {
   AGENT_BROWSER_TOOL_NAME,
   resolvePiAgentBrowserExtensionPath,
 } from "./tools/pi-browser-plugin.js";
@@ -48,18 +52,24 @@ const BASE_TOOL_NAMES = [
   "memory_search",
   "check_messages",
   "send_message",
+  "list_agents",
+  "send_to_agent",
 ] as const;
 
 function buildToolAllowlist(
   browserEnabled: boolean,
   memorySearchEnabled: boolean,
   gatewayEnabled: boolean,
+  interAgentEnabled: boolean,
 ): string[] {
   const names = BASE_TOOL_NAMES.filter((n) => {
     if (!memorySearchEnabled && n === "memory_search") {
       return false;
     }
     if (!gatewayEnabled && (n === "check_messages" || n === "send_message")) {
+      return false;
+    }
+    if (!interAgentEnabled && (n === "list_agents" || n === "send_to_agent")) {
       return false;
     }
     return true;
@@ -106,6 +116,10 @@ export type CreateLlmAgentOptions = {
   initialMemorySection?: string;
   /** agent-gateway base URL; enables check_messages and send_message tools. */
   gatewayUrl?: string;
+  /** agent-register base URL; enables list_agents and send_to_agent tools. */
+  registerUrl?: string;
+  /** This worker's registration id; required for inter-agent tools. */
+  agentId?: string;
 };
 
 export type CreateLlmAgentResult = {
@@ -122,10 +136,14 @@ export async function createLlmAgent(
   const memorySearchEnabled =
     memoryEnabled && (options.memoryManager?.config.searchEnabled ?? true);
   const gatewayEnabled = Boolean(options.gatewayUrl?.trim());
+  const interAgentEnabled = Boolean(
+    options.registerUrl?.trim() && options.agentId?.trim(),
+  );
   const tools = buildToolAllowlist(
     browserEnabled,
     memorySearchEnabled,
     gatewayEnabled,
+    interAgentEnabled,
   );
 
   const agentDir = path.join(options.toolsCwd, ".agent-core-pi");
@@ -239,6 +257,17 @@ export async function createLlmAgent(
     customTools.push(
       createCheckMessagesTool(gatewayDeps),
       createSendMessageTool(gatewayDeps),
+    );
+  }
+
+  if (interAgentEnabled && options.registerUrl && options.agentId) {
+    const agentMessageDeps = {
+      registerUrl: options.registerUrl,
+      agentId: options.agentId,
+    };
+    customTools.push(
+      createListAgentsTool(agentMessageDeps),
+      createSendToAgentTool(agentMessageDeps),
     );
   }
 

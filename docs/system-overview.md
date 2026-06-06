@@ -32,17 +32,23 @@ flowchart LR
 
   subgraph workers [Workers]
     CORE[agent-core]
+    PEER[agent-core peer]
   end
 
   TG --> GW
-  GW -->|doorbell notify| CORE
-  CORE -->|check_messages / send_message| GW
+  GW -->|notify| CORE
+  CORE -->|reply| GW
+  CORE -->|send_to_agent| PEER
+  CORE -->|POST deliver| PEER
   TUI -->|list agents| REG
   OBS -->|list agents| REG
   TUI -->|POST chat SSE| CORE
   OBS -->|GET observer SSE| CORE
   CORE -->|register / deregister| REG
+  PEER -->|register / deregister| REG
   REG -->|poll heartbeat| CORE
+  REG -->|poll heartbeat| PEER
+  CORE -->|list agents| REG
 ```
 
 | Component | Path | Role |
@@ -81,7 +87,7 @@ Spec: [specs/chat-streaming.md](./specs/chat-streaming.md), [specs/worker-runtim
 
 1. Operator runs **agent-observer** and selects a registered agent.
 2. Client opens **GET** `/api/v1/observer` (long-lived SSE).
-3. Server sends `hello`, then streams job lifecycle, thinking, text, and tool events for **all** ingress (chat and notify).
+3. Server sends `hello`, then streams job lifecycle, thinking, text, and tool events for **all** ingress (chat, notify, and inter-agent message).
 4. Thinking appears only when the active model emits `thinking_delta` (e.g. reasoning models); the observer does not change thinking level.
 
 Spec: [specs/observer.md](./specs/observer.md)
@@ -90,7 +96,7 @@ Spec: [specs/observer.md](./specs/observer.md)
 
 Each **agent-core process** is exactly **one digital worker**:
 
-- One **inbox** (FIFO queue of chat jobs).
+- One **inbox** (FIFO queue of chat, notify, and inter-agent message jobs).
 - One **pi Agent** (conversation state).
 - One **outer loop** that processes at most one LLM run at a time.
 - One **command path** (`POST /api/v1/command`) for operator control that bypasses the chat inbox.
@@ -131,13 +137,24 @@ Spec: [specs/memory.md](./specs/memory.md)
 **agent-gateway** is the bidirectional edge for human-facing channels (Telegram today; email and others later):
 
 1. A **channel adapter** (e.g. Telegram long-poll) receives inbound messages.
-2. Content is stored in the gateway **mailbox**; only a **doorbell** notification is sent to agent-core (`POST /api/v1/notify`).
-3. The worker **pulls** messages via `check_messages` (or the `telegram` skill) when it chooses to act.
-4. The worker **sends** replies via `send_message` (or the skill) → `POST /api/v1/outbound` on the gateway.
+2. Content is stored in the gateway **mailbox** and forwarded to agent-core via `POST /api/v1/notify` with a **correlation id**.
+3. The worker receives a labelled conversation turn; assistant text is **auto-delivered** back to the originating channel via `POST /api/v1/reply` on the gateway.
+4. The worker uses `send_message` only for proactive updates or to reach a **different** conversation.
 
 Telegram credentials live on the gateway (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_CHAT_IDS` in `.env`), not in the workspace.
 
 Spec: [specs/gateway.md](./specs/gateway.md)
+
+## Inter-agent message bus
+
+Workers communicate with each other through a fire-and-forget message bus separate from agent-gateway:
+
+1. The sender resolves a peer via **agent-register** (`list_agents` tool or `GET /api/v1/agents`).
+2. The sender POSTs an `AgentMessage` to the peer's **`POST /api/v1/deliver`** endpoint (`send_to_agent` tool).
+3. The receiver enqueues a labelled **MessageJob** in the same FIFO inbox as chat and notify.
+4. There is **no automatic reply**; the receiver uses `send_to_agent` separately if a response is needed.
+
+Spec: [specs/inter-agent-bus.md](./specs/inter-agent-bus.md)
 
 ## Deployment units
 

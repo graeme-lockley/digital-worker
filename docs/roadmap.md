@@ -4,12 +4,6 @@ Ordered list of planned work not yet implemented. Items here are **not** current
 
 For what is already built see [build-state.md](./build-state.md) and git history.
 
-### Inter-agent message bus
-
-Workers should communicate through a core runtime message bus rather than direct HTTP calls between agents. The `DeliverMessage` request and response types already exist in `@digital-worker/agent-core-protocol`, but no HTTP routes are mounted on agent-core yet. Implementing delivery endpoints enables multi-agent workflows — one worker enqueueing work or passing context to another — which is central to the platform story in [system-overview.md](./system-overview.md).
-
-Note: **agent-gateway** now handles external human channels (Telegram) via doorbell/mailbox; the inter-agent bus is a separate concern for worker-to-worker messaging.
-
 ### Additional channels (email)
 
 Extend **agent-gateway** with an email `ChannelAdapter` (IMAP IDLE inbound, SMTP outbound). The gateway HTTP API and worker tools (`check_messages`, `send_message`) are already channel-agnostic. See [specs/gateway.md](./specs/gateway.md).
@@ -28,7 +22,7 @@ The worker runtime today dequeues chat jobs in strict FIFO order. Replacing or a
 
 ### Additional worker types
 
-New apps under `apps/` can follow the same agent-core-protocol and worker-runtime patterns as agent-core. Each worker type would register with agent-register, expose heartbeat and chat (and eventually DeliverMessage), and load its own workspace identity. This extends the platform from a single demo worker to a fleet of specialized digital workers.
+New apps under `apps/` can follow the same agent-core-protocol and worker-runtime patterns as agent-core. Each worker type would register with agent-register, expose heartbeat, chat, and inter-agent deliver, and load its own workspace identity. This extends the platform from a single demo worker to a fleet of specialized digital workers.
 
 ### OAuth LLM providers
 

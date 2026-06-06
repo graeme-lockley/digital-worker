@@ -31,11 +31,13 @@ export {
   type ChatStreamEventType,
   type ChatTokenEvent,
 } from "./chat.js";
-export type {
-  AgentMessage,
-  AgentMessageResponse,
-  DeliverMessageRequest,
-  DeliverMessageResponse,
+export {
+  AGENT_MESSAGE_TYPE,
+  type AgentMessage,
+  type AgentMessagePayload,
+  type AgentMessageResponse,
+  type DeliverMessageRequest,
+  type DeliverMessageResponse,
 } from "./message.js";
 export type { NotifyRequest, NotifyResponse } from "./notify.js";
 export {

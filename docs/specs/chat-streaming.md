@@ -103,6 +103,5 @@ Note: `error` events do not include `sessionId` in the type definition.
 
 - WebSocket transport
 - Tool call events on the chat SSE stream (tools run inside the worker loop only)
-- DeliverMessage / inter-agent chat on this endpoint
 
-See [roadmap.md](../roadmap.md).
+Inter-agent messaging uses `POST /api/v1/deliver` — see [inter-agent-bus.md](./inter-agent-bus.md).

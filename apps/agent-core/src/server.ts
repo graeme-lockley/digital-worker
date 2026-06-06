@@ -10,6 +10,7 @@ import { Hono } from "hono";
 import type { AgentSession } from "@earendil-works/pi-coding-agent";
 import { registerChatRoute } from "./chat.js";
 import { registerCommandRoute } from "./command.js";
+import { registerDeliverRoute } from "./deliver.js";
 import { registerNotifyRoute } from "./notify.js";
 import { registerObserverRoute } from "./observer.js";
 import type { ObserverHub } from "./observer-hub.js";
@@ -48,6 +49,7 @@ export function createApp(ctx: AppContext): Hono {
   registerChatRoute(app, ctx);
   registerCommandRoute(app, ctx);
   registerNotifyRoute(app, ctx);
+  registerDeliverRoute(app, ctx);
   registerObserverRoute(app, ctx);
 
   app.post(AGENT_CORE_PATHS.heartbeat, async (c) => {

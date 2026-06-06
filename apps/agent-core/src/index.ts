@@ -79,6 +79,8 @@ async function main(): Promise<void> {
     memoryManager,
     initialMemorySection,
     gatewayUrl: options.gatewayUrl,
+    registerUrl: options.registerUrl,
+    agentId: options.agentId,
   });
 
   const agent = session.agent;

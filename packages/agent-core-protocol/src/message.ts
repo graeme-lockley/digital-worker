@@ -1,3 +1,11 @@
+/** Standard fire-and-forget payload on the inter-agent message bus. */
+export interface AgentMessagePayload {
+  text: string;
+}
+
+/** Default message type for {@link AgentMessagePayload} deliveries. */
+export const AGENT_MESSAGE_TYPE = "message" as const;
+
 /** Envelope for a message sent from one agent to another. */
 export interface AgentMessage<TPayload = unknown> {
   messageId: string;
