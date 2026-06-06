@@ -4,6 +4,7 @@ export const AGENT_CORE_PATHS = {
   chat: "/api/v1/chat",
   command: "/api/v1/command",
   notify: "/api/v1/notify",
+  observer: "/api/v1/observer",
   health: "/health",
 } as const;
 

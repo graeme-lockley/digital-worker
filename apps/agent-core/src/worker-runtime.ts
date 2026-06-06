@@ -13,6 +13,13 @@ import {
   isChatJob,
 } from "./job-types.js";
 import type { MemoryManager } from "./memory/index.js";
+import type { ObserverHub } from "./observer-hub.js";
+import {
+  jobEnqueuedEvent,
+  jobFinishedEvent,
+  jobStartedEvent,
+  mapAgentEventToObserver,
+} from "./observer-map.js";
 
 export type { ChatJob } from "./job-types.js";
 
@@ -42,16 +49,29 @@ export class WorkerRuntime {
   private currentJobStartedAt?: number;
   private operatorAbandonRequested = false;
 
+  private observerUnsubscribe?: () => void;
+
   constructor(
     private readonly agent: Agent,
     readonly sessionId: string,
     private readonly memoryManager?: MemoryManager,
+    private readonly observer?: ObserverHub,
   ) {}
 
   start(): void {
     if (this.loopPromise) {
       return;
     }
+    this.observerUnsubscribe = this.agent.subscribe(async (event) => {
+      const jobId = this.currentJob?.id;
+      if (!jobId || !this.observer) {
+        return;
+      }
+      const mapped = mapAgentEventToObserver(event, jobId);
+      if (mapped) {
+        await this.observer.publish(mapped);
+      }
+    });
     this.loopPromise = this.runLoop();
   }
 
@@ -62,6 +82,8 @@ export class WorkerRuntime {
     this.stopped = true;
     this.notifyWaiters();
     this.agent.abort();
+    this.observerUnsubscribe?.();
+    this.observerUnsubscribe = undefined;
     await this.loopPromise;
   }
 
@@ -78,6 +100,7 @@ export class WorkerRuntime {
       };
       this.inbox.push(pending);
       this.notifyWaiters();
+      void this.observer?.publish(jobEnqueuedEvent(job));
     });
   }
 
@@ -191,17 +214,30 @@ export class WorkerRuntime {
 
       this.currentJob = job;
       this.currentJobStartedAt = Date.now();
+      await this.observer?.publish(jobStartedEvent(job));
+      let finishedStatus: "completed" | "failed" | "cancelled" = "completed";
+      let jobError: Error | undefined;
       try {
         await this.runJob(job);
+      } catch (error) {
+        finishedStatus =
+          job.signal.aborted ||
+          (error instanceof Error && error.message === "request cancelled")
+            ? "cancelled"
+            : "failed";
+        jobError =
+          error instanceof Error ? error : new Error(String(error));
+      }
+
+      await this.observer?.publish(jobFinishedEvent(job, finishedStatus));
+      this.currentJob = undefined;
+      this.currentJobStartedAt = undefined;
+
+      if (jobError) {
+        job.reject(jobError);
+      } else {
         job.resolve();
         await this.afterJobSettled();
-      } catch (error) {
-        job.reject(
-          error instanceof Error ? error : new Error(String(error)),
-        );
-      } finally {
-        this.currentJob = undefined;
-        this.currentJobStartedAt = undefined;
       }
     }
   }

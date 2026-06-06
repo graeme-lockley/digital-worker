@@ -38,3 +38,19 @@ export type {
   DeliverMessageResponse,
 } from "./message.js";
 export type { NotifyRequest, NotifyResponse } from "./notify.js";
+export {
+  OBSERVER_EVENT,
+  OBSERVER_STREAM_ACCEPT,
+  type ObserverEvent,
+  type ObserverEventType,
+  type ObserverHelloEvent,
+  type ObserverJobEnqueuedEvent,
+  type ObserverJobFinishedEvent,
+  type ObserverJobKind,
+  type ObserverJobStartedEvent,
+  type ObserverJobStatus,
+  type ObserverTextDeltaEvent,
+  type ObserverThinkingDeltaEvent,
+  type ObserverToolEndEvent,
+  type ObserverToolStartEvent,
+} from "./observer.js";

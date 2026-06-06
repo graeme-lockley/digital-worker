@@ -12,6 +12,7 @@ Technology choices and design rationale for the digital-worker monorepo.
 | agent-core | `apps/agent-core` | LLM digital worker (HTTP + worker loop) |
 | agent-gateway | `apps/agent-gateway` | External channel edge (Telegram mailbox + notify) |
 | agent-tui | `apps/agent-tui` | Terminal chat client |
+| agent-observer | `apps/agent-observer` | Live operator observability TUI |
 
 ## Protocol packages
 
@@ -41,6 +42,14 @@ Apps import these packages — do not duplicate request/response shapes in appli
 | TUI | [Ink](https://github.com/vadimdemedes/ink) | React-in-terminal |
 | Agent picker | [@clack/prompts](https://github.com/natemoo-re/clack) | Interactive select |
 | Chat | SSE over fetch | [specs/chat-streaming.md](./specs/chat-streaming.md) |
+
+### agent-observer
+
+| Concern | Choice | Rationale |
+|---------|--------|-----------|
+| TUI | [Ink](https://github.com/vadimdemedes/ink) | Same stack as agent-tui |
+| Agent picker | [@clack/prompts](https://github.com/natemoo-re/clack) | Reuses register discovery |
+| Observability | GET SSE over fetch | [specs/observer.md](./specs/observer.md) |
 
 ### agent-core
 

@@ -7,9 +7,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   CHAT_STREAM_EVENT,
+  OBSERVER_EVENT,
   type ChatStreamEvent,
+  type ObserverEvent,
 } from "@digital-worker/agent-core-protocol";
 
+import { ObserverHub } from "./observer-hub.js";
 import {
   createTestHarness,
   disposeTestHarness,
@@ -80,6 +83,37 @@ describe("WorkerRuntime", () => {
     }
   });
 
+  it("publishes observer lifecycle and text events", async () => {
+    const harness = await createTestHarness("Observer reply");
+    const observerEvents: ObserverEvent[] = [];
+    const unsubscribe = harness.ctx.observer.subscribe(async (event) => {
+      observerEvents.push(event);
+    });
+
+    try {
+      await collectEvents(harness, "observe me");
+
+      expect(
+        observerEvents.some((e) => e.type === OBSERVER_EVENT.JOB_ENQUEUED),
+      ).toBe(true);
+      expect(
+        observerEvents.some((e) => e.type === OBSERVER_EVENT.JOB_STARTED),
+      ).toBe(true);
+      expect(
+        observerEvents.some((e) => e.type === OBSERVER_EVENT.JOB_FINISHED),
+      ).toBe(true);
+      expect(
+        observerEvents
+          .filter((e) => e.type === OBSERVER_EVENT.TEXT_DELTA)
+          .map((e) => (e.type === OBSERVER_EVENT.TEXT_DELTA ? e.delta : ""))
+          .join(""),
+      ).toBe("Observer reply");
+    } finally {
+      unsubscribe();
+      await disposeTestHarness(harness);
+    }
+  });
+
   it("reports idle status", async () => {
     const harness = await createTestHarness();
     try {
@@ -110,7 +144,7 @@ describe("WorkerRuntime", () => {
       subscribe: vi.fn(() => () => {}),
     } as unknown as Agent;
 
-    const runtime = new WorkerRuntime(agent, TEST_SESSION_ID);
+    const runtime = new WorkerRuntime(agent, TEST_SESSION_ID, undefined, new ObserverHub());
     runtime.start();
 
     const events: ChatStreamEvent[] = [];

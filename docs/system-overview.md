@@ -13,7 +13,7 @@ For implementation status see [build-state.md](./build-state.md). For HTTP detai
 3. Run a **single serial worker loop** — one LLM conversation, one inbox, one request at a time.
 4. Load **identity** from workspace markdown files baked into the deployment.
 
-Today the primary runnable worker is **agent-core**. **agent-tui** is a terminal client for chat. More agent types may follow the same protocols.
+Today the primary runnable worker is **agent-core**. **agent-tui** is a terminal client for chat. **agent-observer** is a live operator TUI for all worker activity. More agent types may follow the same protocols.
 
 ## Components
 
@@ -21,6 +21,7 @@ Today the primary runnable worker is **agent-core**. **agent-tui** is a terminal
 flowchart LR
   subgraph clients [Clients]
     TUI[agent-tui]
+    OBS[agent-observer]
     TG[Telegram via gateway]
   end
 
@@ -37,7 +38,9 @@ flowchart LR
   GW -->|doorbell notify| CORE
   CORE -->|check_messages / send_message| GW
   TUI -->|list agents| REG
+  OBS -->|list agents| REG
   TUI -->|POST chat SSE| CORE
+  OBS -->|GET observer SSE| CORE
   CORE -->|register / deregister| REG
   REG -->|poll heartbeat| CORE
 ```
@@ -48,6 +51,7 @@ flowchart LR
 | **agent-core** | `apps/agent-core` | LLM worker process |
 | **agent-gateway** | `apps/agent-gateway` | External channel edge (Telegram, …) |
 | **agent-tui** | `apps/agent-tui` | Interactive terminal chat |
+| **agent-observer** | `apps/agent-observer` | Live operator observability TUI |
 | **agent-gateway** | `apps/agent-gateway` | Channel edge + mailbox |
 | **agent-register-protocol** | `packages/agent-register-protocol` | Register API types |
 | **agent-core-protocol** | `packages/agent-core-protocol` | Agent API + chat SSE types |
@@ -72,6 +76,15 @@ Spec: [specs/agent-register-api.md](./specs/agent-register-api.md)
 Multi-turn chat reuses the same pi `Agent` transcript: each successful prompt appends to `agent.state.messages`.
 
 Spec: [specs/chat-streaming.md](./specs/chat-streaming.md), [specs/worker-runtime.md](./specs/worker-runtime.md)
+
+## Observer flow
+
+1. Operator runs **agent-observer** and selects a registered agent.
+2. Client opens **GET** `/api/v1/observer` (long-lived SSE).
+3. Server sends `hello`, then streams job lifecycle, thinking, text, and tool events for **all** ingress (chat and notify).
+4. Thinking appears only when the active model emits `thinking_delta` (e.g. reasoning models); the observer does not change thinking level.
+
+Spec: [specs/observer.md](./specs/observer.md)
 
 ## Worker execution model
 

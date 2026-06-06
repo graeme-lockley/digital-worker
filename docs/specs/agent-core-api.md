@@ -18,6 +18,7 @@ Each agent registers an `endpoint.url` (e.g. `http://127.0.0.1:3000`). All paths
 | `POST` | `/api/v1/chat` | Streaming chat — see [chat-streaming](./chat-streaming.md) |
 | `POST` | `/api/v1/command` | Operator commands — see below |
 | `POST` | `/api/v1/notify` | Async doorbell notifications — see below |
+| `GET` | `/api/v1/observer` | Live operator observability SSE — see [observer](./observer.md) |
 
 Constants: `AGENT_CORE_PATHS` in `packages/agent-core-protocol/src/paths.ts`.
 

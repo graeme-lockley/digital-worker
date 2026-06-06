@@ -10,6 +10,7 @@ import {
 import { spawnReplacementProcess, usesRestartLoop, RESTART_EXIT_CODE } from "./process-restart.js";
 import { deregisterAgent, registerAgent } from "./registration.js";
 import { getConfiguredModel, resolveApiKey } from "./llm-config.js";
+import { ObserverHub } from "./observer-hub.js";
 import { startServer } from "./server.js";
 import {
   extractPurposeFromMandate,
@@ -83,7 +84,8 @@ async function main(): Promise<void> {
   const agent = session.agent;
 
   const sessionId = crypto.randomUUID();
-  const runtime = new WorkerRuntime(agent, sessionId, memoryManager);
+  const observer = new ObserverHub();
+  const runtime = new WorkerRuntime(agent, sessionId, memoryManager, observer);
   runtime.start();
 
   const purpose =
@@ -152,6 +154,7 @@ async function main(): Promise<void> {
         current: model.provider === options.llm.provider && model.id === options.llm.modelId,
       })),
       runtime,
+      observer,
       memoryManager,
       onShutdown: shutdown,
       onRestart: restart,

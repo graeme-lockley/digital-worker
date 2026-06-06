@@ -6,7 +6,7 @@ Living snapshot of what this repository implements. Update this file when featur
 
 ## Summary
 
-The dev-workstation stack runs **agent-register** (discovery + heartbeat), **agent-core** (LLM worker with workspace identity), and **agent-gateway** (Telegram channel edge). **agent-tui** provides a terminal chat client. Chat uses SSE streaming backed by [pi-agent-core](https://github.com/earendil-works/pi). External channels use a doorbell/mailbox model via [gateway spec](./specs/gateway.md).
+The dev-workstation stack runs **agent-register** (discovery + heartbeat), **agent-core** (LLM worker with workspace identity), and **agent-gateway** (Telegram channel edge). **agent-tui** provides a terminal chat client; **agent-observer** provides live operator observability. Chat uses SSE streaming backed by [pi-agent-core](https://github.com/earendil-works/pi). External channels use a doorbell/mailbox model via [gateway spec](./specs/gateway.md).
 
 ## Feature matrix
 
@@ -23,6 +23,8 @@ The dev-workstation stack runs **agent-register** (discovery + heartbeat), **age
 | Builtin pi tools (`read`, `write`, `bash`, `ls`) | **Done** | [worker-runtime](./specs/worker-runtime.md) | `apps/agent-core/src/llm-agent.ts` |
 | Web browsing (`agent_browser`) | **Done** | [web-browsing](./specs/web-browsing.md) | `pi-agent-browser-native` via `createAgentSession` |
 | Terminal chat UI | **Done** | [chat-streaming](./specs/chat-streaming.md) | `apps/agent-tui` |
+| Observer SSE (`/api/v1/observer`) | **Done** | [observer](./specs/observer.md) | `apps/agent-core/src/observer.ts` |
+| Live observer TUI | **Done** | [observer](./specs/observer.md) | `apps/agent-observer` |
 | Docker dev-workstation | **Done** | [dev-workstation](./deployment/dev-workstation.md) | `infra/dev-workstation/` |
 | Project-root `.env` for API keys | **Done** | [dev-workstation](./deployment/dev-workstation.md) | `package.json` `docker:dev` |
 | **agent-gateway** (Telegram edge) | **Done** | [gateway](./specs/gateway.md) | `apps/agent-gateway` |
@@ -56,6 +58,7 @@ The dev-workstation stack runs **agent-register** (discovery + heartbeat), **age
 | agent-core | **≥ 22.19** | Required by `@earendil-works/pi-agent-core`; Docker image includes `agent-browser` + Chrome |
 | agent-gateway | ≥ 20 | Alpine 22 in Docker; outbound internet for Telegram API |
 | agent-tui | ≥ 20 | Ink + fetch |
+| agent-observer | ≥ 20 | Ink + fetch |
 
 ## Known gaps
 

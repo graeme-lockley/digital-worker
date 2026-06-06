@@ -11,6 +11,8 @@ import type { AgentSession } from "@earendil-works/pi-coding-agent";
 import { registerChatRoute } from "./chat.js";
 import { registerCommandRoute } from "./command.js";
 import { registerNotifyRoute } from "./notify.js";
+import { registerObserverRoute } from "./observer.js";
+import type { ObserverHub } from "./observer-hub.js";
 import type { ServerOptions } from "./cli.js";
 import type { MemoryManager } from "./memory/index.js";
 import type { WorkerRuntime } from "./worker-runtime.js";
@@ -21,6 +23,7 @@ export type AppContext = {
   session: AgentSession;
   models: ModelDescriptor[];
   runtime: WorkerRuntime;
+  observer: ObserverHub;
   memoryManager?: MemoryManager;
   onShutdown: (reason: string) => Promise<void>;
   onRestart: (reason: string) => Promise<void>;
@@ -44,6 +47,7 @@ export function createApp(ctx: AppContext): Hono {
   registerChatRoute(app, ctx);
   registerCommandRoute(app, ctx);
   registerNotifyRoute(app, ctx);
+  registerObserverRoute(app, ctx);
 
   app.post(AGENT_CORE_PATHS.heartbeat, async (c) => {
     await c.req.json<HeartbeatRequest>().catch(() => ({}));

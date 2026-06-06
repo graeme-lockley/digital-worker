@@ -19,6 +19,7 @@ Normative behaviour for the **agent-core** execution loop: one process, one inbo
 | `Agent` (pi-agent-core) | LLM calls, transcript, tools |
 | Chat HTTP handler | Validate request, enqueue `ChatJob`, stream SSE from job callbacks |
 | Notify HTTP handler | Validate request, enqueue `NotifyJob`, return 202 — see [gateway](./gateway.md) |
+| Observer HTTP handler | Long-lived SSE fan-out of job lifecycle and pi Agent events — see [observer](./observer.md) |
 | Command HTTP handler | Validate request, run operator commands out-of-band — see [agent-core-api](./agent-core-api.md#post-apiv1command) |
 
 ## ChatJob

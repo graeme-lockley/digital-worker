@@ -12,6 +12,7 @@ import {
 
 import { createLlmAgent } from "./llm-agent.js";
 import { MemoryIndex, MemoryManager, MemoryStore, DEFAULT_MEMORY_CONFIG } from "./memory/index.js";
+import { ObserverHub } from "./observer-hub.js";
 import { createApp, type AppContext } from "./server.js";
 import { loadWorkspace } from "./workspace/index.js";
 import { WorkerRuntime } from "./worker-runtime.js";
@@ -103,7 +104,13 @@ export async function createTestHarness(
 
   memoryManager.setGetAgent(() => session.agent);
 
-  const runtime = new WorkerRuntime(session.agent, TEST_SESSION_ID, memoryManager);
+  const observer = new ObserverHub();
+  const runtime = new WorkerRuntime(
+    session.agent,
+    TEST_SESSION_ID,
+    memoryManager,
+    observer,
+  );
   runtime.start();
 
   const ctx: AppContext = {
@@ -112,6 +119,7 @@ export async function createTestHarness(
     session,
     models: [{ provider: model.provider, id: model.id, current: true }],
     runtime,
+    observer,
     memoryManager,
     onShutdown: async () => {},
     onRestart: async () => {},

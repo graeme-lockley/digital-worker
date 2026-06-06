@@ -57,6 +57,18 @@ pnpm --filter @digital-worker/agent-tui dev -- \
   --agent-name Aida
 ```
 
+### Terminal 5 (optional) — agent-observer
+
+Watch all worker activity live (chat, Telegram notify, tools, thinking):
+
+```bash
+pnpm --filter @digital-worker/agent-observer dev -- \
+  -r http://127.0.0.1:3001 \
+  --agent-name Aida
+```
+
+To see model **thinking** in the observer, run agent-core with a reasoning model (e.g. `--model deepseek-reasoner`). The default `deepseek-chat` / `deepseek-v4-flash` models do not emit thinking events. The observer forwards thinking when the model produces it — it does not change thinking level or add token cost.
+
 ## Three-terminal workflow (without Telegram)
 
 ### Terminal 1 — agent-register (port 3001)
@@ -90,6 +102,16 @@ pnpm --filter @digital-worker/agent-tui dev -- \
   -r http://127.0.0.1:3001 \
   --agent-name Aida
 ```
+
+### Terminal 4 (optional) — agent-observer
+
+```bash
+pnpm --filter @digital-worker/agent-observer dev -- \
+  -r http://127.0.0.1:3001 \
+  --agent-name Aida
+```
+
+See [specs/observer.md](../specs/observer.md) for reasoning-model notes.
 
 ## Verify
 

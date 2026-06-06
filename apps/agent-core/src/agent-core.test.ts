@@ -7,6 +7,7 @@ import { parseCli } from "./cli.js";
 import { buildAgentEndpointUrl, resolveAdvertisedHost } from "./endpoint.js";
 import { createLlmAgent } from "./llm-agent.js";
 import { deregisterAgent, registerAgent } from "./registration.js";
+import { ObserverHub } from "./observer-hub.js";
 import { createApp } from "./server.js";
 import { WorkerRuntime } from "./worker-runtime.js";
 import { loadWorkspace } from "./workspace/index.js";
@@ -221,6 +222,7 @@ describe("command plane model switching", () => {
       const runtime = new WorkerRuntime(session.agent, TEST_SESSION_ID);
       runtime.start();
 
+      const observer = new ObserverHub();
       const ctx = {
         agentId: TEST_AGENT_ID,
         sessionId: TEST_SESSION_ID,
@@ -230,6 +232,7 @@ describe("command plane model switching", () => {
           { provider: modelB!.provider, id: modelB!.id, current: false },
         ],
         runtime,
+        observer,
         onShutdown: async () => {},
         onRestart: async () => {},
       };

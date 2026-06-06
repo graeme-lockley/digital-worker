@@ -8,6 +8,7 @@ describe("AGENT_CORE_PATHS", () => {
     expect(AGENT_CORE_PATHS.chat).toBe("/api/v1/chat");
     expect(AGENT_CORE_PATHS.command).toBe("/api/v1/command");
     expect(AGENT_CORE_PATHS.notify).toBe("/api/v1/notify");
+    expect(AGENT_CORE_PATHS.observer).toBe("/api/v1/observer");
     expect(AGENT_CORE_PATHS.health).toBe("/health");
   });
 });

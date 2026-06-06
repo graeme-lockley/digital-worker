@@ -34,6 +34,6 @@ New apps under `apps/` can follow the same agent-core-protocol and worker-runtim
 
 Today LLM access relies on static API keys (e.g. `DEEPSEEK_API_KEY`). Supporting OAuth flows for Copilot, Codex, and other pi-ai providers would broaden deployment options and align with providers that do not issue long-lived API keys.
 
-### Observability
+### Observability (remaining)
 
-Production operation needs structured logging, queue depth metrics, and LLM usage or cost reporting exposed on `/api/v1` (or a dedicated metrics endpoint). This would give operators visibility into worker health, backlog, and spend without reading process logs ad hoc.
+Live operator observability via `GET /api/v1/observer` and **agent-observer** is implemented — see [specs/observer.md](./specs/observer.md). Remaining work: structured logging, queue depth metrics, LLM usage/cost reporting, and event persistence/replay.
