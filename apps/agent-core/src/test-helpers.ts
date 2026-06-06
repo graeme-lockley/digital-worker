@@ -81,7 +81,7 @@ export async function createTestHarness(
   await memoryManager.initialize();
   const initialMemorySection = await memoryManager.loadBootstrap();
 
-  const agent = await createLlmAgent({
+  const { session } = await createLlmAgent({
     llm: { provider: model.provider, modelId: model.id },
     model,
     apiKey: "faux-test-key",
@@ -101,14 +101,16 @@ export async function createTestHarness(
     initialMemorySection,
   });
 
-  memoryManager.setGetAgent(() => agent);
+  memoryManager.setGetAgent(() => session.agent);
 
-  const runtime = new WorkerRuntime(agent, TEST_SESSION_ID, memoryManager);
+  const runtime = new WorkerRuntime(session.agent, TEST_SESSION_ID, memoryManager);
   runtime.start();
 
   const ctx: AppContext = {
     agentId: TEST_AGENT_ID,
     sessionId: TEST_SESSION_ID,
+    session,
+    models: [{ provider: model.provider, id: model.id, current: true }],
     runtime,
     memoryManager,
     onShutdown: async () => {},

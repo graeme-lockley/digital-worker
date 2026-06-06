@@ -34,6 +34,7 @@ pnpm --filter @digital-worker/agent-core dev -- \
   --register-url http://127.0.0.1:3001 \
   --provider deepseek \
   --model deepseek-v4-flash \
+  --models deepseek-v4-flash,deepseek-v4-pro \
   --agent-name Aida
 ```
 

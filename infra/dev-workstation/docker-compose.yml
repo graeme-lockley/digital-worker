@@ -62,6 +62,8 @@ services:
       - deepseek
       - --model
       - deepseek-v4-flash
+      - --models
+      - deepseek-v4-flash,deepseek-v4-pro
       - --skills
       - pnpm-workspace,conventional-commits,memory-curation
       - --memory-flush-soft-threshold-tokens

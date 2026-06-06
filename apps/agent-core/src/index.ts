@@ -2,6 +2,7 @@ import { parseCli } from "./cli.js";
 import { buildAgentEndpointUrl } from "./endpoint.js";
 import { createLlmAgent } from "./llm-agent.js";
 import {
+  EmbeddingClient,
   MemoryIndex,
   MemoryManager,
   MemoryStore,
@@ -29,7 +30,14 @@ async function main(): Promise<void> {
   let identitySnapshot = { ...loaded.identity };
 
   const memoryStore = new MemoryStore(options.workspaceDir);
-  const memoryIndex = new MemoryIndex(memoryStore.paths);
+  const embedder =
+    options.memory.enabled && options.memory.semanticSearchEnabled
+      ? new EmbeddingClient({
+          baseUrl: options.memory.ollamaBaseUrl,
+          model: options.memory.embeddingModel,
+        })
+      : undefined;
+  const memoryIndex = new MemoryIndex(memoryStore.paths, embedder);
   const model = getConfiguredModel(options.llm);
   const apiKey = resolveApiKey(options.llm.provider, options.apiKey) ?? "";
 
@@ -51,11 +59,12 @@ async function main(): Promise<void> {
     ? await memoryManager.loadBootstrap()
     : "";
 
-  const agent = await createLlmAgent({
+  const { session } = await createLlmAgent({
     llm: options.llm,
     apiKey: options.apiKey,
     toolsCwd: options.toolsCwd,
     browserEnabled: options.browserEnabled,
+    scopedModels: options.models.map((model) => ({ model })),
     identity: identitySnapshot,
     identityStore: loaded.identityStore,
     userStore: loaded.userStore,
@@ -69,6 +78,8 @@ async function main(): Promise<void> {
     memoryManager,
     initialMemorySection,
   });
+
+  const agent = session.agent;
 
   const sessionId = crypto.randomUUID();
   const runtime = new WorkerRuntime(agent, sessionId, memoryManager);
@@ -133,6 +144,12 @@ async function main(): Promise<void> {
     {
       agentId: options.agentId,
       sessionId,
+      session,
+      models: options.models.map((model) => ({
+        provider: model.provider,
+        id: model.id,
+        current: model.provider === options.llm.provider && model.id === options.llm.modelId,
+      })),
       runtime,
       memoryManager,
       onShutdown: shutdown,

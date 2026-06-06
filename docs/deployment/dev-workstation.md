@@ -69,7 +69,7 @@ docker-compose --env-file .env --project-directory . \
 - Agent **Aida** (`--agent-name Aida`); workspace: `/app/workspace/Aida` (bind-mounted from `./workspace/Aida` on the host)
 - Memory: episodic daily logs, flush on compaction/shutdown, cron roll-ups (Distill + Ollama)
 - Builtin tools default to the workspace directory (no separate `--tools-cwd`)
-- LLM: `--provider deepseek --model deepseek-v4-flash`
+- LLM: `--provider deepseek --model deepseek-v4-flash --models deepseek-v4-flash,deepseek-v4-pro`
 - Requires `DEEPSEEK_API_KEY` from `.env`
 - Image includes: **Ollama** + `nomic-embed-text` (baked at build), **Distill** CLI, **cron**, **sqlite3**
 - Image base: `node:22-bookworm-slim` (agent-core runtime; register remains alpine)

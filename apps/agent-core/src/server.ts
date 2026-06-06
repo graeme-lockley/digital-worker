@@ -1,11 +1,13 @@
 import {
   AGENT_CORE_PATHS,
+  type ModelDescriptor,
   type HeartbeatRequest,
   type HeartbeatResponse,
 } from "@digital-worker/agent-core-protocol";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 
+import type { AgentSession } from "@earendil-works/pi-coding-agent";
 import { registerChatRoute } from "./chat.js";
 import { registerCommandRoute } from "./command.js";
 import type { ServerOptions } from "./cli.js";
@@ -15,6 +17,8 @@ import type { WorkerRuntime } from "./worker-runtime.js";
 export type AppContext = {
   agentId: string;
   sessionId: string;
+  session: AgentSession;
+  models: ModelDescriptor[];
   runtime: WorkerRuntime;
   memoryManager?: MemoryManager;
   onShutdown: (reason: string) => Promise<void>;

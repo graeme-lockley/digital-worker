@@ -2,12 +2,14 @@ import {
   AGENT_COMMAND,
   AGENT_CORE_ERROR_CODES,
   AGENT_CORE_PATHS,
+  type ModelDescriptor,
   type AgentCommandName,
   type CommandRequest,
 } from "@digital-worker/agent-core-protocol";
 import type { Context } from "hono";
 
 import type { AppContext } from "./server.js";
+import { parseModelArg } from "./llm-config.js";
 
 const KNOWN_COMMANDS = new Set<string>(Object.values(AGENT_COMMAND));
 
@@ -124,6 +126,62 @@ async function handleCommand(c: Context, ctx: AppContext): Promise<Response> {
       }
       const result = await ctx.memoryManager.runMaintenance(body.scope);
       return c.json(result);
+    }
+    case AGENT_COMMAND.LIST_MODELS: {
+      const current = ctx.session.model;
+      const models = ctx.models.map((m) => ({
+        ...m,
+        current: m.provider === current.provider && m.id === current.id,
+      }));
+      const currentDescriptor = models.find((m) => m.current) ?? {
+        provider: current.provider,
+        id: current.id,
+        current: true,
+      };
+      return c.json({ models, current: currentDescriptor });
+    }
+    case AGENT_COMMAND.SET_MODEL: {
+      const raw = body.model?.trim();
+      if (!raw) {
+        return c.json(
+          {
+            error: {
+              code: AGENT_CORE_ERROR_CODES.INVALID_REQUEST,
+              message: "model is required for set_model",
+            },
+          },
+          400,
+        );
+      }
+
+      const parsed = parseModelArg(raw);
+      const provider = parsed.provider ?? ctx.session.model.provider;
+      const resolved = ctx.session.scopedModels.find(
+        (entry) =>
+          entry.model.provider === provider && entry.model.id === parsed.modelId,
+      )?.model;
+
+      if (!resolved) {
+        return c.json(
+          {
+            error: {
+              code: AGENT_CORE_ERROR_CODES.INVALID_REQUEST,
+              message: `model ${provider}/${parsed.modelId} is not in the allowed roster`,
+            },
+          },
+          400,
+        );
+      }
+
+      await ctx.session.setModel(resolved);
+      ctx.memoryManager?.setModel(resolved);
+
+      const responseModel: ModelDescriptor = {
+        provider: resolved.provider,
+        id: resolved.id,
+        current: true,
+      };
+      return c.json({ model: responseModel });
     }
     default:
       return c.json(

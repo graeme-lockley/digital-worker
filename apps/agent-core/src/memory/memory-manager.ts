@@ -62,6 +62,14 @@ export class MemoryManager {
 
   constructor(private readonly deps: MemoryManagerDeps) {}
 
+  /**
+   * Update the model used by the memory subsystem for maintenance/rollups.
+   * This is intentionally independent of the runtime Agent's transcript.
+   */
+  setModel(model: Model<string>): void {
+    this.deps.model = model;
+  }
+
   /** Wire agent reference after session creation. */
   setGetAgent(getAgent: () => Agent | undefined): void {
     this.deps.getAgent = getAgent;

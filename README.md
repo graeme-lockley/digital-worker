@@ -96,6 +96,7 @@ pnpm --filter @digital-worker/agent-register dev                            # te
 pnpm --filter @digital-worker/agent-core dev -- \
   -r http://127.0.0.1:3001 \
   --provider deepseek --model deepseek-v4-flash \
+  --models deepseek-v4-flash,deepseek-v4-pro \
   --agent-name Aida   # terminal 2 (port 3000; set DEEPSEEK_API_KEY)
 
 pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001
@@ -120,6 +121,7 @@ pnpm --filter @digital-worker/agent-register dev
 pnpm --filter @digital-worker/agent-core dev -- \
   --register-url http://127.0.0.1:3001 \
   --provider deepseek --model deepseek-v4-flash \
+  --models deepseek-v4-flash,deepseek-v4-pro \
   --agent-name Aida
 ```
 

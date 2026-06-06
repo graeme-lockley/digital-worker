@@ -5,6 +5,8 @@ export const AGENT_COMMAND = {
   SHUTDOWN: "shutdown",
   RESTART: "restart",
   MAINTAIN_MEMORY: "maintain_memory",
+  LIST_MODELS: "list_models",
+  SET_MODEL: "set_model",
 } as const;
 
 /** Scope for maintain_memory maintenance runs. */
@@ -23,12 +25,26 @@ export interface CommandRequest {
   sessionId?: string;
   /** Scope for maintain_memory (defaults to weekly + monthly when omitted). */
   scope?: MaintainMemoryScope;
+  /**
+   * Optional model id or provider/model shorthand.
+   * Used by the set_model command.
+   */
+  model?: string;
 }
 
 export interface ActiveJobStatus {
   jobId: string;
   clientId: string;
   runningForMs: number;
+}
+
+export interface ModelDescriptor {
+  provider: string;
+  id: string;
+  /** Optional UI label (fallback: provider/id). */
+  label?: string;
+  /** True when this model is currently active on the worker. */
+  current: boolean;
 }
 
 export interface StatusResult {
@@ -62,9 +78,20 @@ export interface MaintainMemoryResult {
   durationMs: number;
 }
 
+export interface ListModelsResult {
+  models: ModelDescriptor[];
+  current: ModelDescriptor;
+}
+
+export interface SetModelResult {
+  model: ModelDescriptor;
+}
+
 export type CommandResponse =
   | StatusResult
   | AbandonResult
   | ShutdownResult
   | RestartResult
-  | MaintainMemoryResult;
+  | MaintainMemoryResult
+  | ListModelsResult
+  | SetModelResult;

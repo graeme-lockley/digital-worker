@@ -4,6 +4,7 @@ import type { Agent } from "@earendil-works/pi-agent-core";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { Model } from "@earendil-works/pi-ai";
 import {
+  type AgentSession,
   AuthStorage,
   createAgentSession,
   DefaultResourceLoader,
@@ -80,6 +81,8 @@ export type CreateLlmAgentOptions = {
   browserEnabled?: boolean;
   /** Override resolved model (e.g. pi-ai faux provider in tests). */
   model?: Model<string>;
+  /** Optional roster for native Pi model cycling/picker. */
+  scopedModels?: Array<{ model: Model<string> }>;
   identity: WorkspaceIdentity;
   getIdentity: () => WorkspaceIdentity;
   setIdentityContent: (content: string) => void;
@@ -90,7 +93,13 @@ export type CreateLlmAgentOptions = {
   initialMemorySection?: string;
 };
 
-export async function createLlmAgent(options: CreateLlmAgentOptions): Promise<Agent> {
+export type CreateLlmAgentResult = {
+  session: AgentSession;
+};
+
+export async function createLlmAgent(
+  options: CreateLlmAgentOptions,
+): Promise<CreateLlmAgentResult> {
   assertApiKeyConfigured(options.llm.provider, options.apiKey);
   const model = options.model ?? getConfiguredModel(options.llm);
   const browserEnabled = options.browserEnabled ?? true;
@@ -215,11 +224,12 @@ export async function createLlmAgent(options: CreateLlmAgentOptions): Promise<Ag
     modelRegistry,
     customTools,
     tools,
+    scopedModels: options.scopedModels,
   });
 
   agentRef.current = session.agent;
   if (options.memoryManager) {
     options.memoryManager.setGetAgent(() => agentRef.current);
   }
-  return session.agent;
+  return { session };
 }

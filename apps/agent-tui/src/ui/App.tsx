@@ -12,8 +12,10 @@ import { ChatClientError, streamChat } from "../chat-client.js";
 import {
   CommandClientError,
   formatCommandResponse,
+  listModels,
   parseSlashCommand,
   sendCommand,
+  setModel,
 } from "../command-client.js";
 import { MarkdownText } from "./MarkdownText.js";
 
@@ -84,7 +86,7 @@ export function App({
     {
       id: "system-connected",
       role: "system",
-      content: `Connected to ${agentName} at ${agentBaseUrl}${endpointNote}. Type a message and press Enter. Commands: /status, /abandon, /restart, /shutdown. Ctrl+C to quit.`,
+      content: `Connected to ${agentName} at ${agentBaseUrl}${endpointNote}. Type a message and press Enter. Commands: /status, /abandon, /model, /restart, /shutdown. Ctrl+C to quit.`,
     },
   ]);
   const [input, setInput] = useState("");
@@ -93,6 +95,11 @@ export function App({
   const [reconnecting, setReconnecting] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [modelPickerIndex, setModelPickerIndex] = useState(0);
+  const [availableModels, setAvailableModels] = useState<
+    Array<{ provider: string; id: string; current: boolean }>
+  >([]);
 
   useInput((_, key) => {
     if (key.ctrl && input === "" && !busy) {
@@ -100,10 +107,105 @@ export function App({
     }
   });
 
+  useInput((_, key) => {
+    if (!modelPickerOpen) {
+      return;
+    }
+    if (key.escape) {
+      setModelPickerOpen(false);
+      return;
+    }
+    if (key.upArrow) {
+      setModelPickerIndex((i) => Math.max(0, i - 1));
+      return;
+    }
+    if (key.downArrow) {
+      setModelPickerIndex((i) => Math.min(availableModels.length - 1, i + 1));
+      return;
+    }
+    if (key.return) {
+      const selected = availableModels[modelPickerIndex];
+      if (!selected) {
+        setModelPickerOpen(false);
+        return;
+      }
+      setError(undefined);
+      setBusy(true);
+      setModelPickerOpen(false);
+      void (async () => {
+        try {
+          const response = await setModel({
+            agentBaseUrl,
+            clientId,
+            sessionId,
+            model: `${selected.provider}/${selected.id}`,
+          });
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              role: "system",
+              content: `Model switched to ${response.model.provider}/${response.model.id}.`,
+            },
+          ]);
+        } catch (err) {
+          const message =
+            err instanceof CommandClientError
+              ? err.message
+              : err instanceof Error
+                ? err.message
+                : "model switch failed";
+          setError(message);
+        } finally {
+          setBusy(false);
+        }
+      })();
+      return;
+    }
+  });
+
   const submit = useCallback(
     async (prompt: string) => {
       const trimmed = prompt.trim();
       if (!trimmed) {
+        return;
+      }
+
+      if (trimmed === "/model") {
+        if (busy || reconnecting) {
+          return;
+        }
+        setError(undefined);
+        setBusy(true);
+        setMessages((prev) => [
+          ...prev,
+          { id: crypto.randomUUID(), role: "user", content: trimmed },
+        ]);
+        setInput("");
+        try {
+          const response = await listModels({
+            agentBaseUrl,
+            clientId,
+            sessionId,
+          });
+          setAvailableModels(response.models);
+          const currentIndex = Math.max(
+            0,
+            response.models.findIndex((m) => m.current),
+          );
+          setModelPickerIndex(currentIndex);
+          setModelPickerOpen(true);
+        } catch (err) {
+          const message =
+            err instanceof CommandClientError
+              ? err.message
+              : err instanceof Error
+                ? err.message
+                : "model list failed";
+          setError(message);
+        } finally {
+          setBusy(false);
+        }
         return;
       }
 
@@ -261,6 +363,23 @@ export function App({
       </Static>
 
       <Box flexDirection="column" flexShrink={0}>
+        {modelPickerOpen ? (
+          <Box flexDirection="column" marginBottom={1} borderStyle="single" borderColor="gray" paddingX={1}>
+            <Text bold>Model picker</Text>
+            <Text color="gray">↑/↓ to select, Enter to apply, Esc to cancel</Text>
+            {availableModels.map((m, idx) => {
+              const selected = idx === modelPickerIndex;
+              const prefix = selected ? "› " : "  ";
+              const label = `${m.provider}/${m.id}${m.current ? " (current)" : ""}`;
+              return (
+                <Text key={`${m.provider}/${m.id}`} color={selected ? "cyan" : undefined}>
+                  {prefix}
+                  {label}
+                </Text>
+              );
+            })}
+          </Box>
+        ) : null}
         {streaming ? (
           <Box flexDirection="column" marginBottom={1}>
             <Text bold color="green">

@@ -84,10 +84,18 @@ Operator control plane. Handled **out-of-band** — does not enqueue on the chat
 
 ```typescript
 interface CommandRequest {
-  command: "status" | "abandon" | "shutdown" | "restart" | "maintain_memory";
+  command:
+    | "status"
+    | "abandon"
+    | "shutdown"
+    | "restart"
+    | "maintain_memory"
+    | "list_models"
+    | "set_model";
   clientId: string;
   sessionId?: string;
   scope?: "weekly" | "monthly" | "reindex" | "prune"; // maintain_memory only
+  model?: string; // set_model only (model id or provider/model)
 }
 ```
 
@@ -147,6 +155,23 @@ interface MaintainMemoryResult {
 ```
 
 Runs memory roll-up or reindex out-of-band. Invoked by in-container cron or operators. See [memory.md](./memory.md).
+
+`list_models`:
+
+```typescript
+interface ListModelsResult {
+  models: Array<{ provider: string; id: string; label?: string; current: boolean }>;
+  current: { provider: string; id: string; label?: string; current: true };
+}
+```
+
+`set_model`:
+
+```typescript
+interface SetModelResult {
+  model: { provider: string; id: string; label?: string; current: true };
+}
+```
 
 **Validation errors**
 
