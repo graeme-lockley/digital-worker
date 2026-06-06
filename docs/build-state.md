@@ -2,11 +2,11 @@
 
 Living snapshot of what this repository implements. Update this file when features land or priorities shift.
 
-**Last updated:** 2026-05-31
+**Last updated:** 2026-06-06
 
 ## Summary
 
-The dev-workstation stack runs **agent-register** (discovery + heartbeat) and **agent-core** (LLM worker with workspace identity). **agent-tui** provides a terminal chat client. Chat uses SSE streaming backed by [pi-agent-core](https://github.com/earendil-works/pi).
+The dev-workstation stack runs **agent-register** (discovery + heartbeat), **agent-core** (LLM worker with workspace identity), and **agent-gateway** (Telegram channel edge). **agent-tui** provides a terminal chat client. Chat uses SSE streaming backed by [pi-agent-core](https://github.com/earendil-works/pi). External channels use a doorbell/mailbox model via [gateway spec](./specs/gateway.md).
 
 ## Feature matrix
 
@@ -17,6 +17,7 @@ The dev-workstation stack runs **agent-register** (discovery + heartbeat) and **
 | Agent heartbeat endpoint | **Done** | [agent-core-api](./specs/agent-core-api.md) | `apps/agent-core` |
 | Chat SSE + LLM (DeepSeek default) | **Done** | [chat-streaming](./specs/chat-streaming.md) | `apps/agent-core` |
 | Worker runtime (FIFO, single Agent) | **Done** | [worker-runtime](./specs/worker-runtime.md) | `apps/agent-core/src/worker-runtime.ts` |
+| Async notify ingress (`/api/v1/notify`) | **Done** | [agent-core-api](./specs/agent-core-api.md), [gateway](./specs/gateway.md) | `apps/agent-core/src/notify.ts` |
 | Workspace identity (MANDATE/SOUL/IDENTITY) | **Done** | [workspace-identity](./specs/workspace-identity.md) | `apps/agent-core/src/workspace/` |
 | `update_identity` / `update_user` tools | **Done** | [workspace-identity](./specs/workspace-identity.md) | `apps/agent-core/src/tools/` |
 | Builtin pi tools (`read`, `write`, `bash`, `ls`) | **Done** | [worker-runtime](./specs/worker-runtime.md) | `apps/agent-core/src/llm-agent.ts` |
@@ -24,7 +25,12 @@ The dev-workstation stack runs **agent-register** (discovery + heartbeat) and **
 | Terminal chat UI | **Done** | [chat-streaming](./specs/chat-streaming.md) | `apps/agent-tui` |
 | Docker dev-workstation | **Done** | [dev-workstation](./deployment/dev-workstation.md) | `infra/dev-workstation/` |
 | Project-root `.env` for API keys | **Done** | [dev-workstation](./deployment/dev-workstation.md) | `package.json` `docker:dev` |
-| Inter-agent message delivery | **Not started** | [roadmap](./roadmap.md) | Types in `agent-core-protocol` only |
+| **agent-gateway** (Telegram edge) | **Done** | [gateway](./specs/gateway.md) | `apps/agent-gateway` |
+| Telegram doorbell notify | **Done** | [gateway](./specs/gateway.md) | `apps/agent-gateway/src/notifier.ts` |
+| Gateway mailbox pull + outbound send | **Done** | [gateway](./specs/gateway.md) | `GET /api/v1/messages`, `POST /api/v1/outbound` |
+| `check_messages` / `send_message` tools | **Done** | [gateway](./specs/gateway.md) | `apps/agent-core/src/tools/gateway-messages.ts` |
+| Gateway mailbox persistence | **Done** | [gateway](./specs/gateway.md) | `apps/agent-gateway/src/store.ts` |
+| Inter-agent message delivery (`DeliverMessage`) | **Not started** | [roadmap](./roadmap.md) | Types in `agent-core-protocol` only |
 | Command queue (`/status`, `/abandon`, `/restart`, `/shutdown`) | **Done** | [agent-core-api](./specs/agent-core-api.md), [worker-runtime](./specs/worker-runtime.md) | `apps/agent-core`, `apps/agent-tui` |
 | Priority / judgment dequeue | **Not started** | [roadmap](./roadmap.md) | FIFO only today |
 | Skills loaded from markdown | **Done** | [skills](./specs/skills.md) | `SkillRegistry`, `refresh_skills` |
@@ -32,13 +38,15 @@ The dev-workstation stack runs **agent-register** (discovery + heartbeat) and **
 | Workspace bind mount (Docker dev) | **Done** | [workspace-identity](./specs/workspace-identity.md) | `infra/dev-workstation/docker-compose.yml` (`./workspace/Aida`) |
 | Episodic memory (daily logs, flush, search) | **Done** | [memory](./specs/memory.md) | `apps/agent-core/src/memory/` |
 | Memory roll-up + cron maintenance | **Done** | [memory](./specs/memory.md) | Distill + Ollama in Docker image |
+| Additional channels (email) | **Not started** | [roadmap](./roadmap.md) | `ChannelAdapter` extension point in gateway |
 
 ## Protocol packages
 
 | Package | Role | Stable for consumers? |
 |---------|------|---------------------|
 | `@digital-worker/agent-register-protocol` | Register HTTP shapes | Yes — apps depend on it |
-| `@digital-worker/agent-core-protocol` | Agent HTTP + chat SSE shapes | Yes — apps depend on it |
+| `@digital-worker/agent-core-protocol` | Agent HTTP + chat SSE + notify shapes | Yes — apps depend on it |
+| `@digital-worker/agent-gateway-protocol` | Gateway HTTP shapes | Yes — apps depend on it |
 
 ## Runtime requirements
 
@@ -46,10 +54,12 @@ The dev-workstation stack runs **agent-register** (discovery + heartbeat) and **
 |-----------|---------|-------|
 | agent-register | ≥ 20 | Alpine 22 in Docker |
 | agent-core | **≥ 22.19** | Required by `@earendil-works/pi-agent-core`; Docker image includes `agent-browser` + Chrome |
+| agent-gateway | ≥ 20 | Alpine 22 in Docker; outbound internet for Telegram API |
 | agent-tui | ≥ 20 | Ink + fetch |
 
 ## Known gaps
 
 - **Local `pnpm dev` for agent-core** does not auto-load `.env`; export `DEEPSEEK_API_KEY` or pass `--api-key` (see [local-development](./deployment/local-development.md)).
 - **Second chat request while busy** queues and holds the HTTP connection until the job runs (by design; see [worker-runtime](./specs/worker-runtime.md)).
-- **DeliverMessage** routes are specified in types only; no HTTP handler exists yet.
+- **DeliverMessage** routes are specified in types only; no HTTP handler exists yet (inter-agent bus remains on roadmap).
+- **Email channel** not implemented; gateway `ChannelAdapter` is ready for extension.

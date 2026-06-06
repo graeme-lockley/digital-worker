@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@digital-worker/agent-core-protocol": "workspace:*",
+    "@digital-worker/agent-gateway-protocol": "workspace:*",
     "@digital-worker/agent-register-protocol": "workspace:*",
     "@earendil-works/pi-agent-core": "0.75.5",
     "@earendil-works/pi-ai": "0.75.5",

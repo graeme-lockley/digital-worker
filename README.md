@@ -12,12 +12,13 @@ This project does not use Docker Desktop. Compose scripts call `docker-compose`,
 
 ## Dev workstation (Colima + Docker Compose)
 
-The **dev-workstation** stack runs `agent-register` and a single `agent-core` instance. Config lives in [`infra/dev-workstation/`](infra/dev-workstation/):
+The **dev-workstation** stack runs `agent-register`, `agent-core`, and `agent-gateway`. Config lives in [`infra/dev-workstation/`](infra/dev-workstation/):
 
 | File | Image |
 |------|--------|
 | `Dockerfile.agent-register` | Registration service |
 | `Dockerfile.agent-core` | Runnable agent |
+| `Dockerfile.agent-gateway` | Telegram channel edge |
 
 Both Dockerfiles build from the monorepo root (`context: ../..`) because each app depends on shared `packages/*`. The compile steps are duplicated on purpose so each service has its own image definition; keep the `build` stages in sync when you change dependencies.
 
@@ -47,12 +48,12 @@ brew services start colima
 From the repository root:
 
 ```bash
-cp .env.example .env   # then set DEEPSEEK_API_KEY in .env
+cp .env.example .env   # then set DEEPSEEK_API_KEY and TELEGRAM_* in .env
 pnpm install
 pnpm docker:dev
 ```
 
-`pnpm docker:dev` reads `.env` from the **project root** (where `package.json` lives) and passes `DEEPSEEK_API_KEY` into the `agent-core` container.
+`pnpm docker:dev` reads `.env` from the **project root** (where `package.json` lives) and passes `DEEPSEEK_API_KEY` and Telegram credentials into the respective containers.
 
 Build images and start containers in the foreground. Stop with `Ctrl+C`, then remove containers:
 
@@ -67,6 +68,7 @@ From your Mac, services are published on **localhost**:
 | Service | Base URL | Health | Notes |
 |---------|----------|--------|--------|
 | **agent-core** | http://127.0.0.1:3000 | http://127.0.0.1:3000/health | `GET /api/v1` — service metadata |
+| **agent-gateway** | http://127.0.0.1:3002 | http://127.0.0.1:3002/health | `GET /api/v1/messages` — mailbox pull |
 | **agent-register** | http://127.0.0.1:3001 | http://127.0.0.1:3001/health | `GET /api/v1/agents` — all registered agents |
 
 ### Useful requests
@@ -75,6 +77,7 @@ From your Mac, services are published on **localhost**:
 # Health checks
 curl http://127.0.0.1:3000/health
 curl http://127.0.0.1:3001/health
+curl http://127.0.0.1:3002/health
 
 # List registered agents
 curl http://127.0.0.1:3001/api/v1/agents
@@ -97,7 +100,13 @@ pnpm --filter @digital-worker/agent-core dev -- \
   -r http://127.0.0.1:3001 \
   --provider deepseek --model deepseek-v4-flash \
   --models deepseek-v4-flash,deepseek-v4-pro \
-  --agent-name Aida   # terminal 2 (port 3000; set DEEPSEEK_API_KEY)
+  --agent-name Aida \
+  --gateway-url http://127.0.0.1:3002   # terminal 2 (port 3000; set DEEPSEEK_API_KEY)
+
+# Terminal 3 — agent-gateway (port 3002; set TELEGRAM_BOT_TOKEN, TELEGRAM_ALLOWED_CHAT_IDS)
+pnpm --filter @digital-worker/agent-gateway dev -- \
+  --agent-core-url http://127.0.0.1:3000 \
+  --use-notify-endpoint
 
 pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001
 # or with agent name prefix:
@@ -122,7 +131,15 @@ pnpm --filter @digital-worker/agent-core dev -- \
   --register-url http://127.0.0.1:3001 \
   --provider deepseek --model deepseek-v4-flash \
   --models deepseek-v4-flash,deepseek-v4-pro \
-  --agent-name Aida
+  --agent-name Aida \
+  --gateway-url http://127.0.0.1:3002
+
+# Terminal 3 — agent-gateway
+export TELEGRAM_BOT_TOKEN=...
+export TELEGRAM_ALLOWED_CHAT_IDS=...
+pnpm --filter @digital-worker/agent-gateway dev -- \
+  --agent-core-url http://127.0.0.1:3000 \
+  --use-notify-endpoint
 ```
 
 ## Documentation
@@ -138,4 +155,5 @@ System documentation lives in **[docs/](docs/README.md)** — philosophy, specs,
 | [architecture.md](docs/architecture.md) | Library choices |
 | [roadmap.md](docs/roadmap.md) | Planned work |
 | [specs/](docs/specs/) | Normative API and runtime contracts |
+| [specs/gateway.md](docs/specs/gateway.md) | External channel gateway (Telegram) |
 | [deployment/](docs/deployment/) | Docker and local dev |

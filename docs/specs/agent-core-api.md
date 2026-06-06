@@ -17,6 +17,7 @@ Each agent registers an `endpoint.url` (e.g. `http://127.0.0.1:3000`). All paths
 | `POST` | `/api/v1/heartbeat` | Register poll target |
 | `POST` | `/api/v1/chat` | Streaming chat — see [chat-streaming](./chat-streaming.md) |
 | `POST` | `/api/v1/command` | Operator commands — see below |
+| `POST` | `/api/v1/notify` | Async doorbell notifications — see below |
 
 Constants: `AGENT_CORE_PATHS` in `packages/agent-core-protocol/src/paths.ts`.
 
@@ -75,6 +76,33 @@ Empty or invalid JSON body is tolerated (handler treats as empty object).
 ## POST /api/v1/chat
 
 See [chat-streaming.md](./chat-streaming.md).
+
+## POST /api/v1/notify
+
+Async doorbell ingress from **agent-gateway** (and future external triggers). Handled like chat jobs but **without SSE** — returns immediately. See [gateway.md](./gateway.md) and [worker-runtime.md](./worker-runtime.md#notification-jobs).
+
+**Request body**
+
+```typescript
+interface NotifyRequest {
+  clientId: string;
+  prompt: string;
+  sessionId?: string;
+  channel?: string;
+  unreadCount?: number;
+}
+```
+
+**Response 202**
+
+```typescript
+interface NotifyResponse {
+  jobId: string;
+  acceptedAt: string;
+}
+```
+
+Validation errors match chat (`INVALID_REQUEST`, `SESSION_MISMATCH`).
 
 ## POST /api/v1/command
 
@@ -214,7 +242,7 @@ interface ApiErrorResponse {
 |---------|------------------|
 | Inter-agent message delivery | `DeliverMessageRequest`, `DeliverMessageResponse` in `message.ts` |
 
-No route is mounted yet — see [roadmap.md](../roadmap.md).
+No DeliverMessage route is mounted yet — see [roadmap.md](../roadmap.md). External human channels use **agent-gateway** instead — see [gateway.md](./gateway.md).
 
 ## CLI configuration
 
@@ -240,6 +268,7 @@ Required and common flags for agent-core:
 | `--memory-nudge-interval` | no | Periodic flush interval in turns (default 10) |
 | `--memory-bootstrap-budget` | no | Recent memory chars in prompt (default 8000) |
 | `--no-memory-search` | no | Disable memory_search tool |
+| `--gateway-url <url>` | no | agent-gateway base URL for `check_messages` / `send_message` (or `GATEWAY_URL` env) |
 
 Full local run: [deployment/local-development.md](../deployment/local-development.md).
 

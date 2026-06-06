@@ -10,6 +10,7 @@ Technology choices and design rationale for the digital-worker monorepo.
 |-----|------|------|
 | agent-register | `apps/agent-register` | Registration, discovery, heartbeat polling |
 | agent-core | `apps/agent-core` | LLM digital worker (HTTP + worker loop) |
+| agent-gateway | `apps/agent-gateway` | External channel edge (Telegram mailbox + notify) |
 | agent-tui | `apps/agent-tui` | Terminal chat client |
 
 ## Protocol packages
@@ -18,8 +19,9 @@ Technology choices and design rationale for the digital-worker monorepo.
 |---------|------|------|
 | agent-register-protocol | `packages/agent-register-protocol` | Register HTTP types |
 | agent-core-protocol | `packages/agent-core-protocol` | Agent HTTP + chat SSE types |
+| agent-gateway-protocol | `packages/agent-gateway-protocol` | Gateway HTTP types |
 
-Apps import these packages — do not duplicate request/response shapes in application code. Human-readable specs: [specs/agent-register-api.md](./specs/agent-register-api.md), [specs/agent-core-api.md](./specs/agent-core-api.md).
+Apps import these packages — do not duplicate request/response shapes in application code. Human-readable specs: [specs/agent-register-api.md](./specs/agent-register-api.md), [specs/agent-core-api.md](./specs/agent-core-api.md), [specs/gateway.md](./specs/gateway.md).
 
 ## Library decisions
 
@@ -55,6 +57,18 @@ Apps import these packages — do not duplicate request/response shapes in appli
 | Identity | workspace markdown | baked in image | [specs/workspace-identity.md](./specs/workspace-identity.md) |
 | Memory | markdown + `node:sqlite` FTS | workspace bind mount | [specs/memory.md](./specs/memory.md) |
 | Roll-up dedup | Distill CLI + Ollama | in Docker image | `nomic-embed-text` local embeddings |
+
+### agent-gateway
+
+| Concern | Choice | Rationale |
+|---------|--------|-----------|
+| HTTP API | Hono + @hono/node-server | Same stack as agent-core |
+| CLI | Commander | Host, port, agent-core URL, Telegram config |
+| Telegram client | Raw `fetch` to Bot API | No extra dependency; long-poll `getUpdates` |
+| Mailbox | In-memory + JSON persistence | Simple v1; SQLite optional later |
+| Notify ingress | `POST /api/v1/notify` on agent-core | Async doorbell; returns 202 |
+
+Alternatives considered for Telegram: `grammy` / `node-telegram-bot-api` (deferred — raw fetch sufficient for send + long-poll).
 
 **Node requirement:** agent-core needs **Node ≥ 22.19** (pi-agent-core). Docker images use `node:22-alpine`.
 

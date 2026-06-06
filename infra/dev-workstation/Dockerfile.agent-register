@@ -12,6 +12,7 @@ COPY packages ./packages
 COPY apps ./apps
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @digital-worker/agent-core-protocol run build \
+  && pnpm --filter @digital-worker/agent-gateway-protocol run build \
   && pnpm --filter @digital-worker/agent-register-protocol run build \
   && pnpm --filter @digital-worker/agent-register run build \
   && pnpm --filter @digital-worker/agent-core run build

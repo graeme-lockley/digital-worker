@@ -23,6 +23,7 @@ async function collectEvents(
 ): Promise<ChatStreamEvent[]> {
   const events: ChatStreamEvent[] = [];
   await harness.runtime.enqueue({
+    kind: "chat",
     id: crypto.randomUUID(),
     messageId: crypto.randomUUID(),
     clientId: "client-1",
@@ -114,6 +115,7 @@ describe("WorkerRuntime", () => {
 
     const events: ChatStreamEvent[] = [];
     const activePromise = runtime.enqueue({
+      kind: "chat",
       id: "job-active",
       messageId: "msg-active",
       clientId: "client-1",
@@ -127,6 +129,7 @@ describe("WorkerRuntime", () => {
     });
 
     const queuedPromise = runtime.enqueue({
+      kind: "chat",
       id: "job-queued",
       messageId: "msg-queued",
       clientId: "client-2",

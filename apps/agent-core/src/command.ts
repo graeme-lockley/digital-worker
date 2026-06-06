@@ -129,6 +129,17 @@ async function handleCommand(c: Context, ctx: AppContext): Promise<Response> {
     }
     case AGENT_COMMAND.LIST_MODELS: {
       const current = ctx.session.model;
+      if (!current) {
+        return c.json(
+          {
+            error: {
+              code: AGENT_CORE_ERROR_CODES.INTERNAL_ERROR,
+              message: "no active model on session",
+            },
+          },
+          503,
+        );
+      }
       const models = ctx.models.map((m) => ({
         ...m,
         current: m.provider === current.provider && m.id === current.id,
@@ -155,7 +166,19 @@ async function handleCommand(c: Context, ctx: AppContext): Promise<Response> {
       }
 
       const parsed = parseModelArg(raw);
-      const provider = parsed.provider ?? ctx.session.model.provider;
+      const sessionModel = ctx.session.model;
+      if (!sessionModel) {
+        return c.json(
+          {
+            error: {
+              code: AGENT_CORE_ERROR_CODES.INTERNAL_ERROR,
+              message: "no active model on session",
+            },
+          },
+          503,
+        );
+      }
+      const provider = parsed.provider ?? sessionModel.provider;
       const resolved = ctx.session.scopedModels.find(
         (entry) =>
           entry.model.provider === provider && entry.model.id === parsed.modelId,

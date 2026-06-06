@@ -32,6 +32,8 @@ export type ServerOptions = {
   /** When false, skip loading pi-agent-browser-native (no agent_browser tool). */
   browserEnabled: boolean;
   memory: MemoryConfig;
+  /** agent-gateway base URL for check_messages / send_message tools. */
+  gatewayUrl?: string;
 };
 
 export function parseCli(argv: readonly string[] = process.argv): ServerOptions {
@@ -119,6 +121,10 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
       "--memory-embedding-model <name>",
       "Ollama embedding model for semantic recall",
       DEFAULT_MEMORY_CONFIG.embeddingModel,
+    )
+    .option(
+      "--gateway-url <url>",
+      "agent-gateway base URL for external channel tools (or GATEWAY_URL env)",
     );
 
   program.parse(userArgv(argv), { from: "user" });
@@ -149,6 +155,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     memorySearch?: boolean;
     memorySemanticSearch?: boolean;
     memoryEmbeddingModel: string;
+    gatewayUrl?: string;
   }>();
 
   const port = Number(opts.port);
@@ -237,6 +244,8 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     apiKey: opts.apiKey?.trim() || undefined,
     browserEnabled: opts.browser !== false,
     memory,
+    gatewayUrl:
+      opts.gatewayUrl?.trim() || process.env.GATEWAY_URL?.trim() || undefined,
   };
 }
 

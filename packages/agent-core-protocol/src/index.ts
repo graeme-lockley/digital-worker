@@ -11,9 +11,12 @@ export {
   type AgentCommandName,
   type CommandRequest,
   type CommandResponse,
+  type ListModelsResult,
   type MaintainMemoryResult,
   type MaintainMemoryScope,
+  type ModelDescriptor,
   type RestartResult,
+  type SetModelResult,
   type ShutdownResult,
   type StatusResult,
 } from "./command.js";
@@ -34,3 +37,4 @@ export type {
   DeliverMessageRequest,
   DeliverMessageResponse,
 } from "./message.js";
+export type { NotifyRequest, NotifyResponse } from "./notify.js";

@@ -80,6 +80,7 @@ async function handleChat(c: Context, ctx: AppContext): Promise<Response> {
     };
 
     const job: ChatJob = {
+      kind: "chat",
       id: crypto.randomUUID(),
       messageId,
       clientId: body.clientId.trim(),

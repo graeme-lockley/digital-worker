@@ -1,6 +1,6 @@
 # Dev workstation (Docker Compose)
 
-Run **agent-register** and **agent-core** in containers for local integration testing.
+Run **agent-register**, **agent-core**, and **agent-gateway** in containers for local integration testing.
 
 **Stack name:** `dev-workstation`  
 **Config:** `infra/dev-workstation/`
@@ -23,10 +23,13 @@ Create `.env` at the **project root** (same folder as `package.json`):
 
 ```bash
 cp .env.example .env
-# Edit DEEPSEEK_API_KEY=...
+# Edit:
+#   DEEPSEEK_API_KEY=...
+#   TELEGRAM_BOT_TOKEN=...
+#   TELEGRAM_ALLOWED_CHAT_IDS=8672094762
 ```
 
-`.env` is gitignored. See `.env.example` for variable names.
+`.env` is gitignored. See `.env.example` for variable names. Telegram credentials live on **agent-gateway** only — not in the workspace bind mount.
 
 ## Start and stop
 
@@ -46,7 +49,7 @@ docker-compose --env-file .env --project-directory . \
 ```
 
 - **`--project-directory .`** — paths and `.env` resolve from project root
-- **`env_file: .env`** on agent-core injects keys into the container
+- **`env_file: .env`** on agent-core and agent-gateway injects keys into containers
 
 ## Services
 
@@ -54,6 +57,7 @@ docker-compose --env-file .env --project-directory . \
 |---------|-----------|----------------|------------------|
 | agent-register | 3001 | — | `Dockerfile.agent-register` |
 | agent-core | 3000 | — | `Dockerfile.agent-core` |
+| agent-gateway | 3002 | — | `Dockerfile.agent-gateway` |
 
 ### agent-register
 
@@ -67,6 +71,8 @@ docker-compose --env-file .env --project-directory . \
 - Registers with `http://agent-register:3001`
 - Advertises `http://agent-core:3000` inside the Compose network
 - Agent **Aida** (`--agent-name Aida`); workspace: `/app/workspace/Aida` (bind-mounted from `./workspace/Aida` on the host)
+- `--gateway-url http://agent-gateway:3002` enables `check_messages` / `send_message` tools
+- `GATEWAY_URL` env set for bash/curl in skills
 - Memory: episodic daily logs, flush on compaction/shutdown, cron roll-ups (Distill + Ollama)
 - Builtin tools default to the workspace directory (no separate `--tools-cwd`)
 - LLM: `--provider deepseek --model deepseek-v4-flash --models deepseek-v4-flash,deepseek-v4-pro`
@@ -74,16 +80,24 @@ docker-compose --env-file .env --project-directory . \
 - Image includes: **Ollama** + `nomic-embed-text` (baked at build), **Distill** CLI, **cron**, **sqlite3**
 - Image base: `node:22-bookworm-slim` (agent-core runtime; register remains alpine)
 
+### agent-gateway
+
+- Command: `node dist/index.js --host 0.0.0.0 --port 3002 --agent-core-url http://agent-core:3000 --use-notify-endpoint`
+- Long-polls Telegram; stores messages in mailbox volume `gateway-data`
+- Notifies agent-core via `POST /api/v1/notify` (doorbell model)
+- Requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_ALLOWED_CHAT_IDS` from `.env`
+- Needs outbound internet to `api.telegram.org`
+
 ## Build context
 
-Both images build from **project root** (`context: .` in compose):
+All images build from **project root** (`context: .` in compose):
 
 - Copies `packages/`, `apps/`, `workspace/`
-- Compiles protocol packages and both apps
-- agent-register base: `node:22-alpine`
+- Compiles protocol packages and apps
+- agent-register / agent-gateway base: `node:22-alpine`
 - agent-core runtime base: `node:22-bookworm-slim` (Ollama, Distill, cron)
 
-Keep `Dockerfile.agent-register` and `Dockerfile.agent-core` build stages in sync when dependencies change.
+Keep Dockerfiles' build stages in sync when dependencies change.
 
 ## Endpoints (from Mac)
 
@@ -93,8 +107,10 @@ Keep `Dockerfile.agent-register` and `Dockerfile.agent-core` build stages in syn
 | http://127.0.0.1:3001/api/v1/agents | List agents |
 | http://127.0.0.1:3000/health | Agent health |
 | http://127.0.0.1:3000/api/v1 | Agent metadata |
+| http://127.0.0.1:3002/health | Gateway health |
+| http://127.0.0.1:3002/api/v1/messages | Pull unread Telegram messages |
 
-Inside the Compose network, use service hostnames `agent-register` and `agent-core`.
+Inside the Compose network, use service hostnames `agent-register`, `agent-core`, and `agent-gateway`.
 
 ## agent-tui with Docker stack
 
@@ -107,12 +123,22 @@ pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001 --agent-
 
 The TUI rewrites Docker-internal agent URLs to `127.0.0.1` when the register is local.
 
+## Telegram chat from your phone
+
+1. Start the stack with valid `TELEGRAM_*` vars in `.env`.
+2. Message @AidaDigitalBot from an allowlisted chat ID.
+3. Gateway stores the message and doorbell-notifies Aida.
+4. Aida pulls via `check_messages` and replies via `send_message`.
+
+See [specs/gateway.md](../specs/gateway.md).
+
 ## Troubleshooting
 
 | Issue | Check |
 |-------|-------|
 | Build context path errors | Run `pnpm docker:dev` from project root; compose uses `context: .` |
 | Missing API key | `DEEPSEEK_API_KEY` in project-root `.env` |
+| Telegram not working | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_CHAT_IDS`; gateway logs; outbound internet |
 | Agent `SLEEPING` | agent-core container logs; heartbeat must reach port 3000 |
 | buildx warning | Optional plugin; build may still succeed |
 
@@ -121,3 +147,4 @@ The TUI rewrites Docker-internal agent URLs to `127.0.0.1` when the register is 
 - [local-development.md](./local-development.md) — run without Docker
 - [specs/agent-register-api.md](../specs/agent-register-api.md)
 - [specs/agent-core-api.md](../specs/agent-core-api.md)
+- [specs/gateway.md](../specs/gateway.md)

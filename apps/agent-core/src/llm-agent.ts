@@ -23,6 +23,10 @@ import type { MemoryManager } from "./memory/index.js";
 import { SkillRegistry } from "./skills/skill-registry.js";
 import { createMemorySearchTool } from "./tools/memory-search.js";
 import {
+  createCheckMessagesTool,
+  createSendMessageTool,
+} from "./tools/gateway-messages.js";
+import {
   AGENT_BROWSER_TOOL_NAME,
   resolvePiAgentBrowserExtensionPath,
 } from "./tools/pi-browser-plugin.js";
@@ -42,15 +46,24 @@ const BASE_TOOL_NAMES = [
   "refresh_skills",
   "remember",
   "memory_search",
+  "check_messages",
+  "send_message",
 ] as const;
 
 function buildToolAllowlist(
   browserEnabled: boolean,
   memorySearchEnabled: boolean,
+  gatewayEnabled: boolean,
 ): string[] {
-  const names = BASE_TOOL_NAMES.filter(
-    (n) => memorySearchEnabled || n !== "memory_search",
-  );
+  const names = BASE_TOOL_NAMES.filter((n) => {
+    if (!memorySearchEnabled && n === "memory_search") {
+      return false;
+    }
+    if (!gatewayEnabled && (n === "check_messages" || n === "send_message")) {
+      return false;
+    }
+    return true;
+  });
   return browserEnabled ? [...names, AGENT_BROWSER_TOOL_NAME] : [...names];
 }
 
@@ -91,6 +104,8 @@ export type CreateLlmAgentOptions = {
   userStore: UpdateUserDeps["userStore"];
   memoryManager?: MemoryManager;
   initialMemorySection?: string;
+  /** agent-gateway base URL; enables check_messages and send_message tools. */
+  gatewayUrl?: string;
 };
 
 export type CreateLlmAgentResult = {
@@ -106,7 +121,12 @@ export async function createLlmAgent(
   const memoryEnabled = options.memoryManager?.config.enabled ?? false;
   const memorySearchEnabled =
     memoryEnabled && (options.memoryManager?.config.searchEnabled ?? true);
-  const tools = buildToolAllowlist(browserEnabled, memorySearchEnabled);
+  const gatewayEnabled = Boolean(options.gatewayUrl?.trim());
+  const tools = buildToolAllowlist(
+    browserEnabled,
+    memorySearchEnabled,
+    gatewayEnabled,
+  );
 
   const agentDir = path.join(options.toolsCwd, ".agent-core-pi");
   const settingsManager = SettingsManager.create(options.toolsCwd, agentDir);
@@ -212,6 +232,14 @@ export async function createLlmAgent(
         createMemorySearchTool({ memoryManager: options.memoryManager }),
       );
     }
+  }
+
+  if (gatewayEnabled && options.gatewayUrl) {
+    const gatewayDeps = { gatewayUrl: options.gatewayUrl };
+    customTools.push(
+      createCheckMessagesTool(gatewayDeps),
+      createSendMessageTool(gatewayDeps),
+    );
   }
 
   const { session } = await createAgentSession({

@@ -77,6 +77,7 @@ async function main(): Promise<void> {
     },
     memoryManager,
     initialMemorySection,
+    gatewayUrl: options.gatewayUrl,
   });
 
   const agent = session.agent;

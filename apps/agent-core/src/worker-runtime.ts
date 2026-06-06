@@ -7,20 +7,16 @@ import {
   type StatusResult,
 } from "@digital-worker/agent-core-protocol";
 
+import {
+  type ChatJob,
+  type InboxJob,
+  isChatJob,
+} from "./job-types.js";
 import type { MemoryManager } from "./memory/index.js";
 
-export type ChatJob = {
-  id: string;
-  messageId: string;
-  clientId: string;
-  prompt: string;
-  sessionId: string;
-  enqueueAt: number;
-  emit: (event: ChatStreamEvent) => Promise<void>;
-  signal: AbortSignal;
-};
+export type { ChatJob } from "./job-types.js";
 
-type PendingJob = ChatJob & {
+type PendingJob = InboxJob & {
   resolve: () => void;
   reject: (error: Error) => void;
 };
@@ -69,7 +65,7 @@ export class WorkerRuntime {
     await this.loopPromise;
   }
 
-  enqueue(job: ChatJob): Promise<void> {
+  enqueue(job: InboxJob): Promise<void> {
     if (this.stopped) {
       return Promise.reject(new Error("worker runtime is stopped"));
     }
@@ -112,7 +108,7 @@ export class WorkerRuntime {
         break;
       }
       drainedQueued += 1;
-      void this.rejectJobWithStream(job, "abandoned by operator");
+      void this.rejectJob(job, "abandoned by operator");
     }
 
     if (this.currentJob) {
@@ -158,16 +154,22 @@ export class WorkerRuntime {
     }
   }
 
-  private async rejectJobWithStream(
+  private async emitEvent(
     job: PendingJob,
-    message: string,
+    event: ChatStreamEvent,
   ): Promise<void> {
-    await job.emit({
+    if (isChatJob(job)) {
+      await job.emit(event);
+    }
+  }
+
+  private async rejectJob(job: PendingJob, message: string): Promise<void> {
+    await this.emitEvent(job, {
       type: CHAT_STREAM_EVENT.ERROR,
       code: AGENT_CORE_ERROR_CODES.INTERNAL_ERROR,
       message,
     });
-    job.reject(new WorkerJobFailedError(message, true));
+    job.reject(new WorkerJobFailedError(message, isChatJob(job)));
   }
 
   private async runLoop(): Promise<void> {
@@ -213,7 +215,7 @@ export class WorkerRuntime {
     job.signal.addEventListener("abort", abortOnDisconnect);
 
     const unsubscribe = this.agent.subscribe(async (event) => {
-      if (event.type !== "message_update") {
+      if (!isChatJob(job) || event.type !== "message_update") {
         return;
       }
       const deltaEvent = event.assistantMessageEvent;
@@ -234,7 +236,7 @@ export class WorkerRuntime {
         throw new Error("request cancelled");
       }
 
-      await job.emit({
+      await this.emitEvent(job, {
         type: CHAT_STREAM_EVENT.DONE,
         sessionId: job.sessionId,
         messageId: job.messageId,
@@ -249,7 +251,7 @@ export class WorkerRuntime {
           ? error.message
           : "LLM request failed";
 
-      await job.emit({
+      await this.emitEvent(job, {
         type: CHAT_STREAM_EVENT.ERROR,
         code: AGENT_CORE_ERROR_CODES.INTERNAL_ERROR,
         message,
@@ -259,7 +261,7 @@ export class WorkerRuntime {
         return;
       }
 
-      throw new WorkerJobFailedError(message, true);
+      throw new WorkerJobFailedError(message, isChatJob(job));
     } finally {
       job.signal.removeEventListener("abort", abortOnDisconnect);
       unsubscribe();

@@ -21,16 +21,21 @@ Today the primary runnable worker is **agent-core**. **agent-tui** is a terminal
 flowchart LR
   subgraph clients [Clients]
     TUI[agent-tui]
+    TG[Telegram via gateway]
   end
 
   subgraph platform [Platform]
     REG[agent-register]
+    GW[agent-gateway]
   end
 
   subgraph workers [Workers]
     CORE[agent-core]
   end
 
+  TG --> GW
+  GW -->|doorbell notify| CORE
+  CORE -->|check_messages / send_message| GW
   TUI -->|list agents| REG
   TUI -->|POST chat SSE| CORE
   CORE -->|register / deregister| REG
@@ -41,9 +46,12 @@ flowchart LR
 |-----------|------|------|
 | **agent-register** | `apps/agent-register` | Registry + heartbeat monitor |
 | **agent-core** | `apps/agent-core` | LLM worker process |
+| **agent-gateway** | `apps/agent-gateway` | External channel edge (Telegram, …) |
 | **agent-tui** | `apps/agent-tui` | Interactive terminal chat |
+| **agent-gateway** | `apps/agent-gateway` | Channel edge + mailbox |
 | **agent-register-protocol** | `packages/agent-register-protocol` | Register API types |
 | **agent-core-protocol** | `packages/agent-core-protocol` | Agent API + chat SSE types |
+| **agent-gateway-protocol** | `packages/agent-gateway-protocol` | Gateway HTTP types |
 
 ## Registration and discovery
 
@@ -104,6 +112,19 @@ Aida persists session continuity through markdown memory files under `workspace/
 At startup, `# Recent memory` injects MEMORY.md plus today and yesterday's dailies. Automatic **memory flushes** run before context compaction, on periodic nudge, and on shutdown. **Cron** inside the Docker image POSTs `maintain_memory` for weekly/monthly roll-ups (Distill dedup + local Ollama embeddings).
 
 Spec: [specs/memory.md](./specs/memory.md)
+
+## External channels (agent-gateway)
+
+**agent-gateway** is the bidirectional edge for human-facing channels (Telegram today; email and others later):
+
+1. A **channel adapter** (e.g. Telegram long-poll) receives inbound messages.
+2. Content is stored in the gateway **mailbox**; only a **doorbell** notification is sent to agent-core (`POST /api/v1/notify`).
+3. The worker **pulls** messages via `check_messages` (or the `telegram` skill) when it chooses to act.
+4. The worker **sends** replies via `send_message` (or the skill) → `POST /api/v1/outbound` on the gateway.
+
+Telegram credentials live on the gateway (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_CHAT_IDS` in `.env`), not in the workspace.
+
+Spec: [specs/gateway.md](./specs/gateway.md)
 
 ## Deployment units
 

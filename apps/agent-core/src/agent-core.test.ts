@@ -164,10 +164,11 @@ describe("command plane model switching", () => {
   it("lists the model roster and marks current", async () => {
     const harness = await createTestHarness();
     try {
+      const sessionModel = harness.ctx.session.model!;
       // Seed a second faux model in the roster; the handler should mark current from session.model.
       harness.ctx.models = [
-        { provider: harness.ctx.session.model.provider, id: harness.ctx.session.model.id, current: true },
-        { provider: harness.ctx.session.model.provider, id: "other-model", current: false },
+        { provider: sessionModel.provider, id: sessionModel.id, current: true },
+        { provider: sessionModel.provider, id: "other-model", current: false },
       ];
 
       const response = await harness.app.request(AGENT_CORE_PATHS.command, {

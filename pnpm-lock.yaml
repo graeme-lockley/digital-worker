@@ -17,6 +17,9 @@ importers:
       '@digital-worker/agent-core-protocol':
         specifier: workspace:*
         version: link:../../packages/agent-core-protocol
+      '@digital-worker/agent-gateway-protocol':
+        specifier: workspace:*
+        version: link:../../packages/agent-gateway-protocol
       '@digital-worker/agent-register-protocol':
         specifier: workspace:*
         version: link:../../packages/agent-register-protocol
@@ -44,6 +47,37 @@ importers:
       typebox:
         specifier: 1.1.38
         version: 1.1.38
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.21
+        version: 22.19.19
+      tsx:
+        specifier: ^4.19.4
+        version: 4.22.3
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.4(@types/node@22.19.19)(jiti@2.7.0)(tsx@4.22.3)(yaml@2.9.0)
+
+  apps/agent-gateway:
+    dependencies:
+      '@digital-worker/agent-core-protocol':
+        specifier: workspace:*
+        version: link:../../packages/agent-core-protocol
+      '@digital-worker/agent-gateway-protocol':
+        specifier: workspace:*
+        version: link:../../packages/agent-gateway-protocol
+      '@hono/node-server':
+        specifier: ^1.14.4
+        version: 1.19.14(hono@4.12.22)
+      commander:
+        specifier: ^14.0.0
+        version: 14.0.3
+      hono:
+        specifier: ^4.7.10
+        version: 4.12.22
     devDependencies:
       '@types/node':
         specifier: ^22.15.21
@@ -139,6 +173,15 @@ importers:
         version: 3.2.4(@types/node@22.19.19)(jiti@2.7.0)(tsx@4.22.3)(yaml@2.9.0)
 
   packages/agent-core-protocol:
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.4
+        version: 3.2.4(@types/node@22.19.19)(jiti@2.7.0)(tsx@4.22.3)(yaml@2.9.0)
+
+  packages/agent-gateway-protocol:
     devDependencies:
       typescript:
         specifier: ^5.8.3

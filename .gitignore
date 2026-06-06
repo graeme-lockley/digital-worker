@@ -37,3 +37,7 @@ Thumbs.db
 
 # Agent memory (runtime state; markdown + derived index)
 workspace/Aida/memory/
+workspace/Aida/drafts/
+
+# Gateway persisted mailbox state (local dev)
+data/

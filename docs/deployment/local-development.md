@@ -16,7 +16,48 @@ pnpm install
 pnpm build   # builds packages/* (protocol libraries)
 ```
 
-## Three-terminal workflow
+## Four-terminal workflow (with Telegram)
+
+### Terminal 1 — agent-register (port 3001)
+
+```bash
+pnpm --filter @digital-worker/agent-register dev
+```
+
+### Terminal 2 — agent-core (port 3000)
+
+Export an LLM API key (project-root `.env` is **not** loaded automatically):
+
+```bash
+export DEEPSEEK_API_KEY=sk-...
+pnpm --filter @digital-worker/agent-core dev -- \
+  --register-url http://127.0.0.1:3001 \
+  --provider deepseek \
+  --model deepseek-v4-flash \
+  --models deepseek-v4-flash,deepseek-v4-pro \
+  --agent-name Aida \
+  --gateway-url http://127.0.0.1:3002
+```
+
+### Terminal 3 — agent-gateway (port 3002)
+
+```bash
+export TELEGRAM_BOT_TOKEN=...
+export TELEGRAM_ALLOWED_CHAT_IDS=8672094762
+pnpm --filter @digital-worker/agent-gateway dev -- \
+  --agent-core-url http://127.0.0.1:3000 \
+  --use-notify-endpoint
+```
+
+### Terminal 4 — agent-tui
+
+```bash
+pnpm --filter @digital-worker/agent-tui dev -- \
+  -r http://127.0.0.1:3001 \
+  --agent-name Aida
+```
+
+## Three-terminal workflow (without Telegram)
 
 ### Terminal 1 — agent-register (port 3001)
 

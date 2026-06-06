@@ -14,6 +14,7 @@ The root [README.md](../README.md) is a quick start (install, run, endpoints). E
 |---------|-------------------|
 | Request/response TypeScript types | `packages/*-protocol` |
 | Normative behaviour (HTTP, runtime, identity) | `docs/specs/` |
+| External channel gateway | `docs/specs/gateway.md` |
 | Library and pattern choices | [architecture.md](./architecture.md) |
 | Monorepo layout and commands | [project-structure.md](./project-structure.md) |
 | What is implemented *right now* | [build-state.md](./build-state.md) |
@@ -53,6 +54,7 @@ docs/
     agent-core-api.md
     agent-register-api.md
     chat-streaming.md
+    gateway.md
 
   deployment/
     dev-workstation.md   ← Docker Compose stack
@@ -68,6 +70,7 @@ docs/
 | Change agent HTTP or SSE behaviour | [specs/agent-core-api.md](./specs/agent-core-api.md), [specs/chat-streaming.md](./specs/chat-streaming.md) |
 | Change registration or discovery | [specs/agent-register-api.md](./specs/agent-register-api.md) |
 | Change worker queue or LLM loop | [specs/worker-runtime.md](./specs/worker-runtime.md) |
+| Change external channels (Telegram gateway) | [specs/gateway.md](./specs/gateway.md) |
 | Change MANDATE / SOUL / IDENTITY / USER / memory | [specs/workspace-identity.md](./specs/workspace-identity.md), [specs/memory.md](./specs/memory.md) |
 | Change workspace skills or refresh | [specs/skills.md](./specs/skills.md) |
 | Run locally or in Docker | [deployment/local-development.md](./deployment/local-development.md), [deployment/dev-workstation.md](./deployment/dev-workstation.md) |

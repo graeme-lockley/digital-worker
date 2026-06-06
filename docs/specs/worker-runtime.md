@@ -18,6 +18,7 @@ Normative behaviour for the **agent-core** execution loop: one process, one inbo
 | `WorkerRuntime` | FIFO inbox, outer loop, job lifecycle, operator commands |
 | `Agent` (pi-agent-core) | LLM calls, transcript, tools |
 | Chat HTTP handler | Validate request, enqueue `ChatJob`, stream SSE from job callbacks |
+| Notify HTTP handler | Validate request, enqueue `NotifyJob`, return 202 — see [gateway](./gateway.md) |
 | Command HTTP handler | Validate request, run operator commands out-of-band — see [agent-core-api](./agent-core-api.md#post-apiv1command) |
 
 ## ChatJob
@@ -26,6 +27,7 @@ Each accepted chat request becomes a job:
 
 | Field | Meaning |
 |-------|---------|
+| `kind` | `"chat"` |
 | `id` | Unique job id |
 | `messageId` | Returned on SSE `done` |
 | `clientId` | Client-supplied correlation id |
@@ -33,6 +35,26 @@ Each accepted chat request becomes a job:
 | `sessionId` | Stable worker session id (see [chat-streaming](./chat-streaming.md)) |
 | `emit` | Async callback writing SSE events |
 | `signal` | Aborts when HTTP client disconnects |
+
+## NotifyJob
+
+Each accepted notify request becomes a job:
+
+| Field | Meaning |
+|-------|---------|
+| `kind` | `"notify"` |
+| `id` | Unique job id (returned as `jobId` in 202 response) |
+| `messageId` | Internal correlation id |
+| `clientId` | Client-supplied correlation id (e.g. `agent-gateway`) |
+| `prompt` | Doorbell text (no external message payload) |
+| `sessionId` | Stable worker session id |
+| `signal` | Abort signal (typically never aborted) |
+
+Notify jobs call `agent.prompt()` like chat jobs but **do not emit SSE events**. The HTTP handler returns **202** immediately after enqueue.
+
+## Notification jobs
+
+Doorbell notifications from agent-gateway enter the same FIFO inbox as chat. They share the single pi Agent transcript. See [gateway.md](./gateway.md).
 
 ## Loop algorithm (FIFO)
 
@@ -94,7 +116,7 @@ Clients may send `sessionId` on each request for correlation; the server validat
 
 - Model and provider come from CLI (`--provider`, `--model`) or env API keys.
 - Streaming maps pi `message_update` events with `assistantMessageEvent.type === "text_delta"` to SSE `token` events.
-- Tools: pi builtins `read`, `write`, `bash`, `ls` (from `@earendil-works/pi-coding-agent`, scoped to `--tools-cwd`, defaulting to the workspace directory), `update_identity`, `update_user`, `remember`, `memory_search`, and `refresh_skills` (see [workspace-identity](./workspace-identity.md), [memory](./memory.md), and [skills](./skills.md)), and optionally `agent_browser` from [pi-agent-browser-native](https://www.npmjs.com/package/pi-agent-browser-native) (see [web-browsing](./web-browsing.md)). Pass `--no-browser` to omit the browser tool.
+- Tools: pi builtins `read`, `write`, `bash`, `ls` (from `@earendil-works/pi-coding-agent`, scoped to `--tools-cwd`, defaulting to the workspace directory), `update_identity`, `update_user`, `remember`, `memory_search`, `refresh_skills`, and when `--gateway-url` is set: `check_messages`, `send_message` (see [gateway](./gateway.md)), and optionally `agent_browser` from [pi-agent-browser-native](https://www.npmjs.com/package/pi-agent-browser-native) (see [web-browsing](./web-browsing.md)). Pass `--no-browser` to omit the browser tool.
 - Workspace **Agent Skills** under `skills/` are scanned at startup via `SkillRegistry` and listed in the system prompt; full `SKILL.md` bodies are loaded on demand with `read`. Call `refresh_skills` after skill changes.
 - Agent construction uses `createAgentSession()` with a `DefaultResourceLoader` that sets `systemPromptOverride` to the workspace MANDATE/SOUL/IDENTITY/USER prompt plus the skills index, and loads the browser extension via `additionalExtensionPaths` when enabled.
 
