@@ -1,6 +1,6 @@
 # Agent instructions (digital-worker)
 
-Project-wide guidance for AI coding agents. Skills live under `.cursor/skills/` (symlinks to `.github/skills/`).
+Project-wide guidance for AI coding agents. Skills live under `.github/skills/` and are linked into `.cursor/skills/` for Cursor (that directory is gitignored — run `pnpm sync:cursor-skills` after clone or when skills change).
 
 ## Git commits
 
@@ -27,6 +27,7 @@ Quick form:
 |-------|-------------|
 | [conventional-commits](.github/skills/conventional-commits/SKILL.md) | Any commit, amend, or commit-message question |
 | [pnpm-workspace](.github/skills/pnpm-workspace/SKILL.md) | Monorepo layout, pnpm, apps/packages, TypeScript workspace |
+| [upgrade-pnpm](.github/skills/upgrade-pnpm/SKILL.md) | pnpm update banner, bumping `packageManager`, Docker Corepack pins |
 
 ## Repository
 
