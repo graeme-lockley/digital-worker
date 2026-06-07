@@ -6,7 +6,7 @@ Living snapshot of what this repository implements. Update this file when featur
 
 ## Summary
 
-The dev-workstation stack runs **libsql** (central database), **agent-register** (discovery + heartbeat, libSQL-backed), **agent-core** (LLM worker with workspace identity), **agent-gateway** (Telegram channel edge), and **agent-scheduler** (durable cron/one-shot events + run history UI, libSQL-backed). **agent-tui** provides a terminal chat client; **agent-observer** provides live operator observability. Chat uses SSE streaming backed by [pi-agent-core](https://github.com/earendil-works/pi). External channels use a doorbell/mailbox model via [gateway spec](./specs/gateway.md).
+The dev-workstation stack runs **libsql** (central database), **agent-register** (discovery + heartbeat, libSQL-backed), **agent-core** (LLM worker with workspace identity), **agent-gateway** (Telegram channel edge, libSQL-backed), and **agent-scheduler** (durable cron/one-shot events + run history UI, libSQL-backed). **agent-tui** provides a terminal chat client; **agent-observer** provides live operator observability. Chat uses SSE streaming backed by [pi-agent-core](https://github.com/earendil-works/pi). External channels use a doorbell/mailbox model via [gateway spec](./specs/gateway.md).
 
 ## Feature matrix
 
@@ -31,7 +31,7 @@ The dev-workstation stack runs **libsql** (central database), **agent-register**
 | Telegram doorbell notify | **Done** | [gateway](./specs/gateway.md) | `apps/agent-gateway/src/notifier.ts` |
 | Gateway mailbox pull + outbound send | **Done** | [gateway](./specs/gateway.md) | `GET /api/v1/messages`, `POST /api/v1/outbound` |
 | `check_messages` / `send_message` tools | **Done** | [gateway](./specs/gateway.md) | `apps/agent-core/src/tools/gateway-messages.ts` |
-| Gateway mailbox persistence | **Done** | [gateway](./specs/gateway.md) | `apps/agent-gateway/src/store.ts` |
+| Gateway mailbox persistence | **Done** | [gateway](./specs/gateway.md) | `apps/agent-gateway/src/store/gateway-store.ts` |
 | **agent-scheduler** (durable events + UI) | **Done** | [scheduler](./specs/scheduler.md) | `apps/agent-scheduler` |
 | Scheduler cron / one-shot fire via chat SSE | **Done** | [scheduler](./specs/scheduler.md) | `apps/agent-scheduler/src/tick-loop.ts` |
 | `schedule_event` / list / cancel tools | **Done** | [scheduler](./specs/scheduler.md) | `apps/agent-core/src/tools/scheduler.ts` |
@@ -44,6 +44,7 @@ The dev-workstation stack runs **libsql** (central database), **agent-register**
 | Central libSQL service (dev-workstation) | **Done** | [shared-database](./specs/shared-database.md) | `infra/dev-workstation/docker-compose.yml` |
 | Register persistence (libSQL) | **Done** | [agent-register-api](./specs/agent-register-api.md), [shared-database](./specs/shared-database.md) | `apps/agent-register/src/store.ts` |
 | Scheduler persistence (libSQL) | **Done** | [scheduler](./specs/scheduler.md), [shared-database](./specs/shared-database.md) | `apps/agent-scheduler/src/store/scheduler-store.ts` |
+| Gateway persistence (libSQL) | **Done** | [gateway](./specs/gateway.md), [shared-database](./specs/shared-database.md) | `apps/agent-gateway/src/store/gateway-store.ts` |
 | Workspace bind mount (Docker dev) | **Done** | [workspace-identity](./specs/workspace-identity.md) | `infra/dev-workstation/docker-compose.yml` (`./workspace/Aida`) |
 | Episodic memory (daily logs, flush, search) | **Done** | [memory](./specs/memory.md) | `apps/agent-core/src/memory/` |
 | Memory roll-up + cron maintenance | **Done** | [memory](./specs/memory.md) | Distill + Ollama in Docker image |
@@ -64,7 +65,7 @@ The dev-workstation stack runs **libsql** (central database), **agent-register**
 |-----------|---------|-------|
 | agent-register | ≥ 20 | Alpine 22 in Docker |
 | agent-core | **≥ 22.19** | Required by `@earendil-works/pi-agent-core`; Docker image includes `agent-browser` + Chrome |
-| agent-gateway | ≥ 20 | Alpine 22 in Docker; outbound internet for Telegram API |
+| agent-gateway | ≥ 20 | Alpine 22 in Docker; libSQL via `@libsql/client`; outbound internet for Telegram API |
 | agent-scheduler | ≥ 22.19 | Alpine 22 in Docker; libSQL via `@libsql/client` |
 | agent-tui | ≥ 20 | Ink + fetch |
 | agent-observer | ≥ 20 | Ink + fetch |

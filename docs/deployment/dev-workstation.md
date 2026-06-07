@@ -66,7 +66,7 @@ docker-compose --env-file .env --project-directory . \
 - Central libSQL (`sqld`) database for operational services
 - Data volume: `libsql-data` → `/var/lib/sqld`
 - Host port `8080` (optional direct access; apps use `http://libsql:8080` on the Compose network)
-- Healthcheck: `GET /health` on port 8080; **agent-register** and **agent-scheduler** wait for `service_healthy` before starting
+- Healthcheck: `GET /health` on port 8080; **agent-register**, **agent-scheduler**, and **agent-gateway** wait for `service_healthy` before starting
 
 ### agent-register
 
@@ -93,8 +93,10 @@ docker-compose --env-file .env --project-directory . \
 
 ### agent-gateway
 
-- Command: `node dist/index.js --host 0.0.0.0 --port 3002 --agent-core-url http://agent-core:3000 --use-notify-endpoint`
-- Long-polls Telegram; stores messages in mailbox volume `gateway-data`
+- Depends on `libsql` (healthy) and `agent-core`
+- Command: `node dist/index.js --host 0.0.0.0 --port 3002 --agent-core-url http://agent-core:3000 --db-url http://libsql:8080 --use-notify-endpoint`
+- Long-polls Telegram; mailbox state persisted in libSQL (`libsql-data` volume); no filesystem state volume in the container
+- Entrypoint starts `crond`; nightly prune removes read messages older than 30 days (`gateway-prune-messages.sh`)
 - Notifies agent-core via `POST /api/v1/notify` (doorbell model)
 - Requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_ALLOWED_CHAT_IDS` from `.env`
 - Needs outbound internet to `api.telegram.org`

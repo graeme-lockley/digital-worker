@@ -138,6 +138,8 @@ services:
     ports:
       - "3002:3002"
     depends_on:
+      libsql:
+        condition: service_healthy
       agent-core:
         condition: service_healthy
     command:
@@ -149,8 +151,8 @@ services:
       - "3002"
       - --agent-core-url
       - http://agent-core:3000
-      - --data-dir
-      - /data
+      - --db-url
+      - http://libsql:8080
       - --use-notify-endpoint
     env_file:
       - .env
@@ -159,8 +161,7 @@ services:
       TELEGRAM_ALLOWED_CHAT_IDS: ${TELEGRAM_ALLOWED_CHAT_IDS}
       AGENT_CORE_URL: http://agent-core:3000
       GATEWAY_USE_NOTIFY: "true"
-    volumes:
-      - gateway-data:/data
+      LIBSQL_URL: http://libsql:8080
     healthcheck:
       test:
         [
@@ -220,4 +221,3 @@ services:
 
 volumes:
   libsql-data:
-  gateway-data:

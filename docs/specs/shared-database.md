@@ -6,7 +6,7 @@ Normative description of the central **libSQL** (`sqld`) database service used b
 
 ## Purpose
 
-Provide a single durable SQLite-compatible database server for platform services. **agent-register** and **agent-scheduler** persist to libSQL; **agent-gateway** may migrate later.
+Provide a single durable SQLite-compatible database server for platform services. **agent-register**, **agent-scheduler**, and **agent-gateway** persist to libSQL.
 
 **agent-core memory** (FTS5 index + markdown in the workspace bind mount) stays outside this service by design.
 
@@ -34,9 +34,10 @@ Embedded `node:sqlite` (`DatabaseSync`) remains in use for agent-core memory onl
 
 | Environment | URL | Consumer |
 |-------------|-----|----------|
-| Docker dev-workstation | `http://libsql:8080` | agent-register, agent-scheduler |
+| Docker dev-workstation | `http://libsql:8080` | agent-register, agent-scheduler, agent-gateway |
 | Local `pnpm dev` (register) | `file:./data/agent-register/register.db` (default) | agent-register |
 | Local `pnpm dev` (scheduler) | `file:./data/agent-scheduler/scheduler.db` (default) | agent-scheduler |
+| Local `pnpm dev` (gateway) | `file:./data/agent-gateway/gateway.db` (default) | agent-gateway |
 
 Set `LIBSQL_URL` to override the default. Optional `LIBSQL_AUTH_TOKEN` is passed to `@libsql/client` when the server requires auth.
 
@@ -46,11 +47,12 @@ Set `LIBSQL_URL` to override the default. Optional `LIBSQL_AUTH_TOKEN` is passed
 |-----|--------|--------|
 | agent-register | **Done** | `agent` table — see [agent-register-api](./agent-register-api.md#storage) |
 | agent-scheduler | **Done** | `scheduled_event`, `scheduled_run`, `meta` — see [scheduler](./scheduler.md) |
-| agent-gateway | Deferred | JSON `state.json` today |
+| agent-gateway | **Done** | `gateway_message`, `gateway_correlation`, `gateway_meta` — see [gateway](./gateway.md#storage) |
 
 ## Operational notes
 
 - Register startup loads persisted agents from libSQL; heartbeat monitor reconciles `AVAILABLE` / `SLEEPING` on the next poll.
-- Back up the `libsql-data` Docker volume for registry and scheduler durability across host rebuilds.
+- Back up the `libsql-data` Docker volume for registry, scheduler, and gateway durability across host rebuilds.
 - agent-scheduler can import rows from a legacy `scheduler.db` when `--legacy-data-dir` is set and the target store is empty (optional; used for one-off migration).
+- agent-gateway can import from legacy `state.json` when `--legacy-data-dir` is set and the target store is empty (optional CLI flag for manual one-off migration).
 - Do not mount NFS/shared filesystems for the sqld data directory (SQLite file-locking constraints).

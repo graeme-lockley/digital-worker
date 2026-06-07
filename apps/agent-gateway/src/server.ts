@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import type { CorrelationRegistry } from "./correlation-registry.js";
 import type { Mailbox } from "./mailbox.js";
 import type { Notifier } from "./notifier.js";
+import type { GatewayPersistence } from "./persistence.js";
 import type { TelegramAdapter } from "./telegram/adapter.js";
 import {
   GATEWAY_PATHS,
@@ -20,7 +21,7 @@ export type GatewayContext = {
   telegram: TelegramAdapter;
   notifier: Notifier;
   correlations: CorrelationRegistry;
-  persist: () => Promise<void>;
+  persistence: GatewayPersistence;
 };
 
 export function createApp(ctx: GatewayContext): Hono {
@@ -28,11 +29,14 @@ export function createApp(ctx: GatewayContext): Hono {
 
   app.get(GATEWAY_PATHS.health, (c) => c.json({ status: "ok" }));
 
-  app.get(GATEWAY_PATHS.messages, (c) => {
+  app.get(GATEWAY_PATHS.messages, async (c) => {
     const peek = c.req.query("peek") === "true";
     const messages = peek
       ? ctx.mailbox.peekUnread()
       : ctx.mailbox.readUnread();
+    if (!peek && messages.length > 0) {
+      await ctx.persistence.onMessagesRead(messages.map((message) => message.id));
+    }
     return c.json({
       messages,
       unreadCount: ctx.mailbox.unreadCount(),
@@ -52,6 +56,9 @@ export function createApp(ctx: GatewayContext): Hono {
     }
 
     const response: AckResponse = { acked: ctx.mailbox.ack(body.ids) };
+    if (response.acked > 0) {
+      await ctx.persistence.onMessagesRead(body.ids);
+    }
     return c.json(response);
   });
 
@@ -94,7 +101,7 @@ export function createApp(ctx: GatewayContext): Hono {
       if (messageIds.length > 0) {
         ctx.mailbox.ack(messageIds);
         ctx.notifier.onReplyDelivered(messageIds);
-        await ctx.persist();
+        await ctx.persistence.onMessagesRead(messageIds);
       }
 
       const response: ReplyResponse = {

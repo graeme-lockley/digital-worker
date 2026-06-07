@@ -15,7 +15,16 @@ RUN pnpm --filter @digital-worker/agent-core-protocol run build \
   && pnpm --filter @digital-worker/agent-gateway run build
 
 FROM base AS runtime
+RUN apk add --no-cache dcron
 COPY --from=build /app /app
+COPY infra/dev-workstation/agent-gateway-entrypoint.sh /app/infra/dev-workstation/agent-gateway-entrypoint.sh
+COPY infra/dev-workstation/gateway-prune-messages.sh /app/infra/dev-workstation/gateway-prune-messages.sh
+COPY infra/dev-workstation/gateway-crontab /etc/crontabs/root
+RUN chmod +x /app/infra/dev-workstation/agent-gateway-entrypoint.sh \
+  && chmod +x /app/infra/dev-workstation/gateway-prune-messages.sh \
+  && chmod 600 /etc/crontabs/root \
+  && touch /var/log/gateway-prune.log
 WORKDIR /app/apps/agent-gateway
 EXPOSE 3002
+ENTRYPOINT ["/app/infra/dev-workstation/agent-gateway-entrypoint.sh"]
 CMD ["node", "dist/index.js", "--host", "0.0.0.0", "--port", "3002"]

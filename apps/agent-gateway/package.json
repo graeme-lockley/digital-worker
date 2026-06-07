@@ -18,6 +18,7 @@
     "@digital-worker/agent-core-protocol": "workspace:*",
     "@digital-worker/agent-gateway-protocol": "workspace:*",
     "@hono/node-server": "^1.14.4",
+    "@libsql/client": "^0.17.3",
     "commander": "^14.0.0",
     "hono": "^4.7.10",
     "marked": "^9.1.6"

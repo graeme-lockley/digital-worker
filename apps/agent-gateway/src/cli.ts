@@ -8,7 +8,9 @@ export type GatewayOptions = {
   agentCoreUrl: string;
   telegramToken: string;
   allowedChatIds: Set<string>;
-  dataDir: string;
+  dbUrl: string;
+  dbAuthToken?: string;
+  legacyDataDir?: string;
   renotifyIntervalMs: number;
   useNotifyEndpoint: boolean;
 };
@@ -33,9 +35,16 @@ export function parseCli(argv: readonly string[] = process.argv): GatewayOptions
       "comma-separated allowed chat IDs (or TELEGRAM_ALLOWED_CHAT_IDS env)",
     )
     .option(
-      "--data-dir <path>",
-      "directory for persisted mailbox state",
-      process.env.GATEWAY_DATA_DIR ?? "./data/agent-gateway",
+      "--db-url <url>",
+      "libSQL database URL (or LIBSQL_URL / GATEWAY_DB_URL env)",
+      process.env.LIBSQL_URL ??
+        process.env.GATEWAY_DB_URL ??
+        "file:./data/agent-gateway/gateway.db",
+    )
+    .option(
+      "--legacy-data-dir <path>",
+      "import legacy state.json from this directory when the target store is empty",
+      process.env.GATEWAY_LEGACY_DATA_DIR,
     )
     .option(
       "--renotify-interval-ms <ms>",
@@ -56,7 +65,8 @@ export function parseCli(argv: readonly string[] = process.argv): GatewayOptions
     agentCoreUrl: string;
     telegramToken?: string;
     telegramAllowedChatIds?: string;
-    dataDir: string;
+    dbUrl: string;
+    legacyDataDir?: string;
     renotifyIntervalMs: string;
     useNotifyEndpoint?: boolean;
   }>();
@@ -107,13 +117,23 @@ export function parseCli(argv: readonly string[] = process.argv): GatewayOptions
     program.error(`invalid renotify-interval-ms: ${opts.renotifyIntervalMs}`);
   }
 
+  const dbUrl = opts.dbUrl.trim();
+  if (!dbUrl) {
+    program.error("db-url is required (--db-url or LIBSQL_URL)");
+  }
+
+  const dbAuthToken = process.env.LIBSQL_AUTH_TOKEN?.trim() || undefined;
+  const legacyDataDir = opts.legacyDataDir?.trim() || undefined;
+
   return {
     host: opts.host,
     port,
     agentCoreUrl: opts.agentCoreUrl,
     telegramToken: resolvedToken,
     allowedChatIds,
-    dataDir: opts.dataDir,
+    dbUrl,
+    dbAuthToken,
+    legacyDataDir,
     renotifyIntervalMs,
     useNotifyEndpoint: opts.useNotifyEndpoint === true,
   };

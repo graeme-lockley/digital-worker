@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { CorrelationRegistry } from "./correlation-registry.js";
 import { Mailbox } from "./mailbox.js";
 import { Notifier } from "./notifier.js";
+import type { GatewayPersistence } from "./persistence.js";
 import { createApp } from "./server.js";
 import { TelegramAdapter } from "./telegram/adapter.js";
 
@@ -30,14 +31,18 @@ function createTestContext(options?: {
     inFlightTimeoutMs: 0,
   });
 
-  const persist = vi.fn().mockResolvedValue(undefined);
+  const persistence: GatewayPersistence = {
+    onInboundMessage: vi.fn().mockResolvedValue(undefined),
+    onMessagesRead: vi.fn().mockResolvedValue(undefined),
+    onShutdown: vi.fn().mockResolvedValue(undefined),
+  };
 
-  return { mailbox, correlations, telegram, notifier, persist };
+  return { mailbox, correlations, telegram, notifier, persistence };
 }
 
 describe("gateway server", () => {
-  it("returns unread messages and marks them read", async () => {
-    const { mailbox, correlations, telegram, notifier, persist } =
+  it("returns unread messages, marks them read, and persists", async () => {
+    const { mailbox, correlations, telegram, notifier, persistence } =
       createTestContext();
     mailbox.add({
       id: "1",
@@ -47,7 +52,7 @@ describe("gateway server", () => {
       receivedAt: "2026-06-06T10:00:00.000Z",
     });
 
-    const app = createApp({ mailbox, telegram, notifier, correlations, persist });
+    const app = createApp({ mailbox, telegram, notifier, correlations, persistence });
     const response = await app.request("/api/v1/messages");
     expect(response.status).toBe(200);
 
@@ -58,6 +63,7 @@ describe("gateway server", () => {
     expect(body.messages).toHaveLength(1);
     expect(body.messages[0]?.text).toBe("hello");
     expect(body.unreadCount).toBe(0);
+    expect(persistence.onMessagesRead).toHaveBeenCalledWith(["1"]);
   });
 
   it("sends outbound telegram messages", async () => {
@@ -66,10 +72,10 @@ describe("gateway server", () => {
       json: async () => ({ ok: true, result: { message_id: 99 } }),
     });
 
-    const { mailbox, correlations, telegram, notifier, persist } =
+    const { mailbox, correlations, telegram, notifier, persistence } =
       createTestContext({ fetchFn: fetchMock as unknown as typeof fetch });
 
-    const app = createApp({ mailbox, telegram, notifier, correlations, persist });
+    const app = createApp({ mailbox, telegram, notifier, correlations, persistence });
     const response = await app.request("/api/v1/outbound", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -92,7 +98,7 @@ describe("gateway server", () => {
       json: async () => ({ ok: true, result: { message_id: 42 } }),
     });
 
-    const { mailbox, correlations, telegram, notifier, persist } =
+    const { mailbox, correlations, telegram, notifier, persistence } =
       createTestContext({ fetchFn: fetchMock as unknown as typeof fetch });
 
     mailbox.add({
@@ -104,7 +110,7 @@ describe("gateway server", () => {
       receivedAt: "2026-06-06T10:00:00.000Z",
     });
 
-    const app = createApp({ mailbox, telegram, notifier, correlations, persist });
+    const app = createApp({ mailbox, telegram, notifier, correlations, persistence });
     const response = await app.request("/api/v1/reply", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -119,15 +125,15 @@ describe("gateway server", () => {
     const body = (await response.json()) as { delivered: boolean };
     expect(body.delivered).toBe(true);
     expect(mailbox.unreadCount()).toBe(0);
-    expect(persist).toHaveBeenCalled();
+    expect(persistence.onMessagesRead).toHaveBeenCalledWith(["msg-1"]);
     expect(fetchMock).toHaveBeenCalled();
   });
 
   it("returns 404 for unknown correlation on reply", async () => {
-    const { mailbox, correlations, telegram, notifier, persist } =
+    const { mailbox, correlations, telegram, notifier, persistence } =
       createTestContext();
 
-    const app = createApp({ mailbox, telegram, notifier, correlations, persist });
+    const app = createApp({ mailbox, telegram, notifier, correlations, persistence });
     const response = await app.request("/api/v1/reply", {
       method: "POST",
       headers: { "content-type": "application/json" },

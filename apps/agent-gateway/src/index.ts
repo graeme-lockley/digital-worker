@@ -5,22 +5,27 @@ import {
 } from "./correlation-registry.js";
 import { Mailbox } from "./mailbox.js";
 import { Notifier } from "./notifier.js";
+import { createPersistence } from "./persistence.js";
 import { startServer } from "./server.js";
-import { GatewayStore } from "./store.js";
+import { GatewayStore } from "./store/gateway-store.js";
 import { TelegramAdapter } from "./telegram/adapter.js";
 
 async function main(): Promise<void> {
   const options = parseCli();
   const mailbox = new Mailbox();
   const correlations = new CorrelationRegistry();
-  const store = new GatewayStore(options.dataDir);
+  const store = await GatewayStore.create(options.dbUrl, {
+    authToken: options.dbAuthToken,
+    legacyDataDir: options.legacyDataDir,
+  });
+  const persistence = createPersistence(store);
 
-  const persisted = await store.load();
-  if (persisted) {
-    mailbox.restore(persisted.messages);
-    if (persisted.correlations) {
-      correlations.restore(persisted.correlations);
-    }
+  const bootstrap = await store.loadBootstrap();
+  if (bootstrap.messages.length > 0) {
+    mailbox.restore(bootstrap.messages);
+  }
+  if (Object.keys(bootstrap.correlations).length > 0) {
+    correlations.restore(bootstrap.correlations);
   }
 
   const telegram = new TelegramAdapter({
@@ -31,17 +36,7 @@ async function main(): Promise<void> {
     },
   });
 
-  if (persisted) {
-    telegram.setUpdateOffset(persisted.telegramOffset);
-  }
-
-  const persist = async (): Promise<void> => {
-    await store.save({
-      messages: mailbox.exportAll(),
-      telegramOffset: telegram.getUpdateOffset(),
-      correlations: correlations.exportAll(),
-    });
-  };
+  telegram.setUpdateOffset(bootstrap.telegramOffset);
 
   const notifier = new Notifier({
     agentCoreUrl: options.agentCoreUrl,
@@ -58,15 +53,28 @@ async function main(): Promise<void> {
     const threadId = stored.threadId ?? [...options.allowedChatIds][0];
     if (threadId) {
       const correlationId = buildCorrelationId(stored.channel, threadId);
-      correlations.register(correlationId, {
+      const entry = {
         channel: stored.channel,
         threadId,
         sender: stored.sender,
-      });
+      };
+      correlations.register(correlationId, entry);
+      void persistence
+        .onInboundMessage(
+          stored,
+          telegram.getUpdateOffset(),
+          { id: correlationId, entry },
+        )
+        .catch((error) => {
+          console.error("persist failed:", error);
+        });
+    } else {
+      void persistence
+        .onInboundMessage(stored, telegram.getUpdateOffset())
+        .catch((error) => {
+          console.error("persist failed:", error);
+        });
     }
-    void persist().catch((error) => {
-      console.error("persist failed:", error);
-    });
     notifier.onMailboxChanged();
   });
 
@@ -76,7 +84,8 @@ async function main(): Promise<void> {
     console.log(`received ${signal}, stopping agent-gateway`);
     notifier.dispose();
     await telegram.stop();
-    await persist();
+    await persistence.onShutdown(telegram.getUpdateOffset());
+    await store.close();
     process.exit(0);
   };
 
@@ -89,7 +98,7 @@ async function main(): Promise<void> {
 
   startServer(
     { host: options.host, port: options.port },
-    { mailbox, telegram, notifier, correlations, persist },
+    { mailbox, telegram, notifier, correlations, persistence },
     () => {
       console.log(
         `telegram gateway ready (agent-core ${options.agentCoreUrl}, ${options.allowedChatIds.size} allowed chat(s))`,

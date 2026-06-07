@@ -12,10 +12,6 @@ Extend **agent-gateway** with an email `ChannelAdapter` (IMAP IDLE inbound, SMTP
 
 The Docker dev-workstation stack loads project-root `.env` automatically, but local `pnpm dev` for agent-core still requires manually exporting API keys or passing `--api-key`. Loading `.env` at startup (via Node `--env-file` or explicit dotenv) would align local development with Docker and remove a recurring friction point documented in [local-development.md](./deployment/local-development.md).
 
-### Centralize gateway store on libSQL
-
-agent-register and agent-scheduler persist to the shared libSQL service. **agent-gateway** (JSON `state.json`) still uses an embedded store. Migrate it to the central `sqld` instance when multi-service durability is needed. See [specs/shared-database.md](./specs/shared-database.md).
-
 ### Priority / judgment dequeue
 
 The worker runtime today dequeues chat jobs in strict FIFO order. Replacing or augmenting that with prioritized message selection would let urgent or high-value work run ahead of routine chat. The extension point is likely an optional `priority` field on queued jobs; the dequeue logic in `WorkerRuntime` would choose the next job by priority rather than arrival time alone.

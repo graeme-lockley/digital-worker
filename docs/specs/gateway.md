@@ -73,7 +73,7 @@ flowchart LR
 | `Mailbox` | `apps/agent-gateway/src/mailbox.ts` | Durable unread store |
 | `CorrelationRegistry` | `apps/agent-gateway/src/correlation-registry.ts` | Maps correlationId → routing |
 | `Notifier` | `apps/agent-gateway/src/notifier.ts` | Per-thread coalesced notify to agent-core |
-| `GatewayStore` | `apps/agent-gateway/src/store.ts` | Persist mailbox, correlations, Telegram offset |
+| `GatewayStore` | `apps/agent-gateway/src/store/gateway-store.ts` | libSQL persistence for mailbox, correlations, Telegram offset |
 
 ## Gateway HTTP API
 
@@ -240,11 +240,28 @@ New channels (email, webhooks) implement this interface and register at startup.
 | `TELEGRAM_ALLOWED_CHAT_IDS` | yes | Comma-separated allowlisted chat IDs |
 | `AGENT_CORE_URL` | yes | agent-core base URL |
 | `GATEWAY_URL` | agent-core | Enables worker gateway tools + auto-reply client |
-| `--data-dir` | no | Persisted mailbox + correlation state (default `./data/agent-gateway`) |
+| `--db-url` / `LIBSQL_URL` | no | libSQL database URL (default `file:./data/agent-gateway/gateway.db` locally) |
+| `--legacy-data-dir` | no | One-off import of legacy `state.json` when the target store is empty |
 | `--use-notify-endpoint` | no | Legacy CLI flag; notifier always uses `/api/v1/notify` |
 | `--renotify-interval-ms` | no | In-flight retry interval (default 5 minutes) |
 
 Secrets **must not** live in the workspace bind mount.
+
+## Storage
+
+**Current:** libSQL via `@libsql/client` (`GatewayStore`). Mailbox, correlation registry, and Telegram `getUpdates` offset survive process restarts.
+
+| Table | Purpose |
+|-------|---------|
+| `gateway_message` | Inbound mailbox messages |
+| `gateway_correlation` | correlationId → channel/thread/sender routing |
+| `gateway_meta` | Telegram offset and schema version |
+
+Docker dev-workstation connects to the central `libsql` service (`http://libsql:8080`). Local `pnpm dev` defaults to `file:./data/agent-gateway/gateway.db`.
+
+See [shared-database.md](./shared-database.md).
+
+**Retention:** In Docker dev-workstation, a nightly cron job (04:00 UTC) runs `prune-read-messages` and deletes **read** messages older than **30 days**. Unread messages are never pruned. Override with `GATEWAY_PRUNE_READ_DAYS`.
 
 ## Security
 

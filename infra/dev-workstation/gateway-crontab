@@ -1,0 +1,4 @@
+# Gateway mailbox prune — runs inside agent-gateway container
+# Deletes read messages older than GATEWAY_PRUNE_READ_DAYS (default 30)
+
+0 4 * * * /app/infra/dev-workstation/gateway-prune-messages.sh >> /var/log/gateway-prune.log 2>&1
