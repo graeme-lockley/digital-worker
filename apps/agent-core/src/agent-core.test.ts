@@ -219,7 +219,7 @@ describe("command plane model switching", () => {
       });
 
       const beforeMessages = session.agent.state.messages.length;
-      const runtime = new WorkerRuntime(session.agent, TEST_SESSION_ID);
+      const runtime = new WorkerRuntime(session.agent, TEST_SESSION_ID, undefined, undefined, session);
       runtime.start();
 
       const observer = new ObserverHub();

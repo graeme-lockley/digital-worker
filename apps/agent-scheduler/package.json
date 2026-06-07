@@ -1,10 +1,10 @@
 {
-  "name": "@digital-worker/agent-core",
+  "name": "@digital-worker/agent-scheduler",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "bin": {
-    "agent-core": "./dist/index.js"
+    "agent-scheduler": "./dist/index.js"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -16,17 +16,12 @@
   },
   "dependencies": {
     "@digital-worker/agent-core-protocol": "workspace:*",
-    "@digital-worker/agent-gateway-protocol": "workspace:*",
     "@digital-worker/agent-register-protocol": "workspace:*",
     "@digital-worker/agent-scheduler-protocol": "workspace:*",
-    "@earendil-works/pi-agent-core": "0.75.5",
-    "@earendil-works/pi-ai": "0.75.5",
-    "@earendil-works/pi-coding-agent": "0.75.5",
-    "pi-agent-browser-native": "^0.2.38",
     "@hono/node-server": "^1.14.4",
     "commander": "^14.0.0",
-    "hono": "^4.7.10",
-    "typebox": "1.1.38"
+    "cron-parser": "^5.3.0",
+    "hono": "^4.7.10"
   },
   "devDependencies": {
     "@types/node": "^22.15.21",

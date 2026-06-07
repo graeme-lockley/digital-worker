@@ -1,6 +1,7 @@
 import {
   fauxAssistantMessage,
   fauxText,
+  registerFauxProvider,
 } from "@earendil-works/pi-ai";
 import type { Agent } from "@earendil-works/pi-agent-core";
 import { describe, expect, it, vi } from "vitest";
@@ -13,11 +14,14 @@ import {
 } from "@digital-worker/agent-core-protocol";
 
 import { ObserverHub } from "./observer-hub.js";
+import { createLlmAgent } from "./llm-agent.js";
 import {
   createTestHarness,
   disposeTestHarness,
+  repoWorkspacePath,
   TEST_SESSION_ID,
 } from "./test-helpers.js";
+import { loadWorkspace } from "./workspace/index.js";
 import { WorkerRuntime } from "./worker-runtime.js";
 
 async function collectEvents(
@@ -144,7 +148,13 @@ describe("WorkerRuntime", () => {
       subscribe: vi.fn(() => () => {}),
     } as unknown as Agent;
 
-    const runtime = new WorkerRuntime(agent, TEST_SESSION_ID, undefined, new ObserverHub());
+    const runtime = new WorkerRuntime(
+      agent,
+      TEST_SESSION_ID,
+      undefined,
+      new ObserverHub(),
+      undefined,
+    );
     runtime.start();
 
     const events: ChatStreamEvent[] = [];
@@ -191,6 +201,73 @@ describe("WorkerRuntime", () => {
     ).toHaveLength(2);
 
     await runtime.stop();
+  });
+
+  it("runs chat job under specified model and restores afterward", async () => {
+    const registration = registerFauxProvider({
+      models: [{ id: "faux-a" }, { id: "faux-b" }],
+    });
+    const modelA = registration.getModel("faux-a") ?? registration.getModel();
+    const modelB = registration.getModel("faux-b");
+    expect(modelB).toBeTruthy();
+
+    const loaded = await loadWorkspace({
+      agentName: "Aida",
+      workspaceDir: repoWorkspacePath(),
+    });
+
+    let identitySnapshot = { ...loaded.identity };
+    const { session } = await createLlmAgent({
+      llm: { provider: modelA.provider, modelId: modelA.id },
+      model: modelA,
+      scopedModels: [{ model: modelA }, { model: modelB! }],
+      apiKey: "faux-test-key",
+      toolsCwd: repoWorkspacePath(),
+      browserEnabled: false,
+      identity: identitySnapshot,
+      identityStore: loaded.identityStore,
+      userStore: loaded.userStore,
+      getIdentity: () => identitySnapshot,
+      setIdentityContent: (content) => {
+        identitySnapshot = { ...identitySnapshot, identity: content };
+      },
+      setUserContent: (content) => {
+        identitySnapshot = { ...identitySnapshot, user: content };
+      },
+    });
+
+    registration.setResponses([
+      fauxAssistantMessage([fauxText("Model B reply")]),
+    ]);
+
+    const runtime = new WorkerRuntime(
+      session.agent,
+      TEST_SESSION_ID,
+      undefined,
+      new ObserverHub(),
+      session,
+    );
+    runtime.start();
+
+    try {
+      expect(session.model?.id).toBe(modelA.id);
+      await runtime.enqueue({
+        kind: "chat",
+        id: crypto.randomUUID(),
+        messageId: crypto.randomUUID(),
+        clientId: "client-1",
+        prompt: "use model b",
+        sessionId: TEST_SESSION_ID,
+        enqueueAt: Date.now(),
+        model: `${modelB!.provider}/${modelB!.id}`,
+        emit: async () => {},
+        signal: new AbortController().signal,
+      });
+      expect(session.model?.id).toBe(modelA.id);
+    } finally {
+      await runtime.stop();
+      registration.unregister();
+    }
   });
 
   it("auto-delivers accumulated assistant text for notify jobs with deliver sink", async () => {

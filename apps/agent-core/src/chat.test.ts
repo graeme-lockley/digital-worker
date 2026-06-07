@@ -103,4 +103,23 @@ describe("POST /api/v1/chat", () => {
       await disposeTestHarness(harness);
     }
   });
+
+  it("rejects unknown model", async () => {
+    const harness = await createTestHarness();
+    try {
+      const response = await harness.app.request(AGENT_CORE_PATHS.chat, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          clientId: "tui-1",
+          prompt: "hi",
+          model: "unknown/model",
+        }),
+      });
+
+      expect(response.status).toBe(400);
+    } finally {
+      await disposeTestHarness(harness);
+    }
+  });
 });

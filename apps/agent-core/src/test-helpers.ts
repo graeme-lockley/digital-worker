@@ -110,6 +110,7 @@ export async function createTestHarness(
     TEST_SESSION_ID,
     memoryManager,
     observer,
+    session,
   );
   runtime.start();
 

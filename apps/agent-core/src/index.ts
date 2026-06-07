@@ -81,13 +81,14 @@ async function main(): Promise<void> {
     gatewayUrl: options.gatewayUrl,
     registerUrl: options.registerUrl,
     agentId: options.agentId,
+    schedulerUrl: options.schedulerUrl,
   });
 
   const agent = session.agent;
 
   const sessionId = crypto.randomUUID();
   const observer = new ObserverHub();
-  const runtime = new WorkerRuntime(agent, sessionId, memoryManager, observer);
+  const runtime = new WorkerRuntime(agent, sessionId, memoryManager, observer, session);
   runtime.start();
 
   const purpose =

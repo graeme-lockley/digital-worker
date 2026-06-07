@@ -76,6 +76,8 @@ services:
       - "8000"
       - --gateway-url
       - http://agent-gateway:3002
+      - --scheduler-url
+      - http://agent-scheduler:3003
     env_file:
       - .env
     environment:
@@ -84,6 +86,7 @@ services:
       AGENT_CORE_HOST: 127.0.0.1
       AGENT_CORE_PORT: "3000"
       GATEWAY_URL: http://agent-gateway:3002
+      SCHEDULER_URL: http://agent-scheduler:3003
     volumes:
       - ./workspace/Aida:/app/workspace/Aida
     healthcheck:
@@ -142,5 +145,43 @@ services:
       retries: 3
       start_period: 15s
 
+  agent-scheduler:
+    build:
+      context: .
+      dockerfile: infra/dev-workstation/Dockerfile.agent-scheduler
+    ports:
+      - "3003:3003"
+    depends_on:
+      agent-register:
+        condition: service_healthy
+      agent-core:
+        condition: service_healthy
+    command:
+      - node
+      - dist/index.js
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "3003"
+      - --register-url
+      - http://agent-register:3001
+      - --data-dir
+      - /data
+    volumes:
+      - scheduler-data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3003/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
 volumes:
   gateway-data:
+  scheduler-data:

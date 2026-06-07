@@ -6,7 +6,7 @@ Living snapshot of what this repository implements. Update this file when featur
 
 ## Summary
 
-The dev-workstation stack runs **agent-register** (discovery + heartbeat), **agent-core** (LLM worker with workspace identity), and **agent-gateway** (Telegram channel edge). **agent-tui** provides a terminal chat client; **agent-observer** provides live operator observability. Chat uses SSE streaming backed by [pi-agent-core](https://github.com/earendil-works/pi). External channels use a doorbell/mailbox model via [gateway spec](./specs/gateway.md).
+The dev-workstation stack runs **agent-register** (discovery + heartbeat), **agent-core** (LLM worker with workspace identity), **agent-gateway** (Telegram channel edge), and **agent-scheduler** (durable cron/one-shot events + run history UI). **agent-tui** provides a terminal chat client; **agent-observer** provides live operator observability. Chat uses SSE streaming backed by [pi-agent-core](https://github.com/earendil-works/pi). External channels use a doorbell/mailbox model via [gateway spec](./specs/gateway.md).
 
 ## Feature matrix
 
@@ -32,6 +32,10 @@ The dev-workstation stack runs **agent-register** (discovery + heartbeat), **age
 | Gateway mailbox pull + outbound send | **Done** | [gateway](./specs/gateway.md) | `GET /api/v1/messages`, `POST /api/v1/outbound` |
 | `check_messages` / `send_message` tools | **Done** | [gateway](./specs/gateway.md) | `apps/agent-core/src/tools/gateway-messages.ts` |
 | Gateway mailbox persistence | **Done** | [gateway](./specs/gateway.md) | `apps/agent-gateway/src/store.ts` |
+| **agent-scheduler** (durable events + UI) | **Done** | [scheduler](./specs/scheduler.md) | `apps/agent-scheduler` |
+| Scheduler cron / one-shot fire via chat SSE | **Done** | [scheduler](./specs/scheduler.md) | `apps/agent-scheduler/src/tick-loop.ts` |
+| `schedule_event` / list / cancel tools | **Done** | [scheduler](./specs/scheduler.md) | `apps/agent-core/src/tools/scheduler.ts` |
+| Per-job chat `model` override | **Done** | [scheduler](./specs/scheduler.md), [chat-streaming](./specs/chat-streaming.md) | `apps/agent-core/src/worker-runtime.ts` |
 | Inter-agent message delivery (`DeliverMessage`) | **Done** | [inter-agent-bus](./specs/inter-agent-bus.md) | `apps/agent-core/src/deliver.ts` |
 | `list_agents` / `send_to_agent` tools | **Done** | [inter-agent-bus](./specs/inter-agent-bus.md) | `apps/agent-core/src/tools/agent-messages.ts` |
 | Command queue (`/status`, `/abandon`, `/restart`, `/shutdown`) | **Done** | [agent-core-api](./specs/agent-core-api.md), [worker-runtime](./specs/worker-runtime.md) | `apps/agent-core`, `apps/agent-tui` |
@@ -50,6 +54,7 @@ The dev-workstation stack runs **agent-register** (discovery + heartbeat), **age
 | `@digital-worker/agent-register-protocol` | Register HTTP shapes | Yes — apps depend on it |
 | `@digital-worker/agent-core-protocol` | Agent HTTP + chat SSE + notify shapes | Yes — apps depend on it |
 | `@digital-worker/agent-gateway-protocol` | Gateway HTTP shapes | Yes — apps depend on it |
+| `@digital-worker/agent-scheduler-protocol` | Scheduler HTTP shapes | Yes — apps depend on it |
 
 ## Runtime requirements
 
@@ -58,6 +63,7 @@ The dev-workstation stack runs **agent-register** (discovery + heartbeat), **age
 | agent-register | ≥ 20 | Alpine 22 in Docker |
 | agent-core | **≥ 22.19** | Required by `@earendil-works/pi-agent-core`; Docker image includes `agent-browser` + Chrome |
 | agent-gateway | ≥ 20 | Alpine 22 in Docker; outbound internet for Telegram API |
+| agent-scheduler | ≥ 22.19 | Alpine 22 in Docker; SQLite via `node:sqlite` |
 | agent-tui | ≥ 20 | Ink + fetch |
 | agent-observer | ≥ 20 | Ink + fetch |
 

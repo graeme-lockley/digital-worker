@@ -1,4 +1,6 @@
 import type { Agent } from "@earendil-works/pi-agent-core";
+import type { AgentSession } from "@earendil-works/pi-coding-agent";
+import type { Model } from "@earendil-works/pi-ai";
 import {
   AGENT_CORE_ERROR_CODES,
   CHAT_STREAM_EVENT,
@@ -21,6 +23,7 @@ import {
   jobStartedEvent,
   mapAgentEventToObserver,
 } from "./observer-map.js";
+import { resolveScopedModel } from "./resolve-scoped-model.js";
 
 export type { ChatJob } from "./job-types.js";
 
@@ -57,6 +60,7 @@ export class WorkerRuntime {
     readonly sessionId: string,
     private readonly memoryManager?: MemoryManager,
     private readonly observer?: ObserverHub,
+    private readonly session?: AgentSession,
   ) {}
 
   start(): void {
@@ -295,25 +299,41 @@ export class WorkerRuntime {
     });
 
     try {
-      await this.agent.prompt(job.prompt);
-
-      if (job.signal.aborted) {
-        throw new Error("request cancelled");
+      let priorModel: Model<string> | undefined;
+      const modelArg = job.model?.trim();
+      if (modelArg && this.session) {
+        const resolved = resolveScopedModel(this.session, modelArg);
+        priorModel = this.session.model ?? undefined;
+        await this.session.setModel(resolved);
+        this.memoryManager?.setModel(resolved);
       }
 
-      if (deliver && accumulatedText.trim() && !sendMessageToSameThread) {
-        try {
-          await deliver(accumulatedText.trim(), notifyJob?.messageIds);
-        } catch (error) {
-          console.error("auto-reply delivery failed:", error);
+      try {
+        await this.agent.prompt(job.prompt);
+
+        if (job.signal.aborted) {
+          throw new Error("request cancelled");
+        }
+
+        if (deliver && accumulatedText.trim() && !sendMessageToSameThread) {
+          try {
+            await deliver(accumulatedText.trim(), notifyJob?.messageIds);
+          } catch (error) {
+            console.error("auto-reply delivery failed:", error);
+          }
+        }
+
+        await this.emitEvent(job, {
+          type: CHAT_STREAM_EVENT.DONE,
+          sessionId: job.sessionId,
+          messageId: job.messageId,
+        });
+      } finally {
+        if (priorModel && modelArg && this.session) {
+          await this.session.setModel(priorModel);
+          this.memoryManager?.setModel(priorModel);
         }
       }
-
-      await this.emitEvent(job, {
-        type: CHAT_STREAM_EVENT.DONE,
-        sessionId: job.sessionId,
-        messageId: job.messageId,
-      });
     } catch (error) {
       const operatorAbandon = this.operatorAbandonRequested;
       this.operatorAbandonRequested = false;

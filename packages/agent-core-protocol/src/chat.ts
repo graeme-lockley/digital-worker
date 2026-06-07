@@ -5,6 +5,11 @@ export interface ChatPromptRequest {
   prompt: string;
   /** Optional session for multi-turn; server may assign if omitted. */
   sessionId?: string;
+  /**
+   * Optional model id or provider/model shorthand for this job only.
+   * Must be in the worker's allowed roster; restored after the job completes.
+   */
+  model?: string;
 }
 
 export const CHAT_STREAM_EVENT = {

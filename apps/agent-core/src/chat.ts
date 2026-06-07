@@ -10,6 +10,7 @@ import { streamSSE } from "hono/streaming";
 
 import type { AppContext } from "./server.js";
 import { WorkerJobFailedError, type ChatJob } from "./worker-runtime.js";
+import { ResolveScopedModelError, resolveScopedModel } from "./resolve-scoped-model.js";
 
 export function registerChatRoute(
   app: {
@@ -67,6 +68,20 @@ async function handleChat(c: Context, ctx: AppContext): Promise<Response> {
     );
   }
 
+  const modelArg = body.model?.trim();
+  if (modelArg) {
+    try {
+      resolveScopedModel(ctx.session, modelArg);
+    } catch (error) {
+      if (error instanceof ResolveScopedModelError) {
+        const status =
+          error.code === AGENT_CORE_ERROR_CODES.INTERNAL_ERROR ? 503 : 400;
+        return c.json({ error: { code: error.code, message: error.message } }, status);
+      }
+      throw error;
+    }
+  }
+
   const messageId = crypto.randomUUID();
   const abortController = new AbortController();
 
@@ -87,6 +102,7 @@ async function handleChat(c: Context, ctx: AppContext): Promise<Response> {
       prompt: body.prompt.trim(),
       sessionId: ctx.sessionId,
       enqueueAt: Date.now(),
+      model: modelArg,
       emit,
       signal: abortController.signal,
     };

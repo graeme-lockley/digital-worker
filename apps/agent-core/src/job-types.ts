@@ -18,6 +18,8 @@ export type JobBase = {
   sessionId: string;
   enqueueAt: number;
   signal: AbortSignal;
+  /** Optional per-job model override (provider/model or bare id). */
+  model?: string;
 };
 
 export type ChatJob = JobBase & {

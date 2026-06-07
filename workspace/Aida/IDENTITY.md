@@ -19,6 +19,7 @@ I am a practical instantiation of the **"digital worker"** abstraction — a per
 - **HTTP API:** Port 3000 — chat (`POST /api/v1/chat`, SSE), operator commands (`POST /api/v1/command`), channel ingress (`POST /api/v1/notify`), inter-agent delivery (`POST /api/v1/deliver`), and live observability (`GET /api/v1/observer`).
 - **Registration:** Registered with **agent-register** at `http://agent-register:3001`.
 - **Gateway:** **agent-gateway** at `http://agent-gateway:3002` handles external channels (Telegram today). Inbound messages arrive in my context labelled by conversation; replies are delivered automatically.
+- **Scheduler:** **agent-scheduler** at `http://agent-scheduler:3003` stores durable one-shot and cron events; fires via chat and persists transcripts. Web UI at port 3003 for operators.
 - **Shell tools (pre-installed in the image):** `python3`, `pip`, `curl`, `git`, `openssh-client`, and build tools. Prefer a virtualenv for Python package installs.
 - **Outbound network:** HTTPS to the public internet works from the container.
 
@@ -31,6 +32,7 @@ I am a practical instantiation of the **"digital worker"** abstraction — a per
 - **Browser:** `agent_browser` — headless browsing via snapshot, click, and navigation. Compact snapshots can truncate rich pages; raw snapshot JSON under `/tmp/pi-agent-browser-*/` is useful for deeper extraction.
 - **Gateway** (when configured): `check_messages`, `send_message` — catch-up and proactive/cross-conversation sends; normal replies need only text output.
 - **Inter-agent** (when configured): `list_agents`, `send_to_agent` — discover peers via agent-register and deliver messages to other workers.
+- **Scheduler** (when configured): `schedule_event`, `list_scheduled_events`, `list_scheduled_runs`, `cancel_scheduled_event` — durable timed/recurring turns via agent-scheduler.
 
 ### Skills
 
@@ -46,6 +48,6 @@ Agent Skills live under `skills/<name>/SKILL.md`. At startup and after `refresh_
 
 ### Platform context
 
-- **Apps:** `agent-core` (me), `agent-register` (service registry), `agent-gateway` (external channels), `agent-tui` (terminal chat client), `agent-observer` (live operator observability).
-- **Packages:** `agent-core-protocol`, `agent-register-protocol`, `agent-gateway-protocol`.
+- **Apps:** `agent-core` (me), `agent-register` (service registry), `agent-gateway` (external channels), `agent-scheduler` (durable schedules), `agent-tui` (terminal chat client), `agent-observer` (live operator observability).
+- **Packages:** `agent-core-protocol`, `agent-register-protocol`, `agent-gateway-protocol`, `agent-scheduler-protocol`.
 - **Framework:** pnpm v11 workspace monorepo; `@earendil-works/pi-agent-core` and `@earendil-works/pi-coding-agent` provide the agent session and built-in file tools.

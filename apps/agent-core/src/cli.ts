@@ -34,6 +34,8 @@ export type ServerOptions = {
   memory: MemoryConfig;
   /** agent-gateway base URL for check_messages / send_message tools. */
   gatewayUrl?: string;
+  /** agent-scheduler base URL; enables schedule_event and related tools. */
+  schedulerUrl?: string;
 };
 
 export function parseCli(argv: readonly string[] = process.argv): ServerOptions {
@@ -125,6 +127,10 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     .option(
       "--gateway-url <url>",
       "agent-gateway base URL for external channel tools (or GATEWAY_URL env)",
+    )
+    .option(
+      "--scheduler-url <url>",
+      "agent-scheduler base URL for scheduling tools (or SCHEDULER_URL env)",
     );
 
   program.parse(userArgv(argv), { from: "user" });
@@ -156,6 +162,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     memorySemanticSearch?: boolean;
     memoryEmbeddingModel: string;
     gatewayUrl?: string;
+    schedulerUrl?: string;
   }>();
 
   const port = Number(opts.port);
@@ -246,6 +253,10 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     memory,
     gatewayUrl:
       opts.gatewayUrl?.trim() || process.env.GATEWAY_URL?.trim() || undefined,
+    schedulerUrl:
+      opts.schedulerUrl?.trim() ||
+      process.env.SCHEDULER_URL?.trim() ||
+      undefined,
   };
 }
 

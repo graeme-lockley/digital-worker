@@ -9,7 +9,7 @@ import {
 import type { Context } from "hono";
 
 import type { AppContext } from "./server.js";
-import { parseModelArg } from "./llm-config.js";
+import { ResolveScopedModelError, resolveScopedModel } from "./resolve-scoped-model.js";
 
 const KNOWN_COMMANDS = new Set<string>(Object.values(AGENT_COMMAND));
 
@@ -165,35 +165,16 @@ async function handleCommand(c: Context, ctx: AppContext): Promise<Response> {
         );
       }
 
-      const parsed = parseModelArg(raw);
-      const sessionModel = ctx.session.model;
-      if (!sessionModel) {
-        return c.json(
-          {
-            error: {
-              code: AGENT_CORE_ERROR_CODES.INTERNAL_ERROR,
-              message: "no active model on session",
-            },
-          },
-          503,
-        );
-      }
-      const provider = parsed.provider ?? sessionModel.provider;
-      const resolved = ctx.session.scopedModels.find(
-        (entry) =>
-          entry.model.provider === provider && entry.model.id === parsed.modelId,
-      )?.model;
-
-      if (!resolved) {
-        return c.json(
-          {
-            error: {
-              code: AGENT_CORE_ERROR_CODES.INVALID_REQUEST,
-              message: `model ${provider}/${parsed.modelId} is not in the allowed roster`,
-            },
-          },
-          400,
-        );
+      let resolved;
+      try {
+        resolved = resolveScopedModel(ctx.session, raw);
+      } catch (error) {
+        if (error instanceof ResolveScopedModelError) {
+          const status =
+            error.code === AGENT_CORE_ERROR_CODES.INTERNAL_ERROR ? 503 : 400;
+          return c.json({ error: { code: error.code, message: error.message } }, status);
+        }
+        throw error;
       }
 
       await ctx.session.setModel(resolved);

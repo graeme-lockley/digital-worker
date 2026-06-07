@@ -1,6 +1,6 @@
 # Dev workstation (Docker Compose)
 
-Run **agent-register**, **agent-core**, and **agent-gateway** in containers for local integration testing.
+Run **agent-register**, **agent-core**, **agent-gateway**, and **agent-scheduler** in containers for local integration testing.
 
 **Stack name:** `dev-workstation`  
 **Config:** `infra/dev-workstation/`
@@ -58,6 +58,7 @@ docker-compose --env-file .env --project-directory . \
 | agent-register | 3001 | — | `Dockerfile.agent-register` |
 | agent-core | 3000 | — | `Dockerfile.agent-core` |
 | agent-gateway | 3002 | — | `Dockerfile.agent-gateway` |
+| agent-scheduler | 3003 | — | `Dockerfile.agent-scheduler` |
 
 ### agent-register
 
@@ -88,6 +89,14 @@ docker-compose --env-file .env --project-directory . \
 - Requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_ALLOWED_CHAT_IDS` from `.env`
 - Needs outbound internet to `api.telegram.org`
 
+### agent-scheduler
+
+- Command: `node dist/index.js --host 0.0.0.0 --port 3003 --register-url http://agent-register:3001 --data-dir /data`
+- SQLite persistence on volume `scheduler-data`
+- Serves read-only web UI at **http://127.0.0.1:3003/**
+- Fires due events via agent-core `POST /api/v1/chat` (SSE transcript capture)
+- **agent-core** uses `--scheduler-url http://agent-scheduler:3003` for scheduling tools
+
 ## Build context
 
 All images build from **project root** (`context: .` in compose):
@@ -109,8 +118,10 @@ Keep Dockerfiles' build stages in sync when dependencies change.
 | http://127.0.0.1:3000/api/v1 | Agent metadata |
 | http://127.0.0.1:3002/health | Gateway health |
 | http://127.0.0.1:3002/api/v1/messages | Pull unread Telegram messages |
+| http://127.0.0.1:3003/ | Scheduler web UI (schedules + runs) |
+| http://127.0.0.1:3003/health | Scheduler health |
 
-Inside the Compose network, use service hostnames `agent-register`, `agent-core`, and `agent-gateway`.
+Inside the Compose network, use service hostnames `agent-register`, `agent-core`, `agent-gateway`, and `agent-scheduler`.
 
 ## agent-tui with Docker stack
 
@@ -148,3 +159,4 @@ See [specs/gateway.md](../specs/gateway.md).
 - [specs/agent-register-api.md](../specs/agent-register-api.md)
 - [specs/agent-core-api.md](../specs/agent-core-api.md)
 - [specs/gateway.md](../specs/gateway.md)
+- [specs/scheduler.md](../specs/scheduler.md)

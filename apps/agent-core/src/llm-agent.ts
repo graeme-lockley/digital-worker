@@ -31,6 +31,12 @@ import {
   createSendToAgentTool,
 } from "./tools/agent-messages.js";
 import {
+  createCancelScheduledEventTool,
+  createListScheduledEventsTool,
+  createListScheduledRunsTool,
+  createScheduleEventTool,
+} from "./tools/scheduler.js";
+import {
   AGENT_BROWSER_TOOL_NAME,
   resolvePiAgentBrowserExtensionPath,
 } from "./tools/pi-browser-plugin.js";
@@ -54,6 +60,10 @@ const BASE_TOOL_NAMES = [
   "send_message",
   "list_agents",
   "send_to_agent",
+  "schedule_event",
+  "list_scheduled_events",
+  "list_scheduled_runs",
+  "cancel_scheduled_event",
 ] as const;
 
 function buildToolAllowlist(
@@ -61,6 +71,7 @@ function buildToolAllowlist(
   memorySearchEnabled: boolean,
   gatewayEnabled: boolean,
   interAgentEnabled: boolean,
+  schedulerEnabled: boolean,
 ): string[] {
   const names = BASE_TOOL_NAMES.filter((n) => {
     if (!memorySearchEnabled && n === "memory_search") {
@@ -70,6 +81,15 @@ function buildToolAllowlist(
       return false;
     }
     if (!interAgentEnabled && (n === "list_agents" || n === "send_to_agent")) {
+      return false;
+    }
+    if (
+      !schedulerEnabled &&
+      (n === "schedule_event" ||
+        n === "list_scheduled_events" ||
+        n === "list_scheduled_runs" ||
+        n === "cancel_scheduled_event")
+    ) {
       return false;
     }
     return true;
@@ -120,6 +140,8 @@ export type CreateLlmAgentOptions = {
   registerUrl?: string;
   /** This worker's registration id; required for inter-agent tools. */
   agentId?: string;
+  /** agent-scheduler base URL; enables scheduling tools. */
+  schedulerUrl?: string;
 };
 
 export type CreateLlmAgentResult = {
@@ -139,11 +161,15 @@ export async function createLlmAgent(
   const interAgentEnabled = Boolean(
     options.registerUrl?.trim() && options.agentId?.trim(),
   );
+  const schedulerEnabled = Boolean(
+    options.schedulerUrl?.trim() && options.agentId?.trim(),
+  );
   const tools = buildToolAllowlist(
     browserEnabled,
     memorySearchEnabled,
     gatewayEnabled,
     interAgentEnabled,
+    schedulerEnabled,
   );
 
   const agentDir = path.join(options.toolsCwd, ".agent-core-pi");
@@ -268,6 +294,19 @@ export async function createLlmAgent(
     customTools.push(
       createListAgentsTool(agentMessageDeps),
       createSendToAgentTool(agentMessageDeps),
+    );
+  }
+
+  if (schedulerEnabled && options.schedulerUrl && options.agentId) {
+    const schedulerDeps = {
+      schedulerUrl: options.schedulerUrl,
+      agentId: options.agentId,
+    };
+    customTools.push(
+      createScheduleEventTool(schedulerDeps),
+      createListScheduledEventsTool(schedulerDeps),
+      createListScheduledRunsTool(schedulerDeps),
+      createCancelScheduledEventTool(schedulerDeps),
     );
   }
 
