@@ -1,4 +1,3 @@
-import { estimateContextTokens } from "@earendil-works/pi-agent-core";
 import {
   buildSessionContext,
   type AgentSession,
@@ -10,7 +9,18 @@ import type {
   CompactionSummary,
 } from "@digital-worker/agent-core-protocol";
 
+import { estimateContextContentTokens } from "./context-tokens.js";
+
 const reasonByEntryId = new Map<string, CompactionReason>();
+
+function contentTokensAtLeaf(
+  entries: SessionEntry[],
+  leafId: string | null,
+): number {
+  return estimateContextContentTokens(
+    buildSessionContext(entries, leafId).messages,
+  );
+}
 
 export function attachCompactionHistory(session: AgentSession): () => void {
   return session.subscribe((event) => {
@@ -40,10 +50,8 @@ export function compactionRecordsFromEntries(
 
   return recent.map((entry) => ({
     timestamp: entry.timestamp,
-    tokensBefore: entry.tokensBefore,
-    tokensAfter: estimateContextTokens(
-      buildSessionContext(entries, entry.id).messages,
-    ).tokens,
+    tokensBefore: contentTokensAtLeaf(entries, entry.parentId),
+    tokensAfter: contentTokensAtLeaf(entries, entry.id),
     reason: reasonByEntryId.get(entry.id) ?? "unknown",
   }));
 }

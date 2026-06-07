@@ -1,4 +1,3 @@
-import { estimateContextTokens } from "@earendil-works/pi-agent-core";
 import {
   AGENT_COMMAND,
   AGENT_CORE_ERROR_CODES,
@@ -8,6 +7,7 @@ import {
   type ModelDescriptor,
 } from "@digital-worker/agent-core-protocol";
 
+import { estimateContextContentTokens } from "./context-tokens.js";
 import type { AppContext } from "./server.js";
 import { ResolveScopedModelError, resolveScopedModel } from "./resolve-scoped-model.js";
 
@@ -58,17 +58,20 @@ export async function executeOperatorCommand(
       if (ctx.memoryManager) {
         await ctx.memoryManager.runFlush("command");
       }
+      const tokensBefore = estimateContextContentTokens(
+        ctx.session.agent.state.messages,
+      );
       try {
         const result = await ctx.session.compact();
-        const tokensAfter = estimateContextTokens(
+        const tokensAfter = estimateContextContentTokens(
           ctx.session.agent.state.messages,
-        ).tokens;
+        );
         return {
           ok: true,
           status: 200,
           response: {
             compacted: true,
-            tokensBefore: result.tokensBefore,
+            tokensBefore,
             tokensAfter,
             reason: "manual",
             summary: result.summary,

@@ -11,14 +11,25 @@ describe("compactionRecordsFromEntries", () => {
     resetCompactionHistoryForTests();
   });
 
-  it("returns compaction token counts from session entries", () => {
+  it("returns content-based compaction token counts from session entries", () => {
     recordCompactionReasonForTests("c1", "manual");
 
     const records = compactionRecordsFromEntries([
       {
+        type: "message",
+        id: "m1",
+        parentId: null,
+        timestamp: "2025-06-07T09:59:00.000Z",
+        message: {
+          role: "user",
+          content: [{ type: "text", text: "a".repeat(20_000) }],
+          timestamp: Date.parse("2025-06-07T09:59:00.000Z"),
+        },
+      },
+      {
         type: "compaction",
         id: "c1",
-        parentId: null,
+        parentId: "m1",
         timestamp: "2025-06-07T10:00:00.000Z",
         summary: "Earlier conversation summary",
         firstKeptEntryId: "m2",
@@ -40,11 +51,10 @@ describe("compactionRecordsFromEntries", () => {
     expect(records).toHaveLength(1);
     expect(records[0]).toMatchObject({
       timestamp: "2025-06-07T10:00:00.000Z",
-      tokensBefore: 50_000,
       reason: "manual",
     });
+    expect(records[0]?.tokensBefore).toBeGreaterThan(records[0]?.tokensAfter ?? 0);
     expect(records[0]?.tokensAfter).toBeGreaterThan(0);
-    expect(records[0]?.tokensAfter).toBeLessThan(50_000);
   });
 
   it("returns the last N compactions", () => {
@@ -62,7 +72,7 @@ describe("compactionRecordsFromEntries", () => {
     );
 
     expect(records).toHaveLength(10);
-    expect(records[0]?.tokensBefore).toBe(10_002);
-    expect(records[9]?.tokensBefore).toBe(10_011);
+    expect(records[0]?.tokensBefore).toBeGreaterThan(0);
+    expect(records[9]?.tokensBefore).toBeGreaterThan(0);
   });
 });

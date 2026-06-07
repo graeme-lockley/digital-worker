@@ -1,5 +1,4 @@
 import type { Agent } from "@earendil-works/pi-agent-core";
-import { estimateContextTokens } from "@earendil-works/pi-agent-core";
 import type { AgentSession } from "@earendil-works/pi-coding-agent";
 import type { Model } from "@earendil-works/pi-ai";
 import {
@@ -19,6 +18,7 @@ import {
 import type { MemoryManager } from "./memory/index.js";
 import { DEFAULT_MEMORY_CONFIG } from "./memory/index.js";
 import { listRecentCompactions } from "./compaction-history.js";
+import { estimateContextContentTokens } from "./context-tokens.js";
 import type { ObserverHub } from "./observer-hub.js";
 import {
   jobEnqueuedEvent,
@@ -116,9 +116,9 @@ export class WorkerRuntime {
     const contextWindowMax =
       this.memoryManager?.config.contextWindow ??
       DEFAULT_MEMORY_CONFIG.contextWindow;
-    const contextTokens = estimateContextTokens(
+    const contextTokens = estimateContextContentTokens(
       this.agent.state?.messages ?? [],
-    ).tokens;
+    );
 
     return {
       sessionId: this.sessionId,
