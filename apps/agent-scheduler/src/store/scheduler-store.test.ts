@@ -111,6 +111,77 @@ describe("SchedulerStore", () => {
     store.close();
   });
 
+  it("counts consecutive failures since last success", () => {
+    const { store } = openStoreSync();
+    const now = Date.now();
+    store.createEvent({
+      id: "evt-retry",
+      agentId: "agent-a",
+      model: "m1",
+      prompt: "retry",
+      fireAt: now,
+      timezone: "UTC",
+      missedPolicy: "fire-once",
+      createdBy: "agent-a",
+      now,
+    });
+
+    expect(store.countConsecutiveFailures("evt-retry")).toBe(0);
+
+    store.createRun({
+      id: "run-ok-1",
+      eventId: "evt-retry",
+      scheduledFor: now,
+      startedAt: now,
+      model: "m1",
+      attempt: 1,
+    });
+    store.finishRun("run-ok-1", "succeeded", now + 100);
+    store.createRun({
+      id: "run-ok-2",
+      eventId: "evt-retry",
+      scheduledFor: now + 1000,
+      startedAt: now + 1000,
+      model: "m1",
+      attempt: 1,
+    });
+    store.finishRun("run-ok-2", "succeeded", now + 1100);
+
+    store.createRun({
+      id: "run-fail-1",
+      eventId: "evt-retry",
+      scheduledFor: now + 2000,
+      startedAt: now + 2000,
+      model: "m1",
+      attempt: 1,
+    });
+    store.finishRun("run-fail-1", "failed", now + 2100, "error 1");
+    store.createRun({
+      id: "run-fail-2",
+      eventId: "evt-retry",
+      scheduledFor: now + 3000,
+      startedAt: now + 3000,
+      model: "m1",
+      attempt: 2,
+    });
+    store.finishRun("run-fail-2", "failed", now + 3100, "error 2");
+
+    expect(store.countConsecutiveFailures("evt-retry")).toBe(2);
+
+    store.createRun({
+      id: "run-ok-3",
+      eventId: "evt-retry",
+      scheduledFor: now + 4000,
+      startedAt: now + 4000,
+      model: "m1",
+      attempt: 3,
+    });
+    store.finishRun("run-ok-3", "succeeded", now + 4100);
+
+    expect(store.countConsecutiveFailures("evt-retry")).toBe(0);
+    store.close();
+  });
+
   it("lists runs joined with event metadata", () => {
     const { store } = openStoreSync();
     const now = Date.now();

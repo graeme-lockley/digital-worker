@@ -496,11 +496,29 @@ export class SchedulerStore {
     return adjusted;
   }
 
-  countRunsForEvent(eventId: string): number {
-    const row = this.db
-      .prepare("SELECT COUNT(*) AS count FROM scheduled_run WHERE event_id = ?")
-      .get(eventId) as { count: number };
-    return row.count;
+  /**
+   * Failed or interrupted runs since the most recent success (newest first).
+   * Used for retry backoff — recurring events reset after each success.
+   */
+  countConsecutiveFailures(eventId: string): number {
+    const rows = this.db
+      .prepare(
+        `SELECT status FROM scheduled_run
+         WHERE event_id = ?
+         ORDER BY started_at DESC`,
+      )
+      .all(eventId) as Array<{ status: ScheduledRunStatus }>;
+
+    let count = 0;
+    for (const row of rows) {
+      if (row.status === "succeeded") {
+        break;
+      }
+      if (row.status === "failed" || row.status === "interrupted") {
+        count += 1;
+      }
+    }
+    return count;
   }
 }
 

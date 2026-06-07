@@ -198,4 +198,86 @@ describe("TickLoop", () => {
     expect(fetchFn).not.toHaveBeenCalled();
     store.close();
   });
+
+  it("retries after failure using consecutive count, not total run history", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "tick-loop-"));
+    const store = new SchedulerStore(dir);
+    const now = Date.now();
+    store.createEvent({
+      id: "evt-recurring",
+      agentId: "agent-a",
+      model: "deepseek/deepseek-v4-flash",
+      prompt: "daily task",
+      cron: "0 9 * * *",
+      fireAt: now - 1000,
+      timezone: "UTC",
+      missedPolicy: "fire-once",
+      createdBy: "agent-a",
+      now: now - 86_400_000,
+    });
+
+    for (let i = 0; i < 7; i += 1) {
+      const runId = `run-ok-${i}`;
+      store.createRun({
+        id: runId,
+        eventId: "evt-recurring",
+        scheduledFor: now - 86_400_000 * (7 - i),
+        startedAt: now - 86_400_000 * (7 - i),
+        model: "deepseek/deepseek-v4-flash",
+        attempt: 1,
+      });
+      store.finishRun(runId, "succeeded", now - 86_400_000 * (7 - i) + 1000);
+    }
+
+    const fetchFn = vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/api/v1/agents")) {
+        return new Response(JSON.stringify({ agents: [agent] }), { status: 200 });
+      }
+      if (url.endsWith("/api/v1/command")) {
+        return new Response(
+          JSON.stringify({
+            models: [{ provider: "deepseek", id: "deepseek-v4-flash", current: true }],
+            current: { provider: "deepseek", id: "deepseek-v4-flash", current: true },
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.endsWith("/api/v1/chat")) {
+        return new Response(
+          sseBody([
+            {
+              type: CHAT_STREAM_EVENT.ERROR,
+              code: "INTERNAL_ERROR",
+              message: "transient failure",
+            },
+          ]),
+          { status: 200, headers: { "content-type": "text/event-stream" } },
+        );
+      }
+      return new Response("not found", { status: 404 });
+    }) as typeof fetch;
+
+    const loop = new TickLoop({
+      store,
+      registerUrl: "http://register:3001",
+      leaseMs: 60_000,
+      clientId: "test-scheduler",
+      chatTimeoutMs: 30_000,
+      fetchFn,
+    });
+
+    await loop.tick();
+
+    const event = store.getEvent("evt-recurring");
+    expect(event?.status).toBe("active");
+    expect(event?.fireAt).toBeGreaterThanOrEqual(now + 29_000);
+    expect(event?.fireAt).toBeLessThanOrEqual(now + 31_000);
+
+    const { runs } = store.listRuns({ eventId: "evt-recurring", limit: 20, offset: 0 });
+    const latest = runs[0];
+    expect(latest?.status).toBe("failed");
+    expect(latest?.attempt).toBe(1);
+    store.close();
+  });
 });

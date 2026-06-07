@@ -98,13 +98,13 @@ export class TickLoop {
           error instanceof ModelValidationError
             ? error.message
             : "model validation failed";
-        await this.failEvent(event, now, message, 1);
+        await this.failEvent(event, now, message);
         return;
       }
 
       const scheduledFor = event.fireAt;
-      const priorRuns = this.deps.store.countRunsForEvent(event.id);
-      const attempt = priorRuns + 1;
+      const attempt =
+        this.deps.store.countConsecutiveFailures(event.id) + 1;
       const run = this.deps.store.createRun({
         id: crypto.randomUUID(),
         eventId: event.id,
@@ -161,7 +161,7 @@ export class TickLoop {
     } catch (error) {
       this.deps.onError?.(error, { eventId: event.id });
       if (error instanceof AgentResolverError) {
-        await this.scheduleFailureRetry(event, now, 1, error.message);
+        await this.failEvent(event, now, error.message);
         return;
       }
       console.error(`failed to process event ${event.id}:`, error);
@@ -220,8 +220,8 @@ export class TickLoop {
     event: ScheduledEvent,
     now: number,
     message: string,
-    attempt: number,
   ): Promise<void> {
+    const attempt = this.deps.store.countConsecutiveFailures(event.id) + 1;
     const run = this.deps.store.createRun({
       id: crypto.randomUUID(),
       eventId: event.id,
