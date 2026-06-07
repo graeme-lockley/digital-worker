@@ -26,6 +26,12 @@ export class TelegramBotRegistry {
           botId: bot.botId,
           token: bot.token,
           allowedChatIds: bot.allowedChatIds,
+          onError: (error) => this.onError?.(bot.botId, error),
+          onBlockedChat: (info) => {
+            console.warn(
+              `telegram: dropped message from chat ${info.chatId} (${info.chatType}) — add to TELEGRAM_ALLOWED_CHAT_IDS [bot ${info.botId ?? "default"}]`,
+            );
+          },
         }),
       );
       this.agentCoreUrlByBotId.set(bot.botId, bot.agentCoreUrl);

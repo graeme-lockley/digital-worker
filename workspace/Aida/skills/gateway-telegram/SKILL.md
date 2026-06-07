@@ -49,9 +49,20 @@ Example (dev-workstation):
 
 Set each `tokenEnv` value in project-root `.env` (gitignored). **Never** put tokens in workspace files or the JSON route file.
 
-Shared allowlist: **`TELEGRAM_ALLOWED_CHAT_IDS`** (comma-separated; all bots use the same list).
+Shared allowlist: **`TELEGRAM_ALLOWED_CHAT_IDS`** (comma-separated; all bots use the same list). Include **every** chat the bots should read — private DMs use your user id; **groups and supergroups use a negative chat id** (e.g. `-1001234567890`). The gateway logs once per blocked chat: `dropped message from chat … — add to TELEGRAM_ALLOWED_CHAT_IDS`.
 
 Optional: **`GATEWAY_LEGACY_BOT_ID`** — maps pre-migration mailbox rows/offsets without `botId` (default: first configured bot).
+
+## Group chats
+
+1. Add the bot to the group as a member.
+2. **Discover the group chat id** — @mention the bot in the group, then check gateway logs for `dropped message from chat -100… (supergroup)` or call `getUpdates` on the bot token and read `message.chat.id`.
+3. Append that id to **`TELEGRAM_ALLOWED_CHAT_IDS`** (comma-separated with existing ids) in project-root `.env`.
+4. Restart **agent-gateway** so it reloads env.
+
+**Telegram group privacy (BotFather):** By default bots only receive commands, @mentions, and replies to their own messages. To ingest all group text, disable **Group Privacy** (BotFather → your bot → Bot Settings → Group Privacy → Turn off). With privacy on, users must @mention the bot (or use a command) for the gateway to see the message.
+
+**Inbound limits:** text-only for now (no photos/voice). Correlation id for a group turn: `telegram:{botId}:{groupChatId}`.
 
 ## Add a new bot + agent (checklist)
 
@@ -72,6 +83,8 @@ Optional: **`GATEWAY_LEGACY_BOT_ID`** — maps pre-migration mailbox rows/offset
 | Symptom | Check |
 |---------|--------|
 | Bot never receives messages | Token env set? Chat id in `TELEGRAM_ALLOWED_CHAT_IDS`? Gateway logs? |
+| Group chat silent | Group chat id (negative) in allowlist? Bot added to group? @mention if Group Privacy is on? |
+| Log says `dropped message from chat` | Copy that chat id into `TELEGRAM_ALLOWED_CHAT_IDS` and restart gateway |
 | Wrong agent answers | `agentCoreUrl` in JSON matches the intended agent-core service |
 | Proactive send fails | Agent `--telegram-bot-id` matches route `botId`; `botId` passed if needed |
 | Reply goes to wrong bot | Correlation id must include the inbound bot's `botId` |

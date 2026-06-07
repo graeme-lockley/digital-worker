@@ -221,7 +221,8 @@ New channels (email, webhooks) implement this interface and register at startup.
 
 - **Inbound:** long-poll `getUpdates` (no public webhook URL required).
 - **Outbound:** `sendMessage` via Bot API with markdown converted to HTML (`parse_mode: HTML`); falls back to plain text if Telegram rejects the formatted payload.
-- **Allowlist:** only messages from configured `TELEGRAM_ALLOWED_CHAT_IDS` enter the mailbox.
+- **Allowlist:** only messages from configured `TELEGRAM_ALLOWED_CHAT_IDS` enter the mailbox. Dropped chats are logged once per chat id (`chatId` + Telegram `chat.type`; message body is not logged). Group/supergroup ids are negative numbers — list them alongside private DM ids.
+- **Group privacy:** Telegram may not deliver plain group messages unless Group Privacy is off in BotFather or the bot is @mentioned.
 - **Offset:** persisted across restarts.
 
 ## Notification coalescing
@@ -238,7 +239,7 @@ New channels (email, webhooks) implement this interface and register at startup.
 |-----------------|----------|---------|
 | `GATEWAY_TELEGRAM_BOTS_FILE` / `--telegram-bots-file` | yes* | Path to JSON array of bot routes |
 | `GATEWAY_TELEGRAM_BOTS` / `--telegram-bots` | yes* | Inline JSON array (alternative to file) |
-| `TELEGRAM_ALLOWED_CHAT_IDS` | yes | Comma-separated allowlisted chat IDs (shared by all bots) |
+| `TELEGRAM_ALLOWED_CHAT_IDS` | yes | Comma-separated allowlisted chat IDs (shared by all bots). Private DMs use positive user ids; groups/supergroups use negative chat ids. |
 | Per-bot `tokenEnv` | yes | Each config entry names an env var holding the Bot API token |
 | `GATEWAY_LEGACY_BOT_ID` | no | Assign legacy mailbox rows/offsets without botId (default: first configured bot) |
 | `GATEWAY_URL` | agent-core | Enables worker gateway tools + auto-reply client |

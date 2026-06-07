@@ -55,6 +55,38 @@ describe("TelegramAdapter", () => {
     expect(adapter.normalizeUpdate(update)).toBeNull();
   });
 
+  it("reports blocked chats once via onBlockedChat", () => {
+    const onBlockedChat = vi.fn();
+    const adapter = new TelegramAdapter({
+      token: "test-token",
+      botId: "aidadigitalbot",
+      allowedChatIds: allowed,
+      onBlockedChat,
+    });
+
+    const groupUpdate: TelegramUpdate = {
+      update_id: 50,
+      message: {
+        message_id: 10,
+        chat: { id: -1001234567890, type: "supergroup" },
+        from: { id: 1, username: "graeme" },
+        text: "hello team",
+        date: 1717660800,
+      },
+    };
+
+    expect(adapter.normalizeUpdate(groupUpdate)).toBeNull();
+    expect(onBlockedChat).toHaveBeenCalledTimes(1);
+    expect(onBlockedChat).toHaveBeenCalledWith({
+      botId: "aidadigitalbot",
+      chatId: "-1001234567890",
+      chatType: "supergroup",
+    });
+
+    expect(adapter.normalizeUpdate(groupUpdate)).toBeNull();
+    expect(onBlockedChat).toHaveBeenCalledTimes(1);
+  });
+
   it("drops messages without text", () => {
     const adapter = new TelegramAdapter({
       token: "test-token",

@@ -24,6 +24,14 @@ export type TelegramAdapterOptions = {
   /** When true (default), convert markdown to HTML and set parse_mode. */
   formatMarkdown?: boolean;
   onError?: (error: unknown) => void;
+  /** Called once per blocked chat id when a text message is dropped by the allowlist. */
+  onBlockedChat?: (info: BlockedTelegramChat) => void;
+};
+
+export type BlockedTelegramChat = {
+  botId?: string;
+  chatId: string;
+  chatType: string;
 };
 
 export class TelegramAdapter implements ChannelAdapter {
@@ -31,6 +39,7 @@ export class TelegramAdapter implements ChannelAdapter {
   private offset = 0;
   private running = false;
   private pollPromise?: Promise<void>;
+  private readonly loggedBlockedChats = new Set<string>();
 
   constructor(private readonly options: TelegramAdapterOptions) {}
 
@@ -63,6 +72,7 @@ export class TelegramAdapter implements ChannelAdapter {
 
     const chatId = String(msg.chat.id);
     if (!this.options.allowedChatIds.has(chatId)) {
+      this.logBlockedChatOnce(chatId, msg.chat.type);
       return null;
     }
 
@@ -102,6 +112,19 @@ export class TelegramAdapter implements ChannelAdapter {
     }
 
     return await this.postMessage(chatId, text);
+  }
+
+  private logBlockedChatOnce(chatId: string, chatType: string): void {
+    const key = `${this.options.botId ?? "default"}:${chatId}`;
+    if (this.loggedBlockedChats.has(key)) {
+      return;
+    }
+    this.loggedBlockedChats.add(key);
+    this.options.onBlockedChat?.({
+      botId: this.options.botId,
+      chatId,
+      chatType,
+    });
   }
 
   private async postMessage(
