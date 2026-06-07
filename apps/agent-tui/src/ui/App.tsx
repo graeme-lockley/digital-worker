@@ -2,6 +2,7 @@ import {
   AGENT_COMMAND,
   CHAT_STREAM_EVENT,
   type ChatStreamEvent,
+  type MaintainMemoryScope,
 } from "@digital-worker/agent-core-protocol";
 import { Box, Static, Text, useApp, useInput } from "ink";
 import TextInput from "ink-text-input";
@@ -13,7 +14,7 @@ import {
   CommandClientError,
   formatCommandResponse,
   listModels,
-  parseSlashCommand,
+  parseOperatorSlash,
   sendCommand,
   setModel,
 } from "../command-client.js";
@@ -86,7 +87,7 @@ export function App({
     {
       id: "system-connected",
       role: "system",
-      content: `Connected to ${agentName} at ${agentBaseUrl}${endpointNote}. Type a message and press Enter. Commands: /status, /abandon, /model, /restart, /shutdown. Ctrl+C to quit.`,
+      content: `Connected to ${agentName} at ${agentBaseUrl}${endpointNote}. Type a message and press Enter. Commands: /status, /compact, /abandon, /model, /restart, /shutdown. Ctrl+C to quit.`,
     },
   ]);
   const [input, setInput] = useState("");
@@ -171,46 +172,46 @@ export function App({
         return;
       }
 
-      if (trimmed === "/model") {
-        if (busy || reconnecting) {
+      const slash = parseOperatorSlash(trimmed);
+      if (slash) {
+        if (slash.command === AGENT_COMMAND.LIST_MODELS && !slash.model) {
+          if (busy || reconnecting) {
+            return;
+          }
+          setError(undefined);
+          setBusy(true);
+          setMessages((prev) => [
+            ...prev,
+            { id: crypto.randomUUID(), role: "user", content: trimmed },
+          ]);
+          setInput("");
+          try {
+            const response = await listModels({
+              agentBaseUrl,
+              clientId,
+              sessionId,
+            });
+            setAvailableModels(response.models);
+            const currentIndex = Math.max(
+              0,
+              response.models.findIndex((m) => m.current),
+            );
+            setModelPickerIndex(currentIndex);
+            setModelPickerOpen(true);
+          } catch (err) {
+            const message =
+              err instanceof CommandClientError
+                ? err.message
+                : err instanceof Error
+                  ? err.message
+                  : "model list failed";
+            setError(message);
+          } finally {
+            setBusy(false);
+          }
           return;
         }
-        setError(undefined);
-        setBusy(true);
-        setMessages((prev) => [
-          ...prev,
-          { id: crypto.randomUUID(), role: "user", content: trimmed },
-        ]);
-        setInput("");
-        try {
-          const response = await listModels({
-            agentBaseUrl,
-            clientId,
-            sessionId,
-          });
-          setAvailableModels(response.models);
-          const currentIndex = Math.max(
-            0,
-            response.models.findIndex((m) => m.current),
-          );
-          setModelPickerIndex(currentIndex);
-          setModelPickerOpen(true);
-        } catch (err) {
-          const message =
-            err instanceof CommandClientError
-              ? err.message
-              : err instanceof Error
-                ? err.message
-                : "model list failed";
-          setError(message);
-        } finally {
-          setBusy(false);
-        }
-        return;
-      }
 
-      const command = parseSlashCommand(trimmed);
-      if (command) {
         setError(undefined);
         setMessages((prev) => [
           ...prev,
@@ -219,12 +220,21 @@ export function App({
         setInput("");
 
         try {
-          const response = await sendCommand({
-            agentBaseUrl,
-            clientId,
-            command,
-            sessionId,
-          });
+          const response =
+            slash.command === AGENT_COMMAND.SET_MODEL && slash.model
+              ? await setModel({
+                  agentBaseUrl,
+                  clientId,
+                  sessionId,
+                  model: slash.model,
+                })
+              : await sendCommand({
+                  agentBaseUrl,
+                  clientId,
+                  command: slash.command,
+                  sessionId,
+                  scope: slash.scope as MaintainMemoryScope | undefined,
+                });
           setMessages((prev) => [
             ...prev,
             {
@@ -234,7 +244,7 @@ export function App({
             },
           ]);
 
-          if (command === AGENT_COMMAND.RESTART) {
+          if (slash.command === AGENT_COMMAND.RESTART) {
             setSessionId(undefined);
             setReconnecting(true);
             try {

@@ -31,6 +31,9 @@ describe("POST /api/v1/command", () => {
         queueDepth: 0,
         queuedCount: 0,
         active: null,
+        contextTokens: expect.any(Number),
+        contextWindowMax: expect.any(Number),
+        recentCompactions: expect.any(Array),
       });
     } finally {
       await disposeTestHarness(harness);

@@ -17,6 +17,7 @@ import {
   loadWorkspace,
 } from "./workspace/index.js";
 import { WorkerRuntime } from "./worker-runtime.js";
+import { attachCompactionHistory } from "./compaction-history.js";
 
 async function main(): Promise<void> {
   const options = parseCli();
@@ -85,6 +86,7 @@ async function main(): Promise<void> {
   });
 
   const agent = session.agent;
+  const detachCompactionHistory = attachCompactionHistory(session);
 
   const sessionId = crypto.randomUUID();
   const observer = new ObserverHub();
@@ -97,6 +99,7 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string): Promise<void> => {
     console.log(`received ${signal}, stopping worker ${options.agentId}`);
     try {
+      detachCompactionHistory();
       await runtime.stop();
       memoryIndex.close();
       await deregisterAgent({
@@ -114,6 +117,7 @@ async function main(): Promise<void> {
   const restart = async (signal: string): Promise<void> => {
     console.log(`received ${signal}, restarting worker ${options.agentId}`);
     try {
+      detachCompactionHistory();
       await runtime.stop();
       memoryIndex.close();
       await deregisterAgent({

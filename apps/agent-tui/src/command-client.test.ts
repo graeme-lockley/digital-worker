@@ -3,23 +3,30 @@ import { describe, expect, it, vi } from "vitest";
 import {
   AGENT_COMMAND,
   AGENT_CORE_PATHS,
-} from "@digital-worker/agent-core-protocol";
-
-import {
   formatCommandResponse,
   formatDuration,
+  parseOperatorSlash,
   parseSlashCommand,
-  sendCommand,
-} from "./command-client.js";
+} from "@digital-worker/agent-core-protocol";
+
+import { sendCommand } from "./command-client.js";
+
+describe("parseOperatorSlash", () => {
+  it("maps slash input to command names", () => {
+    expect(parseOperatorSlash("/status")).toEqual({ command: "status" });
+    expect(parseOperatorSlash("/abandon")).toEqual({ command: "abandon" });
+    expect(parseOperatorSlash("/shutdown")).toEqual({ command: "shutdown" });
+    expect(parseOperatorSlash("/restart")).toEqual({ command: "restart" });
+    expect(parseOperatorSlash("/compact")).toEqual({ command: "compact" });
+    expect(parseOperatorSlash("hello")).toBeUndefined();
+    expect(parseOperatorSlash("/unknown")).toBeUndefined();
+  });
+});
 
 describe("parseSlashCommand", () => {
-  it("maps slash input to command names", () => {
+  it("returns bare command names for simple commands", () => {
     expect(parseSlashCommand("/status")).toBe("status");
-    expect(parseSlashCommand("/abandon")).toBe("abandon");
-    expect(parseSlashCommand("/shutdown")).toBe("shutdown");
-    expect(parseSlashCommand("/restart")).toBe("restart");
-    expect(parseSlashCommand("hello")).toBeUndefined();
-    expect(parseSlashCommand("/unknown")).toBeUndefined();
+    expect(parseSlashCommand("/compact")).toBe("compact");
   });
 });
 
@@ -35,12 +42,16 @@ describe("formatCommandResponse", () => {
         runningForMs: 90_000,
       },
       uptimeMs: 3_700_000,
+      contextTokens: 12_345,
+      contextWindowMax: 128_000,
+      recentCompactions: [],
     });
 
     expect(text).toContain("**Status**");
     expect(text).toContain("**Session:** `s1`");
     expect(text).toContain("**Worker:** Processing (1m 30s)");
     expect(text).toContain("**Queue:** 1 request waiting behind current job");
+    expect(text).toContain("**Context:** 12,345 / 128,000 tokens (9.6%)");
     expect(text).toContain("**Uptime:** 1h 1m");
   });
 
@@ -51,6 +62,9 @@ describe("formatCommandResponse", () => {
       queuedCount: 0,
       active: null,
       uptimeMs: 45_000,
+      contextTokens: 100,
+      contextWindowMax: 128_000,
+      recentCompactions: [],
     });
 
     expect(text).toContain("**Worker:** Idle");

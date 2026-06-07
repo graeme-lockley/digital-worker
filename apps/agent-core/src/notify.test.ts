@@ -109,4 +109,54 @@ describe("POST /api/v1/notify", () => {
       await disposeTestHarness(harness);
     }
   });
+
+  it("executes slash commands from telegram without invoking the LLM", async () => {
+    const harness = await createTestHarness("Should not be used");
+    harness.ctx.gatewayUrl = "http://127.0.0.1:3002";
+
+    const promptSpy = vi.spyOn(harness.ctx.session.agent, "prompt");
+    const enqueueSpy = vi.spyOn(harness.runtime, "enqueue");
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const app = createApp(harness.ctx);
+
+      const response = await app.request("/api/v1/notify", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          clientId: "gateway",
+          prompt: "/status",
+          correlationId: "telegram:123",
+          channel: "telegram",
+          threadId: "123",
+          sender: "graeme",
+          messageIds: ["msg-1"],
+        }),
+      });
+
+      expect(response.status).toBe(202);
+      expect(enqueueSpy).not.toHaveBeenCalled();
+      expect(promptSpy).not.toHaveBeenCalled();
+
+      await vi.waitFor(() => {
+        expect(fetchMock).toHaveBeenCalled();
+      });
+
+      const replyCall = fetchMock.mock.calls.find((call) =>
+        String(call[0]).includes("/api/v1/reply"),
+      );
+      expect(replyCall).toBeTruthy();
+      const replyBody = JSON.parse(String((replyCall?.[1] as RequestInit).body));
+      expect(replyBody.text).toContain("**Status**");
+      expect(replyBody.text).toContain("**Context:**");
+      expect(replyBody.messageIds).toEqual(["msg-1"]);
+    } finally {
+      enqueueSpy.mockRestore();
+      promptSpy.mockRestore();
+      vi.unstubAllGlobals();
+      await disposeTestHarness(harness);
+    }
+  });
 });

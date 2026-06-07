@@ -11,6 +11,9 @@ export {
   type AgentCommandName,
   type CommandRequest,
   type CommandResponse,
+  type CompactResult,
+  type CompactionReason,
+  type CompactionSummary,
   type ListModelsResult,
   type MaintainMemoryResult,
   type MaintainMemoryScope,
@@ -20,6 +23,14 @@ export {
   type ShutdownResult,
   type StatusResult,
 } from "./command.js";
+export {
+  formatCommandResponse,
+  formatDuration,
+  formatStatusResult,
+  parseOperatorSlash,
+  parseSlashCommand,
+  type ParsedOperatorSlash,
+} from "./operator-slash.js";
 export { AGENT_CORE_PATHS, CHAT_STREAM_ACCEPT } from "./paths.js";
 export type { HeartbeatRequest, HeartbeatResponse } from "./heartbeat.js";
 export {

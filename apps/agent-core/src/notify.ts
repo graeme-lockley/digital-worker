@@ -1,6 +1,8 @@
 import {
   AGENT_CORE_ERROR_CODES,
   AGENT_CORE_PATHS,
+  formatCommandResponse,
+  parseOperatorSlash,
   type NotifyRequest,
   type NotifyResponse,
 } from "@digital-worker/agent-core-protocol";
@@ -8,6 +10,7 @@ import type { Context } from "hono";
 
 import { createGatewayReplyForCorrelation } from "./gateway-reply.js";
 import type { NotifyJob } from "./job-types.js";
+import { executeOperatorCommand } from "./operator-command.js";
 import type { AppContext } from "./server.js";
 
 export function registerNotifyRoute(
@@ -79,9 +82,50 @@ async function handleNotify(c: Context, ctx: AppContext): Promise<Response> {
 
   const correlationId = body.correlationId?.trim();
   const sender = body.sender?.trim() ?? "unknown";
+  const rawPrompt = body.prompt.trim();
+
+  const slash = parseOperatorSlash(rawPrompt);
+  if (slash && correlationId && ctx.gatewayUrl) {
+    const result = await executeOperatorCommand(ctx, {
+      command: slash.command,
+      clientId: body.clientId.trim(),
+      sessionId: body.sessionId,
+      model: slash.model,
+      scope: slash.scope,
+    });
+
+    const replyText = result.ok
+      ? formatCommandResponse(result.response)
+      : `Command failed: ${result.error.message}`;
+
+    try {
+      await createGatewayReplyForCorrelation(
+        ctx.gatewayUrl,
+        correlationId,
+      )(replyText, body.messageIds);
+    } catch (error) {
+      console.error("operator command reply failed:", error);
+      return c.json(
+        {
+          error: {
+            code: AGENT_CORE_ERROR_CODES.INTERNAL_ERROR,
+            message: "failed to deliver command response",
+          },
+        },
+        502,
+      );
+    }
+
+    const response: NotifyResponse = {
+      jobId: crypto.randomUUID(),
+      acceptedAt: new Date().toISOString(),
+    };
+    return c.json(response, 202);
+  }
+
   const prompt = correlationId
-    ? buildChannelMessagePrompt(correlationId, sender, body.prompt.trim())
-    : body.prompt.trim();
+    ? buildChannelMessagePrompt(correlationId, sender, rawPrompt)
+    : rawPrompt;
 
   const jobId = crypto.randomUUID();
   const messageId = crypto.randomUUID();

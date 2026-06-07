@@ -4,6 +4,7 @@ export const AGENT_COMMAND = {
   ABANDON: "abandon",
   SHUTDOWN: "shutdown",
   RESTART: "restart",
+  COMPACT: "compact",
   MAINTAIN_MEMORY: "maintain_memory",
   LIST_MODELS: "list_models",
   SET_MODEL: "set_model",
@@ -38,6 +39,17 @@ export interface ActiveJobStatus {
   runningForMs: number;
 }
 
+/** How a context compaction was triggered. */
+export type CompactionReason = "manual" | "threshold" | "overflow";
+
+/** Summary of a single context compaction event. */
+export interface CompactionSummary {
+  timestamp: string;
+  tokensBefore: number;
+  tokensAfter: number;
+  reason: CompactionReason | "unknown";
+}
+
 export interface ModelDescriptor {
   provider: string;
   id: string;
@@ -53,6 +65,12 @@ export interface StatusResult {
   queuedCount: number;
   active: ActiveJobStatus | null;
   uptimeMs: number;
+  /** Estimated tokens currently in the session context. */
+  contextTokens: number;
+  /** Configured context window maximum (tokens). */
+  contextWindowMax: number;
+  /** Most recent compactions (newest last), up to 10 entries. */
+  recentCompactions: CompactionSummary[];
 }
 
 export interface AbandonResult {
@@ -87,11 +105,20 @@ export interface SetModelResult {
   model: ModelDescriptor;
 }
 
+export interface CompactResult {
+  compacted: true;
+  tokensBefore: number;
+  tokensAfter: number;
+  reason: CompactionReason;
+  summary: string;
+}
+
 export type CommandResponse =
   | StatusResult
   | AbandonResult
   | ShutdownResult
   | RestartResult
+  | CompactResult
   | MaintainMemoryResult
   | ListModelsResult
   | SetModelResult;
