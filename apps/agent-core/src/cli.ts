@@ -34,6 +34,8 @@ export type ServerOptions = {
   memory: MemoryConfig;
   /** agent-gateway base URL for check_messages / send_message tools. */
   gatewayUrl?: string;
+  /** Default Telegram bot routing id for send_message (e.g. aidadigitalbot). */
+  telegramBotId?: string;
   /** agent-scheduler base URL; enables schedule_event and related tools. */
   schedulerUrl?: string;
 };
@@ -129,6 +131,10 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
       "agent-gateway base URL for external channel tools (or GATEWAY_URL env)",
     )
     .option(
+      "--telegram-bot-id <id>",
+      "default Telegram bot routing id for send_message (or TELEGRAM_BOT_ID env)",
+    )
+    .option(
       "--scheduler-url <url>",
       "agent-scheduler base URL for scheduling tools (or SCHEDULER_URL env)",
     );
@@ -162,6 +168,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     memorySemanticSearch?: boolean;
     memoryEmbeddingModel: string;
     gatewayUrl?: string;
+    telegramBotId?: string;
     schedulerUrl?: string;
   }>();
 
@@ -253,6 +260,10 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     memory,
     gatewayUrl:
       opts.gatewayUrl?.trim() || process.env.GATEWAY_URL?.trim() || undefined,
+    telegramBotId:
+      opts.telegramBotId?.trim() ||
+      process.env.TELEGRAM_BOT_ID?.trim() ||
+      undefined,
     schedulerUrl:
       opts.schedulerUrl?.trim() ||
       process.env.SCHEDULER_URL?.trim() ||

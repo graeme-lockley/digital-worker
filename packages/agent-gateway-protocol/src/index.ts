@@ -2,6 +2,8 @@
 export type InboundMessage = {
   id: string;
   channel: string;
+  /** Telegram bot routing id (e.g. aidadigitalbot) when multiple bots are configured. */
+  botId?: string;
   sender: string;
   text: string;
   threadId?: string;
@@ -14,6 +16,8 @@ export type OutboundRequest = {
   channel: string;
   text: string;
   threadId?: string;
+  /** Required when multiple Telegram bots are configured. */
+  botId?: string;
 };
 
 export type OutboundResponse = {
@@ -41,6 +45,7 @@ export type CorrelationEntry = {
   channel: string;
   threadId: string;
   sender: string;
+  botId?: string;
 };
 
 /** POST body for auto-reply delivery from agent-core. */

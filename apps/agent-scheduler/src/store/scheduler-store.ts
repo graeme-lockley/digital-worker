@@ -12,9 +12,10 @@ import type {
 import { type Client, createClient } from "@libsql/client";
 
 import { computeNextFireAt } from "../cron.js";
+import { migrateAgentIds } from "./migrate-agent-ids.js";
 import { migrateLegacySchedulerDb } from "./migrate-legacy-store.js";
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 type EventRow = {
   id: string;
@@ -102,6 +103,12 @@ export class SchedulerStore {
       const migrated = await migrateLegacySchedulerDb(client, options.legacyDataDir);
       if (migrated > 0) {
         console.log(`migrated ${migrated} scheduled event(s) from legacy SQLite store`);
+        const renamed = await migrateAgentIds(client);
+        if (renamed > 0) {
+          console.log(
+            `migrated ${renamed} scheduled event field(s) to renamed agent ids`,
+          );
+        }
       }
     }
     return store;
@@ -193,6 +200,15 @@ export class SchedulerStore {
         "deliver_fallback",
         "INTEGER NOT NULL DEFAULT 0",
       );
+    }
+
+    if (fromVersion < 3) {
+      const updated = await migrateAgentIds(this.client);
+      if (updated > 0) {
+        console.log(
+          `migrated ${updated} scheduled event field(s) to renamed agent ids`,
+        );
+      }
     }
   }
 

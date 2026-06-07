@@ -1,6 +1,7 @@
 export type NormalizedInbound = {
   id: string;
   channel: string;
+  botId?: string;
   sender: string;
   text: string;
   threadId?: string;

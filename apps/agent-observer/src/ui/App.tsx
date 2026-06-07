@@ -2,10 +2,14 @@ import {
   OBSERVER_EVENT,
   type ObserverEvent,
 } from "@digital-worker/agent-core-protocol";
-import { Box, Static, Text, useApp, useInput } from "ink";
+import { Box, Newline, Static, Text, useApp, useInput } from "ink";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { runObserverReconnectLoop } from "../observer-reconnect.js";
+import {
+  drainStreamingDelta,
+  flushStreamingBuffer,
+} from "./streaming-transcript.js";
 
 export type AppProps = {
   agentName: string;
@@ -89,7 +93,6 @@ export function App({
   ]);
   const [liveThinking, setLiveThinking] = useState("");
   const [liveText, setLiveText] = useState("");
-  const [error, setError] = useState<string | undefined>();
   const liveThinkingRef = useRef("");
   const liveTextRef = useRef("");
 
@@ -100,29 +103,51 @@ export function App({
     ]);
   }, []);
 
-  const flushLive = useCallback(() => {
-    const thinking = liveThinkingRef.current;
-    const text = liveTextRef.current;
-    liveThinkingRef.current = "";
-    liveTextRef.current = "";
-    setLiveThinking("");
-    setLiveText("");
-
-    const toCommit: TranscriptLine[] = [];
-    if (thinking.trim().length > 0) {
-      toCommit.push({
-        id: crypto.randomUUID(),
-        kind: "thinking",
-        text: thinking,
+  const commitStreamingLines = useCallback(
+    (kind: "thinking" | "text", committed: string[]) => {
+      if (committed.length === 0) {
+        return;
+      }
+      setLines((prev) => {
+        const next = [
+          ...prev,
+          ...committed.map((text) => ({
+            id: crypto.randomUUID(),
+            kind,
+            text,
+          })),
+        ];
+        return next.slice(-MAX_LINES);
       });
+    },
+    [],
+  );
+
+  const appendStreamingDelta = useCallback(
+    (kind: "thinking" | "text", delta: string) => {
+      const bufferRef = kind === "thinking" ? liveThinkingRef : liveTextRef;
+      const setTail = kind === "thinking" ? setLiveThinking : setLiveText;
+      const { buffer, committed } = drainStreamingDelta(
+        bufferRef.current,
+        delta,
+      );
+      bufferRef.current = buffer;
+      setTail(buffer);
+      commitStreamingLines(kind, committed);
+    },
+    [commitStreamingLines],
+  );
+
+  const flushLive = useCallback(() => {
+    for (const kind of ["thinking", "text"] as const) {
+      const bufferRef = kind === "thinking" ? liveThinkingRef : liveTextRef;
+      const setTail = kind === "thinking" ? setLiveThinking : setLiveText;
+      const { buffer, committed } = flushStreamingBuffer(bufferRef.current);
+      bufferRef.current = buffer;
+      setTail(buffer);
+      commitStreamingLines(kind, committed);
     }
-    if (text.trim().length > 0) {
-      toCommit.push({ id: crypto.randomUUID(), kind: "text", text });
-    }
-    if (toCommit.length > 0) {
-      setLines((prev) => [...prev, ...toCommit].slice(-MAX_LINES));
-    }
-  }, []);
+  }, [commitStreamingLines]);
 
   const handleEvent = useCallback(
     (event: ObserverEvent) => {
@@ -133,7 +158,6 @@ export function App({
           setSessionId(event.sessionId);
           setConnectionPhase("live");
           setReconnectAttempt(0);
-          setError(undefined);
 
           if (!previous) {
             pushLine("system", `Connected · session ${event.sessionId}`);
@@ -168,18 +192,12 @@ export function App({
           );
           pushLine("job", `finished ${event.kind} → ${event.status}`);
           break;
-        case OBSERVER_EVENT.TEXT_DELTA: {
-          const next = liveTextRef.current + event.delta;
-          liveTextRef.current = next;
-          setLiveText(next);
+        case OBSERVER_EVENT.TEXT_DELTA:
+          appendStreamingDelta("text", event.delta);
           break;
-        }
-        case OBSERVER_EVENT.THINKING_DELTA: {
-          const next = liveThinkingRef.current + event.delta;
-          liveThinkingRef.current = next;
-          setLiveThinking(next);
+        case OBSERVER_EVENT.THINKING_DELTA:
+          appendStreamingDelta("thinking", event.delta);
           break;
-        }
         case OBSERVER_EVENT.TOOL_START:
           flushLive();
           pushLine(
@@ -197,7 +215,7 @@ export function App({
           break;
       }
     },
-    [flushLive, pushLine],
+    [appendStreamingDelta, flushLive, pushLine],
   );
 
   const handleEventRef = useRef(handleEvent);
@@ -235,7 +253,6 @@ export function App({
       onTransientError: (message) => {
         setConnectionPhase("reconnecting");
         setSessionId(undefined);
-        setError(message);
         pushLineRef.current("error", message);
       },
     });
@@ -278,23 +295,20 @@ export function App({
         {(line) => <TranscriptRow key={line.id} line={line} />}
       </Static>
 
+      <Newline />
+
       <Box flexDirection="column" flexShrink={0}>
         {liveThinking ? (
-          <Text color="magenta" wrap="wrap">
+          <Text color="magenta" wrap="truncate">
             {liveThinking}
           </Text>
         ) : null}
         {liveText ? (
-          <Text color="green" wrap="wrap">
+          <Text color="green" wrap="truncate">
             {liveText}
           </Text>
         ) : null}
-        {error ? (
-          <Text color="red" wrap="wrap">
-            {error}
-          </Text>
-        ) : null}
-        <Text>
+        <Text wrap="truncate">
           <Text bold color="cyan">
             {agentName}
           </Text>

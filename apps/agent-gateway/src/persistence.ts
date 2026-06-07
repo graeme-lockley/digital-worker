@@ -5,29 +5,32 @@ import type { GatewayStore } from "./store/gateway-store.js";
 export type GatewayPersistence = {
   onInboundMessage: (
     message: InboundMessage,
+    botId: string,
     telegramOffset: number,
     correlation?: { id: string; entry: CorrelationEntry },
   ) => Promise<void>;
   onMessagesRead: (ids: string[]) => Promise<void>;
-  onShutdown: (telegramOffset: number) => Promise<void>;
+  onShutdown: (telegramOffsets: Record<string, number>) => Promise<void>;
 };
 
 export function createPersistence(
   store: GatewayStore,
 ): GatewayPersistence {
   return {
-    onInboundMessage: async (message, telegramOffset, correlation) => {
+    onInboundMessage: async (message, botId, telegramOffset, correlation) => {
       await store.upsertMessage(message);
       if (correlation) {
         await store.upsertCorrelation(correlation.id, correlation.entry);
       }
-      await store.setTelegramOffset(telegramOffset);
+      await store.setTelegramOffset(botId, telegramOffset);
     },
     onMessagesRead: async (ids) => {
       await store.markMessagesRead(ids);
     },
-    onShutdown: async (telegramOffset) => {
-      await store.setTelegramOffset(telegramOffset);
+    onShutdown: async (telegramOffsets) => {
+      for (const [botId, offset] of Object.entries(telegramOffsets)) {
+        await store.setTelegramOffset(botId, offset);
+      }
     },
   };
 }

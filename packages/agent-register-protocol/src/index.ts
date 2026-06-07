@@ -14,3 +14,4 @@ export { AGENT_REGISTER_PATHS } from "./paths.js";
 export type { RegisterAgentRequest, RegisterAgentResponse } from "./register.js";
 export type { DeregisterAgentRequest, DeregisterAgentResponse } from "./deregister.js";
 export type { ListAgentsResponse } from "./list.js";
+export { resolveAgentByNamePrefix } from "./resolve-agent.js";

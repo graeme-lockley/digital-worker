@@ -5,7 +5,7 @@ import type { CorrelationRegistry } from "./correlation-registry.js";
 import type { Mailbox } from "./mailbox.js";
 import type { Notifier } from "./notifier.js";
 import type { GatewayPersistence } from "./persistence.js";
-import type { TelegramAdapter } from "./telegram/adapter.js";
+import type { TelegramBotRegistry } from "./telegram/bot-registry.js";
 import {
   GATEWAY_PATHS,
   type AckRequest,
@@ -18,7 +18,7 @@ import {
 
 export type GatewayContext = {
   mailbox: Mailbox;
-  telegram: TelegramAdapter;
+  telegramBots: TelegramBotRegistry;
   notifier: Notifier;
   correlations: CorrelationRegistry;
   persistence: GatewayPersistence;
@@ -93,10 +93,10 @@ export function createApp(ctx: GatewayContext): Hono {
     }
 
     try {
-      const result = await ctx.telegram.send(
-        body.text.trim(),
-        route.threadId,
-      );
+      const botId = ctx.telegramBots.resolveBotId(route.botId);
+      const result = await ctx.telegramBots
+        .getAdapter(botId)
+        .send(body.text.trim(), route.threadId);
       const messageIds = body.messageIds ?? [];
       if (messageIds.length > 0) {
         ctx.mailbox.ack(messageIds);
@@ -138,10 +138,10 @@ export function createApp(ctx: GatewayContext): Hono {
     }
 
     try {
-      const result = await ctx.telegram.send(
-        body.text.trim(),
-        body.threadId?.trim(),
-      );
+      const botId = ctx.telegramBots.resolveBotId(body.botId?.trim());
+      const result = await ctx.telegramBots
+        .getAdapter(botId)
+        .send(body.text.trim(), body.threadId?.trim());
       const response: OutboundResponse = {
         delivered: true,
         providerMessageId: result.providerMessageId,
@@ -149,7 +149,8 @@ export function createApp(ctx: GatewayContext): Hono {
       return c.json(response);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return c.json({ error: { message } }, 502);
+      const status = message.includes("botId is required") ? 400 : 502;
+      return c.json({ error: { message } }, status);
     }
   });
 
@@ -157,6 +158,7 @@ export function createApp(ctx: GatewayContext): Hono {
     c.json({
       service: "agent-gateway",
       channels: ["telegram"],
+      telegramBots: ctx.telegramBots.botIds,
       unreadCount: ctx.mailbox.unreadCount(),
       version: "0.0.0",
     }),

@@ -27,7 +27,7 @@ This skill powers the 5:30 AM SAST cron that delivers a morning news digest to G
 ### News24
 1. `agent_browser` open `https://www.news24.com`
 2. `snapshot -i` — look for cookie banner buttons (usually "OK" or "Accept All")
-3. If cookie banner visible, click the accept/OK button (look for button text "OK" or similar)
+3. If cookie banner visible, click the accept/OK button
 4. `snapshot -i` again to see the headlines
 5. Extract top SA news stories from heading and link elements
 
@@ -70,7 +70,6 @@ Structure the briefing as follows:
 
 - 3–5 headlines per category
 - Complete sentences or clear headline text
-- No telegraphic lists
 
 ## Delivery
 

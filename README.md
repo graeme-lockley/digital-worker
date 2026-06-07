@@ -86,7 +86,7 @@ curl http://127.0.0.1:3001/api/v1/agents
 curl http://127.0.0.1:3000/api/v1
 ```
 
-Inside the Compose network, containers reach each other by service name (e.g. `http://agent-register:3001`, `http://agent-core:3000`). Those hostnames are not available from your Mac unless port mappings are used.
+Inside the Compose network, containers reach each other by service name (e.g. `http://agent-register:3001`, `http://agent-core-aida:3000`). Those hostnames are not available from your Mac unless port mappings are used.
 
 ## Agent TUI
 
@@ -115,7 +115,7 @@ pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001 --agent-
 
 Chat uses **SSE** token streaming on `POST /api/v1/chat` (see [docs/specs/chat-streaming.md](docs/specs/chat-streaming.md)).
 
-When the register is on `localhost` but an agent registered a Docker hostname (e.g. `http://agent-core:3000` from dev-workstation), the TUI automatically chats via `http://127.0.0.1:<port>` instead.
+When the register is on `localhost` but an agent registered a Docker hostname (e.g. `http://agent-core-aida:3000` from dev-workstation), the TUI automatically chats via `http://127.0.0.1:<port>` instead.
 
 ## Local development (without Docker)
 

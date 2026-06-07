@@ -9,7 +9,7 @@ import { buildCorrelationId } from "./correlation-registry.js";
 import type { Mailbox } from "./mailbox.js";
 
 export type NotifierOptions = {
-  agentCoreUrl: string;
+  resolveAgentCoreUrl: (botId: string) => string;
   mailbox: Mailbox;
   clientId: string;
   /** Debounce rapid bursts before notifying (ms). */
@@ -167,14 +167,18 @@ export class Notifier {
     const channel = first.channel;
     const threadId = first.threadId ?? threadKey;
     const sender = first.sender;
-    const correlationId = buildCorrelationId(channel, threadId);
+    const botId = first.botId;
+    if (!botId) {
+      throw new Error("inbound telegram message missing botId");
+    }
+    const correlationId = buildCorrelationId(channel, threadId, botId);
     const messageIds = pending.map((m) => m.id);
     const prompt = pending.map((m) => m.text.trim()).join("\n\n");
 
     this.markInFlight(threadKey, messageIds);
 
     try {
-      await this.postNotify({
+      await this.postNotify(this.options.resolveAgentCoreUrl(botId), {
         clientId: this.options.clientId,
         prompt,
         channel,
@@ -189,9 +193,12 @@ export class Notifier {
     }
   }
 
-  private async postNotify(body: NotifyRequest): Promise<void> {
+  private async postNotify(
+    agentCoreUrl: string,
+    body: NotifyRequest,
+  ): Promise<void> {
     const fetchFn = this.options.fetchFn ?? fetch;
-    const url = new URL(AGENT_CORE_PATHS.notify, this.options.agentCoreUrl);
+    const url = new URL(AGENT_CORE_PATHS.notify, agentCoreUrl);
     const response = await fetchFn(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -205,7 +212,8 @@ export class Notifier {
 }
 
 function threadKeyForMessage(message: InboundMessage): ThreadKey {
-  return `${message.channel}:${message.threadId ?? "default"}`;
+  const botPart = message.botId ? `${message.botId}:` : "";
+  return `${message.channel}:${botPart}${message.threadId ?? "default"}`;
 }
 
 function groupUnreadByThread(

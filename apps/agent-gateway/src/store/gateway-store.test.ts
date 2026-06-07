@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { GatewayStore } from "./gateway-store.js";
 
+const TEST_BOT_ID = "testbot";
+
 describe("GatewayStore", () => {
   it("persists and loads bootstrap state", async () => {
     const store = await GatewayStore.create(":memory:");
@@ -15,18 +17,21 @@ describe("GatewayStore", () => {
       receivedAt: "2026-06-07T10:00:00.000Z",
       read: false,
     });
-    await store.upsertCorrelation("telegram:123", {
+    await store.upsertCorrelation(`telegram:${TEST_BOT_ID}:123`, {
       channel: "telegram",
       threadId: "123",
       sender: "graeme",
+      botId: TEST_BOT_ID,
     });
-    await store.setTelegramOffset(42);
+    await store.setTelegramOffset(TEST_BOT_ID, 42);
 
     const loaded = await store.loadBootstrap();
     expect(loaded.messages).toHaveLength(1);
     expect(loaded.messages[0]?.text).toBe("hello");
-    expect(loaded.correlations["telegram:123"]?.threadId).toBe("123");
-    expect(loaded.telegramOffset).toBe(42);
+    expect(loaded.correlations[`telegram:${TEST_BOT_ID}:123`]?.threadId).toBe(
+      "123",
+    );
+    expect(loaded.telegramOffsets[TEST_BOT_ID]).toBe(42);
 
     await store.close();
   });
@@ -96,11 +101,13 @@ describe("GatewayStore", () => {
     const store = await GatewayStore.create(":memory:");
 
     await Promise.all(
-      Array.from({ length: 20 }, (_, i) => store.setTelegramOffset(i)),
+      Array.from({ length: 20 }, (_, i) =>
+        store.setTelegramOffset(TEST_BOT_ID, i),
+      ),
     );
 
     const loaded = await store.loadBootstrap();
-    expect(typeof loaded.telegramOffset).toBe("number");
+    expect(loaded.telegramOffsets[TEST_BOT_ID]).toBeTypeOf("number");
 
     await store.close();
   });

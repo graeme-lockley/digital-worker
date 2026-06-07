@@ -6,6 +6,8 @@ import { describe, expect, it } from "vitest";
 
 import { GatewayStore } from "./gateway-store.js";
 
+const TEST_BOT_ID = "testbot";
+
 async function createLegacyDir(state: unknown): Promise<string> {
   const dir = path.join(
     tmpdir(),
@@ -49,7 +51,7 @@ describe("migrateLegacyGatewayState", () => {
 
     expect(bootstrap.messages).toHaveLength(1);
     expect(bootstrap.messages[0]?.text).toBe("legacy hello");
-    expect(bootstrap.telegramOffset).toBe(99);
+    expect(bootstrap.telegramOffsets.__legacy__).toBe(99);
     expect(bootstrap.correlations["telegram:8672094762"]?.sender).toBe("graeme");
 
     await store.close();

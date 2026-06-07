@@ -48,4 +48,10 @@ describe("buildCorrelationId", () => {
       "telegram:8672094762",
     );
   });
+
+  it("includes bot id when provided", () => {
+    expect(buildCorrelationId("telegram", "8672094762", "aidadigitalbot")).toBe(
+      "telegram:aidadigitalbot:8672094762",
+    );
+  });
 });

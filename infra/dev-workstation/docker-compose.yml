@@ -60,7 +60,7 @@ services:
       retries: 3
       start_period: 15s
 
-  agent-core:
+  agent-core-aida:
     build:
       context: .
       dockerfile: infra/dev-workstation/Dockerfile.agent-core
@@ -80,9 +80,9 @@ services:
       - --register-url
       - http://agent-register:3001
       - --endpoint-url
-      - http://agent-core:3000
+      - http://agent-core-aida:3000
       - --agent-id
-      - dev-workstation-agent-core
+      - dev-workstation-agent-core-aida
       - --agent-name
       - Aida
       - --workspace-dir
@@ -105,6 +105,8 @@ services:
       - "8000"
       - --gateway-url
       - http://agent-gateway:3002
+      - --telegram-bot-id
+      - aidadigitalbot
       - --scheduler-url
       - http://agent-scheduler:3003
     env_file:
@@ -115,9 +117,84 @@ services:
       AGENT_CORE_HOST: 127.0.0.1
       AGENT_CORE_PORT: "3000"
       GATEWAY_URL: http://agent-gateway:3002
+      TELEGRAM_BOT_ID: aidadigitalbot
       SCHEDULER_URL: http://agent-scheduler:3003
     volumes:
       - ./workspace/Aida:/app/workspace/Aida
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  agent-core-riaan:
+    build:
+      context: .
+      dockerfile: infra/dev-workstation/Dockerfile.agent-core
+    entrypoint: ["/app/infra/dev-workstation/agent-core-entrypoint.sh"]
+    ports:
+      - "3010:3000"
+    depends_on:
+      agent-register:
+        condition: service_healthy
+    command:
+      - node
+      - dist/index.js
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "3000"
+      - --register-url
+      - http://agent-register:3001
+      - --endpoint-url
+      - http://agent-core-riaan:3000
+      - --agent-id
+      - dev-workstation-agent-core-riaan
+      - --agent-name
+      - Riaan
+      - --workspace-dir
+      - /app/workspace/Riaan
+      - --provider
+      - deepseek
+      - --model
+      - deepseek-v4-flash
+      - --models
+      - deepseek-v4-flash,deepseek-v4-pro
+      - --skills
+      - memory-curation
+      - --memory-flush-soft-threshold-tokens
+      - "4000"
+      - --memory-flush-min-turns
+      - "6"
+      - --memory-nudge-interval
+      - "10"
+      - --memory-bootstrap-budget
+      - "8000"
+      - --gateway-url
+      - http://agent-gateway:3002
+      - --telegram-bot-id
+      - riaandigitalbot
+      - --scheduler-url
+      - http://agent-scheduler:3003
+    env_file:
+      - .env
+    environment:
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      OLLAMA_HOST: 127.0.0.1:11434
+      AGENT_CORE_HOST: 127.0.0.1
+      AGENT_CORE_PORT: "3000"
+      GATEWAY_URL: http://agent-gateway:3002
+      TELEGRAM_BOT_ID: riaandigitalbot
+      SCHEDULER_URL: http://agent-scheduler:3003
+    volumes:
+      - ./workspace/Riaan:/app/workspace/Riaan
     healthcheck:
       test:
         [
@@ -140,7 +217,9 @@ services:
     depends_on:
       libsql:
         condition: service_healthy
-      agent-core:
+      agent-core-aida:
+        condition: service_healthy
+      agent-core-riaan:
         condition: service_healthy
     command:
       - node
@@ -149,19 +228,22 @@ services:
       - "0.0.0.0"
       - --port
       - "3002"
-      - --agent-core-url
-      - http://agent-core:3000
+      - --telegram-bots-file
+      - /app/infra/dev-workstation/gateway-telegram-bots.json
       - --db-url
       - http://libsql:8080
       - --use-notify-endpoint
     env_file:
       - .env
     environment:
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      GATEWAY_TELEGRAM_BOTS_FILE: /app/infra/dev-workstation/gateway-telegram-bots.json
+      TELEGRAM_AIDADIGITALBOT_TOKEN: ${TELEGRAM_AIDADIGITALBOT_TOKEN:-${TELEGRAM_BOT_TOKEN}}
+      TELEGRAM_RIAANDIGITALBOT_TOKEN: ${TELEGRAM_RIAANDIGITALBOT_TOKEN}
       TELEGRAM_ALLOWED_CHAT_IDS: ${TELEGRAM_ALLOWED_CHAT_IDS}
-      AGENT_CORE_URL: http://agent-core:3000
       GATEWAY_USE_NOTIFY: "true"
       LIBSQL_URL: http://libsql:8080
+    volumes:
+      - ./infra/dev-workstation/gateway-telegram-bots.json:/app/infra/dev-workstation/gateway-telegram-bots.json:ro
     healthcheck:
       test:
         [
@@ -186,7 +268,9 @@ services:
         condition: service_healthy
       agent-register:
         condition: service_healthy
-      agent-core:
+      agent-core-aida:
+        condition: service_healthy
+      agent-core-riaan:
         condition: service_healthy
       agent-gateway:
         condition: service_healthy

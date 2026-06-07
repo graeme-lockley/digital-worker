@@ -1,12 +1,13 @@
 import { Command } from "commander";
 
 import { userArgv } from "./user-argv.js";
+import { loadTelegramBots, parseAllowedChatIds } from "./telegram/load-bots.js";
+import type { TelegramBotDefinition } from "./telegram/bot-registry.js";
 
 export type GatewayOptions = {
   host: string;
   port: number;
-  agentCoreUrl: string;
-  telegramToken: string;
+  telegramBots: TelegramBotDefinition[];
   allowedChatIds: Set<string>;
   dbUrl: string;
   dbAuthToken?: string;
@@ -22,17 +23,16 @@ export function parseCli(argv: readonly string[] = process.argv): GatewayOptions
     .option("-H, --host <host>", "bind host", "127.0.0.1")
     .option("-p, --port <port>", "HTTP port", "3002")
     .option(
-      "--agent-core-url <url>",
-      "agent-core base URL",
-      process.env.AGENT_CORE_URL ?? "http://127.0.0.1:3000",
-    )
-    .option(
-      "--telegram-token <token>",
-      "Telegram bot token (or TELEGRAM_BOT_TOKEN env)",
-    )
-    .option(
       "--telegram-allowed-chat-ids <ids>",
       "comma-separated allowed chat IDs (or TELEGRAM_ALLOWED_CHAT_IDS env)",
+    )
+    .option(
+      "--telegram-bots-file <path>",
+      "JSON file listing telegram bots (or GATEWAY_TELEGRAM_BOTS_FILE env)",
+    )
+    .option(
+      "--telegram-bots <json>",
+      "JSON array of telegram bots (or GATEWAY_TELEGRAM_BOTS env)",
     )
     .option(
       "--db-url <url>",
@@ -62,9 +62,9 @@ export function parseCli(argv: readonly string[] = process.argv): GatewayOptions
   const opts = program.opts<{
     host: string;
     port: string;
-    agentCoreUrl: string;
-    telegramToken?: string;
     telegramAllowedChatIds?: string;
+    telegramBotsFile?: string;
+    telegramBots?: string;
     dbUrl: string;
     legacyDataDir?: string;
     renotifyIntervalMs: string;
@@ -76,20 +76,6 @@ export function parseCli(argv: readonly string[] = process.argv): GatewayOptions
     program.error(`invalid port: ${opts.port}`);
   }
 
-  try {
-    new URL(opts.agentCoreUrl);
-  } catch {
-    program.error(`invalid agent-core-url: ${opts.agentCoreUrl}`);
-  }
-
-  const telegramToken =
-    opts.telegramToken?.trim() || process.env.TELEGRAM_BOT_TOKEN?.trim();
-  if (!telegramToken) {
-    program.error(
-      "telegram token is required (--telegram-token or TELEGRAM_BOT_TOKEN)",
-    );
-  }
-
   const chatIdsRaw =
     opts.telegramAllowedChatIds?.trim() ||
     process.env.TELEGRAM_ALLOWED_CHAT_IDS?.trim();
@@ -99,18 +85,15 @@ export function parseCli(argv: readonly string[] = process.argv): GatewayOptions
     );
   }
 
-  const resolvedToken = telegramToken!;
-  const resolvedChatIds = chatIdsRaw!;
-
-  const allowedChatIds = new Set(
-    resolvedChatIds
-      .split(",")
-      .map((id) => id.trim())
-      .filter((id) => id.length > 0),
-  );
+  const allowedChatIds = parseAllowedChatIds(chatIdsRaw!);
   if (allowedChatIds.size === 0) {
     program.error("at least one allowed chat id is required");
   }
+
+  const telegramBots = loadTelegramBots(program, allowedChatIds, {
+    botsFile: opts.telegramBotsFile,
+    botsJson: opts.telegramBots,
+  });
 
   const renotifyIntervalMs = Number(opts.renotifyIntervalMs);
   if (!Number.isInteger(renotifyIntervalMs) || renotifyIntervalMs < 0) {
@@ -128,8 +111,7 @@ export function parseCli(argv: readonly string[] = process.argv): GatewayOptions
   return {
     host: opts.host,
     port,
-    agentCoreUrl: opts.agentCoreUrl,
-    telegramToken: resolvedToken,
+    telegramBots,
     allowedChatIds,
     dbUrl,
     dbAuthToken,

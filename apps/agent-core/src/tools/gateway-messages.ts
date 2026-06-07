@@ -4,6 +4,7 @@ import { Type } from "typebox";
 
 export type GatewayClientDeps = {
   gatewayUrl: string;
+  telegramBotId?: string;
   fetchFn?: typeof fetch;
 };
 
@@ -94,6 +95,7 @@ export function createSendMessageTool(
           channel: params.channel,
           text: params.text,
           threadId: params.threadId,
+          botId: params.botId ?? deps.telegramBotId,
         }),
       });
 
@@ -161,6 +163,13 @@ const sendMessageParameters = Type.Object({
     Type.String({
       description: "Optional thread/chat id for the reply target",
       maxLength: 100,
+    }),
+  ),
+  botId: Type.Optional(
+    Type.String({
+      description:
+        'Telegram bot routing id (e.g. "aidadigitalbot", "riaandigitalbot"); defaults to this agent\'s configured bot',
+      maxLength: 64,
     }),
   ),
 });

@@ -10,41 +10,34 @@ Use `agent_browser` to fetch scores from sports websites. Sources and parsing di
 ## Tennis (Grand Slams)
 
 ### Sources
-- **TNT Sports** (UK/Eurosport) — `https://www.tntsports.co.uk/tennis/french-open/` (good for live scores)
-- **ESPN** — `https://www.espn.com/tennis/scoreboard/_/tournament/roland-garros`
-- **Official site** — `https://www.rolandgarros.com/en-us/matches/2026/SD001`
+- **Official Roland Garros live page** — `https://www.rolandgarros.com/en-us/matches?status=live` (best for live scores — shows game scores per set, current game points, elapsed time)
+- **ESPN** — `https://www.espn.com/tennis/scoreboard/_/tournament/roland-garros` (good for compact summaries)
+- **TNT Sports** — `https://www.tntsports.co.uk/tennis/french-open/` (good for headlines and live blogs)
 
-### How to read scores (TNT Sports format)
-Open the TNT Sports page and get the live link text from the snapshot. The link text contains a pattern like:
-
-```
-M. Chwalinska M. Andreeva (8) Score 3 Score 5
-```
-
-This means Chwalinska has 3 games, Andreeva has 5 in the current set. When multiple sets are played, the pattern extends:
+### How to read scores (Roland Garros official format)
+The official live page link text contains a pattern like:
 
 ```
-Score 3 Score 0 Score 6 Score 2
+Men's Singles LIVE Court Philippe-Chatrier - FINAL 1h07 ITA F.Cobolli (10) 40 1 3 GER A.Zverev (2) 40 6 3
 ```
 
-This means:
-- Set 1: Player1 3, Player2 6 (Player2 won set 6-3)
-- Set 2: Player1 0, Player2 2 (Player2 leads 2-0)
-
-Look for headings like "What a point! Watch as Andreeva wins opening set" to confirm set outcomes.
+This parses as:
+- **Duration**: 1h07 played
+- **Cobolli**: 40 (current game points), 1 (games in set 1), 3 (games in current set)
+- **Zverev**: 40 (current game points), 6 (games in set 1 — won set 6-1), 3 (games in current set)
+- So: Set 1: Zverev 6-1 ✅, Set 2: 3-3 (40-40 in current game)
 
 ### Method
-1. `agent_browser` open the TNT Sports page
+1. `agent_browser` open the Roland Garros live page
 2. `snapshot -i` to get the compact view
-3. Read the link text for the match using the raw JSON `refs` data
-4. Parse the "Score X Score Y" pattern to extract game scores per set
-5. Look for "LIVE" status to confirm match is ongoing
+3. Read the link text for the match to extract game scores per set and current game points
+4. Look for "LIVE" status, "FINAL" status, or completed indicators
 
 ## Rugby Sevens (SVNS / Blitzbokke)
 
 ### Source
 - **SA Rugby Magazine** — `https://www.sarugbymag.co.za/` (best for Blitzbokke results)
-- **SVNS Official** — `https://www.svns.com/en/events/bordeaux` (event page with news)
+- **SVNS Official** — `https://www.svns.com/en/events/{city}` (event page with news, e.g. bordeaux, singapore, hong-kong)
 
 ### Method
 1. `agent_browser` open SA Rugby Magazine front page
@@ -82,7 +75,8 @@ Look for headings like "What a point! Watch as Andreeva wins opening set" to con
 Format as a markdown table with Pos, Player, Total, R1, R2 columns. Note if Round 3 is in progress.
 
 ## General delivery
-- Send results to Graeme on Telegram using `send_message` with chat ID 8672094762
+- Reply directly in the conversation turn when Graeme asks on Telegram (automatic delivery)
+- For proactive updates (final results), use `send_message` to Telegram chat ID 8672094762
 - Use markdown formatting (bold for player names and scores)
 - Include emoji headers (🎾 for tennis, 🏉 for rugby, ⛳ for golf)
 - Remember the result in today's daily log under Facts

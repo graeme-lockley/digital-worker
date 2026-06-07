@@ -1,0 +1,12 @@
+[
+  {
+    "botId": "aidadigitalbot",
+    "tokenEnv": "TELEGRAM_AIDADIGITALBOT_TOKEN",
+    "agentCoreUrl": "http://agent-core-aida:3000"
+  },
+  {
+    "botId": "riaandigitalbot",
+    "tokenEnv": "TELEGRAM_RIAANDIGITALBOT_TOKEN",
+    "agentCoreUrl": "http://agent-core-riaan:3000"
+  }
+]

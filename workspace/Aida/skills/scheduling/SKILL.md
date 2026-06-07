@@ -34,20 +34,20 @@ By default, scheduled events are **user-facing**: the scheduler appends a delive
 
 - Pass **`internalOnly: true`** for housekeeping with no Telegram delivery (no suffix, no fallback).
 
-**Example — daily briefing to Telegram**
+**Example — recurring reminder to Telegram**
 
 ```
 schedule_event({
-  cron: "30 5 * * *",
+  cron: "0 9 * * 1-5",
   timezone: "Africa/Johannesburg",
   model: "deepseek-v4-flash",
-  prompt: "Run the daily-news-briefing skill: fetch headlines and send the formatted briefing.",
+  prompt: "Review open threads in memory; send Graeme a brief follow-up on Telegram if anything needs attention.",
   deliverToChannel: "telegram",
   deliverToThreadId: "8672094762"
 })
 ```
 
-Follow the skill's own `send_message` step; fallback covers missed tool calls when the transcript contains the briefing text.
+News and sports schedules (daily briefing, live score checks) belong to **Riaan** — use `send_to_agent` to ask him to create or adjust them, not these skills locally.
 
 ## Cron examples (5-field, with timezone)
 

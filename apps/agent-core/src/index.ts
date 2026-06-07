@@ -80,6 +80,7 @@ async function main(): Promise<void> {
     memoryManager,
     initialMemorySection,
     gatewayUrl: options.gatewayUrl,
+    telegramBotId: options.telegramBotId,
     registerUrl: options.registerUrl,
     agentId: options.agentId,
     schedulerUrl: options.schedulerUrl,

@@ -16,6 +16,7 @@ export type TelegramUpdate = {
 };
 
 export type TelegramAdapterOptions = {
+  botId?: string;
   token: string;
   allowedChatIds: Set<string>;
   fetchFn?: typeof fetch;
@@ -71,8 +72,9 @@ export class TelegramAdapter implements ChannelAdapter {
       String(msg.from?.id ?? chatId);
 
     return {
-      id: `telegram-${update.update_id}`,
+      id: `telegram-${this.options.botId ?? "default"}-${update.update_id}`,
       channel: this.channel,
+      botId: this.options.botId,
       sender,
       text: msg.text.trim(),
       threadId: chatId,

@@ -9,8 +9,10 @@ import { type Client, createClient } from "@libsql/client";
 
 import { migrateLegacyGatewayState } from "./migrate-legacy-store.js";
 
-const SCHEMA_VERSION = 1;
-const META_TELEGRAM_OFFSET = "telegram_offset";
+const SCHEMA_VERSION = 2;
+const META_TELEGRAM_OFFSET_PREFIX = "telegram_offset:";
+const META_TELEGRAM_OFFSET_LEGACY = "telegram_offset";
+const META_LEGACY_OFFSET_KEY = "__legacy__";
 const META_SCHEMA_VERSION = "schema_version";
 
 export const DEFAULT_READ_MESSAGE_RETENTION_DAYS = 30;
@@ -18,7 +20,7 @@ export const DEFAULT_READ_MESSAGE_RETENTION_DAYS = 30;
 export type GatewayBootstrap = {
   messages: InboundMessage[];
   correlations: Record<string, CorrelationEntry>;
-  telegramOffset: number;
+  telegramOffsets: Record<string, number>;
 };
 
 export type GatewayStoreOptions = {
@@ -84,7 +86,8 @@ export class GatewayStore {
         correlation_id TEXT PRIMARY KEY,
         channel TEXT NOT NULL,
         thread_id TEXT NOT NULL,
-        sender TEXT NOT NULL
+        sender TEXT NOT NULL,
+        bot_id TEXT
       )
     `);
 
@@ -93,12 +96,34 @@ export class GatewayStore {
       args: [META_SCHEMA_VERSION],
     });
     const version = row.rows[0] ? Number(row.rows[0].value) : 0;
+    if (version < 2) {
+      await this.migrateToV2(version);
+    }
     if (version < SCHEMA_VERSION) {
       await this.client.execute({
         sql: "INSERT OR REPLACE INTO gateway_meta (key, value) VALUES (?, ?)",
         args: [META_SCHEMA_VERSION, String(SCHEMA_VERSION)],
       });
     }
+  }
+
+  private async migrateToV2(fromVersion: number): Promise<void> {
+    await this.client.execute(`
+      ALTER TABLE gateway_message ADD COLUMN bot_id TEXT
+    `).catch(() => {
+      /* column may already exist */
+    });
+    await this.client.execute(`
+      ALTER TABLE gateway_correlation ADD COLUMN bot_id TEXT
+    `).catch(() => {
+      /* column may already exist */
+    });
+
+    if (fromVersion < 1) {
+      return;
+    }
+
+    /* bot_id backfill for legacy rows is applied at runtime via GATEWAY_LEGACY_BOT_ID */
   }
 
   async loadBootstrap(): Promise<GatewayBootstrap> {
@@ -116,18 +141,35 @@ export class GatewayStore {
         channel: String(row.channel),
         threadId: String(row.thread_id),
         sender: String(row.sender),
+        botId:
+          row.bot_id == null || row.bot_id === ""
+            ? undefined
+            : String(row.bot_id),
       };
     }
 
     const offsetResult = await this.client.execute({
-      sql: "SELECT value FROM gateway_meta WHERE key = ?",
-      args: [META_TELEGRAM_OFFSET],
+      sql: "SELECT key, value FROM gateway_meta WHERE key LIKE ?",
+      args: [`${META_TELEGRAM_OFFSET_PREFIX}%`],
     });
-    const telegramOffset = offsetResult.rows[0]
-      ? Number(offsetResult.rows[0].value)
-      : 0;
+    const telegramOffsets: Record<string, number> = {};
+    for (const row of offsetResult.rows) {
+      const key = String(row.key);
+      const botId = key.slice(META_TELEGRAM_OFFSET_PREFIX.length);
+      telegramOffsets[botId] = Number(row.value);
+    }
 
-    return { messages, correlations, telegramOffset };
+    if (Object.keys(telegramOffsets).length === 0) {
+      const legacy = await this.client.execute({
+        sql: "SELECT value FROM gateway_meta WHERE key = ?",
+        args: [META_TELEGRAM_OFFSET_LEGACY],
+      });
+      if (legacy.rows[0]) {
+        telegramOffsets[META_LEGACY_OFFSET_KEY] = Number(legacy.rows[0].value);
+      }
+    }
+
+    return { messages, correlations, telegramOffsets };
   }
 
   async upsertMessage(message: InboundMessage): Promise<void> {
@@ -135,10 +177,11 @@ export class GatewayStore {
       await this.client.execute({
         sql: `
           INSERT INTO gateway_message (
-            id, channel, sender, text, thread_id, received_at, read
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            id, channel, bot_id, sender, text, thread_id, received_at, read
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             channel = excluded.channel,
+            bot_id = excluded.bot_id,
             sender = excluded.sender,
             text = excluded.text,
             thread_id = excluded.thread_id,
@@ -148,6 +191,7 @@ export class GatewayStore {
         args: [
           message.id,
           message.channel,
+          message.botId ?? null,
           message.sender,
           message.text,
           message.threadId ?? null,
@@ -181,23 +225,30 @@ export class GatewayStore {
       await this.client.execute({
         sql: `
           INSERT INTO gateway_correlation (
-            correlation_id, channel, thread_id, sender
-          ) VALUES (?, ?, ?, ?)
+            correlation_id, channel, thread_id, sender, bot_id
+          ) VALUES (?, ?, ?, ?, ?)
           ON CONFLICT(correlation_id) DO UPDATE SET
             channel = excluded.channel,
             thread_id = excluded.thread_id,
-            sender = excluded.sender
+            sender = excluded.sender,
+            bot_id = excluded.bot_id
         `,
-        args: [correlationId, entry.channel, entry.threadId, entry.sender],
+        args: [
+          correlationId,
+          entry.channel,
+          entry.threadId,
+          entry.sender,
+          entry.botId ?? null,
+        ],
       });
     });
   }
 
-  async setTelegramOffset(offset: number): Promise<void> {
+  async setTelegramOffset(botId: string, offset: number): Promise<void> {
     await this.enqueueWrite(async () => {
       await this.client.execute({
         sql: "INSERT OR REPLACE INTO gateway_meta (key, value) VALUES (?, ?)",
-        args: [META_TELEGRAM_OFFSET, String(offset)],
+        args: [`${META_TELEGRAM_OFFSET_PREFIX}${botId}`, String(offset)],
       });
     });
   }
@@ -232,6 +283,10 @@ function mapMessageRow(row: Record<string, unknown>): InboundMessage {
   return {
     id: String(row.id),
     channel: String(row.channel),
+    botId:
+      row.bot_id == null || row.bot_id === ""
+        ? undefined
+        : String(row.bot_id),
     sender: String(row.sender),
     text: String(row.text),
     threadId: row.thread_id == null ? undefined : String(row.thread_id),

@@ -236,14 +236,41 @@ New channels (email, webhooks) implement this interface and register at startup.
 
 | Variable / flag | Required | Purpose |
 |-----------------|----------|---------|
-| `TELEGRAM_BOT_TOKEN` | yes | Bot API token (gateway only) |
-| `TELEGRAM_ALLOWED_CHAT_IDS` | yes | Comma-separated allowlisted chat IDs |
-| `AGENT_CORE_URL` | yes | agent-core base URL |
+| `GATEWAY_TELEGRAM_BOTS_FILE` / `--telegram-bots-file` | yes* | Path to JSON array of bot routes |
+| `GATEWAY_TELEGRAM_BOTS` / `--telegram-bots` | yes* | Inline JSON array (alternative to file) |
+| `TELEGRAM_ALLOWED_CHAT_IDS` | yes | Comma-separated allowlisted chat IDs (shared by all bots) |
+| Per-bot `tokenEnv` | yes | Each config entry names an env var holding the Bot API token |
+| `GATEWAY_LEGACY_BOT_ID` | no | Assign legacy mailbox rows/offsets without botId (default: first configured bot) |
 | `GATEWAY_URL` | agent-core | Enables worker gateway tools + auto-reply client |
-| `--db-url` / `LIBSQL_URL` | no | libSQL database URL (default `file:./data/agent-gateway/gateway.db` locally) |
-| `--legacy-data-dir` | no | One-off import of legacy `state.json` when the target store is empty |
-| `--use-notify-endpoint` | no | Legacy CLI flag; notifier always uses `/api/v1/notify` |
+| `--db-url` / `LIBSQL_URL` | no | libSQL database URL |
+| `--legacy-data-dir` | no | One-off import of legacy `state.json` |
 | `--renotify-interval-ms` | no | In-flight retry interval (default 5 minutes) |
+
+\* One of `GATEWAY_TELEGRAM_BOTS_FILE`, `GATEWAY_TELEGRAM_BOTS`, or legacy `TELEGRAM_BOT_TOKEN` (single default bot).
+
+**Bot route JSON** (array):
+
+```json
+[
+  {
+    "botId": "aidadigitalbot",
+    "tokenEnv": "TELEGRAM_AIDADIGITALBOT_TOKEN",
+    "agentCoreUrl": "http://agent-core-aida:3000"
+  },
+  {
+    "botId": "riaandigitalbot",
+    "tokenEnv": "TELEGRAM_RIAANDIGITALBOT_TOKEN",
+    "agentCoreUrl": "http://agent-core-riaan:3000"
+  }
+]
+```
+
+- `botId` — stable routing id (lowercase, hyphens); used in correlation ids and `send_message`
+- `tokenEnv` — name of env var containing the secret token (preferred)
+- `token` — inline token (tests only)
+- `agentCoreUrl` — agent-core base URL for inbound notify
+
+Dev-workstation ships `infra/dev-workstation/gateway-telegram-bots.json`; add a bot by editing that file and setting its `tokenEnv` in `.env`.
 
 Secrets **must not** live in the workspace bind mount.
 

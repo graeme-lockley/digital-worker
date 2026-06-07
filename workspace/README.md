@@ -25,7 +25,7 @@ workspace/
 Docker copies `workspace/` into the image at build time (see `infra/dev-workstation/Dockerfile.agent-core`).
 At runtime, pass `--workspace-dir` pointing at the agent folder (e.g. `/app/workspace/Aida`). Builtin tools default to the same directory unless `--tools-cwd` overrides.
 
-For dev-workstation, compose bind-mounts `./workspace/Aida` so identity updates and other workspace files persist across container restarts and rebuilds.
+For dev-workstation, compose bind-mounts `./workspace/Aida` and `./workspace/Riaan` so identity updates and other workspace files persist across container restarts and rebuilds.
 
 ## MANDATE.md
 

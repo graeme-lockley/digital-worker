@@ -7,8 +7,9 @@ import { Mailbox } from "./mailbox.js";
 import { Notifier } from "./notifier.js";
 import { createPersistence } from "./persistence.js";
 import { startServer } from "./server.js";
-import { GatewayStore } from "./store/gateway-store.js";
-import { TelegramAdapter } from "./telegram/adapter.js";
+import { GatewayStore, type GatewayBootstrap } from "./store/gateway-store.js";
+import { TelegramBotRegistry } from "./telegram/bot-registry.js";
+import { normalizeTelegramBootstrap } from "./telegram/telegram-bot-config.js";
 
 async function main(): Promise<void> {
   const options = parseCli();
@@ -20,7 +21,10 @@ async function main(): Promise<void> {
   });
   const persistence = createPersistence(store);
 
-  const bootstrap = await store.loadBootstrap();
+  const bootstrap = normalizeTelegramBootstrap(
+    await store.loadBootstrap(),
+    options.telegramBots,
+  ) as GatewayBootstrap;
   if (bootstrap.messages.length > 0) {
     mailbox.restore(bootstrap.messages);
   }
@@ -28,18 +32,16 @@ async function main(): Promise<void> {
     correlations.restore(bootstrap.correlations);
   }
 
-  const telegram = new TelegramAdapter({
-    token: options.telegramToken,
-    allowedChatIds: options.allowedChatIds,
-    onError: (error) => {
-      console.error("telegram adapter error:", error);
+  const telegramBots = new TelegramBotRegistry(
+    options.telegramBots,
+    (botId, error) => {
+      console.error(`telegram adapter error (${botId}):`, error);
     },
-  });
-
-  telegram.setUpdateOffset(bootstrap.telegramOffset);
+  );
+  telegramBots.restoreOffsets(bootstrap.telegramOffsets);
 
   const notifier = new Notifier({
-    agentCoreUrl: options.agentCoreUrl,
+    resolveAgentCoreUrl: (botId) => telegramBots.agentCoreUrlFor(botId),
     mailbox,
     clientId: "agent-gateway",
     inFlightTimeoutMs: options.renotifyIntervalMs,
@@ -48,21 +50,26 @@ async function main(): Promise<void> {
     },
   });
 
-  await telegram.start((message) => {
-    const stored = mailbox.add(message);
+  await telegramBots.start((botId, message) => {
+    const stored = mailbox.add({
+      ...message,
+      botId: message.botId ?? botId,
+    });
     const threadId = stored.threadId ?? [...options.allowedChatIds][0];
     if (threadId) {
-      const correlationId = buildCorrelationId(stored.channel, threadId);
+      const correlationId = buildCorrelationId(stored.channel, threadId, botId);
       const entry = {
         channel: stored.channel,
         threadId,
         sender: stored.sender,
+        botId,
       };
       correlations.register(correlationId, entry);
       void persistence
         .onInboundMessage(
           stored,
-          telegram.getUpdateOffset(),
+          botId,
+          telegramBots.getAdapter(botId).getUpdateOffset(),
           { id: correlationId, entry },
         )
         .catch((error) => {
@@ -70,7 +77,11 @@ async function main(): Promise<void> {
         });
     } else {
       void persistence
-        .onInboundMessage(stored, telegram.getUpdateOffset())
+        .onInboundMessage(
+          stored,
+          botId,
+          telegramBots.getAdapter(botId).getUpdateOffset(),
+        )
         .catch((error) => {
           console.error("persist failed:", error);
         });
@@ -83,8 +94,8 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string): Promise<void> => {
     console.log(`received ${signal}, stopping agent-gateway`);
     notifier.dispose();
-    await telegram.stop();
-    await persistence.onShutdown(telegram.getUpdateOffset());
+    await telegramBots.stop();
+    await persistence.onShutdown(telegramBots.exportOffsets());
     await store.close();
     process.exit(0);
   };
@@ -98,10 +109,13 @@ async function main(): Promise<void> {
 
   startServer(
     { host: options.host, port: options.port },
-    { mailbox, telegram, notifier, correlations, persistence },
+    { mailbox, telegramBots, notifier, correlations, persistence },
     () => {
+      const botSummary = options.telegramBots
+        .map((bot) => `${bot.botId}→${bot.agentCoreUrl}`)
+        .join(", ");
       console.log(
-        `telegram gateway ready (agent-core ${options.agentCoreUrl}, ${options.allowedChatIds.size} allowed chat(s))`,
+        `telegram gateway ready (${botSummary}, ${options.allowedChatIds.size} allowed chat(s))`,
       );
     },
   );

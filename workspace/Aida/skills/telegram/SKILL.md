@@ -11,14 +11,14 @@ Telegram messages flow through **agent-gateway**, not directly to this workspace
 
 Credentials (bot token, chat IDs) live on the gateway only — nothing is stored in the workspace.
 
-Each inbound turn is prefixed with a **conversation label**:
+Each inbound turn is prefixed with a **conversation label** (correlation id includes the bot routing id):
 
 ```
-[conversation telegram:<chatId> from <sender>]
+[conversation telegram:aidadigitalbot:<chatId> from <sender>]
 <sender>: <message text>
 ```
 
-The label is your **correlation id** — it tells you which conversation this turn belongs to when several are active at once.
+Multi-bot routing is configured in `infra/dev-workstation/gateway-telegram-bots.json` — load the **`gateway-telegram`** skill when changing bots or wiring new agents.
 
 **Your text reply in that turn is sent back to that conversation automatically.** You do not call a tool to post the reply.
 

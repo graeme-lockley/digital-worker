@@ -1,5 +1,6 @@
 import {
   AGENT_REGISTER_PATHS,
+  resolveAgentByNamePrefix as resolveAgentByPrefix,
   type ListAgentsResponse,
   type RegisteredAgent,
 } from "@digital-worker/agent-register-protocol";
@@ -33,18 +34,11 @@ export function resolveAgentByNamePrefix(
   agents: RegisteredAgent[],
   prefix: string,
 ): RegisteredAgent {
-  const matches = agents.filter((agent) => agent.name.startsWith(prefix));
-
-  if (matches.length === 0) {
-    throw new RegistryError(`no agent with name prefix "${prefix}"`);
+  try {
+    return resolveAgentByPrefix(agents, prefix);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "failed to resolve agent";
+    throw new RegistryError(message);
   }
-
-  if (matches.length > 1) {
-    const names = matches.map((a) => a.name).join(", ");
-    throw new RegistryError(
-      `ambiguous name prefix "${prefix}" (matches: ${names})`,
-    );
-  }
-
-  return matches[0]!;
 }

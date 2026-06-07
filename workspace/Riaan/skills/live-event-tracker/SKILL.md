@@ -12,10 +12,10 @@ This skill handles the pattern of scheduling one-shot score checks for live spor
 When Graeme asks about a live sports score:
 
 1. **Initial check** — Do it immediately using `agent_browser` and the `sports-score-checker` skill
-2. **Send result** — Deliver to Telegram via `send_message` (chat ID 8672094762)
+2. **Send result** — Reply directly in the conversation turn (automatic delivery on Telegram)
 3. **Schedule follow-up** — Use `schedule_event` with a `fireAt` ~15 minutes later
 4. **Interval checks** — Each follow-up repeats steps 1-3 until the match is complete
-5. **Final result** — Send the final scoreline and cancel any remaining scheduled events
+5. **Final result** — Send the final scoreline via `send_message` and cancel any remaining scheduled events
 
 ## Interval guidelines
 
@@ -26,7 +26,7 @@ When Graeme asks about a live sports score:
 | Golf (round in progress) | 30–60 minutes | Slower pace; scores change gradually |
 | Golf (final round/stretch) | 15 minutes | Tighter leaderboard drama |
 
-Graeme's explicit preference (from 6 June 2026): **15 minutes** for live tennis finals.
+Graeme's preference: **15 minutes** for live tennis finals.
 
 ## Follow-up prompt structure
 
@@ -69,7 +69,7 @@ If multiple live events are being tracked simultaneously, keep a mental note of 
 
 ## Conversation flow
 
-When Graeme asks for a follow-up time adjustment (e.g. "make it 15 minutes instead of 50"):
+When Graeme asks for a follow-up time adjustment:
 1. `cancel_scheduled_event` on the existing event
 2. Create a new event with the corrected `fireAt`
 3. Confirm the change to Graeme

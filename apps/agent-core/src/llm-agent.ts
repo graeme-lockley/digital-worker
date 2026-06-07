@@ -136,6 +136,8 @@ export type CreateLlmAgentOptions = {
   initialMemorySection?: string;
   /** agent-gateway base URL; enables check_messages and send_message tools. */
   gatewayUrl?: string;
+  /** Default Telegram bot routing id for proactive send_message. */
+  telegramBotId?: string;
   /** agent-register base URL; enables list_agents and send_to_agent tools. */
   registerUrl?: string;
   /** This worker's registration id; required for inter-agent tools. */
@@ -279,7 +281,10 @@ export async function createLlmAgent(
   }
 
   if (gatewayEnabled && options.gatewayUrl) {
-    const gatewayDeps = { gatewayUrl: options.gatewayUrl };
+    const gatewayDeps = {
+      gatewayUrl: options.gatewayUrl,
+      telegramBotId: options.telegramBotId,
+    };
     customTools.push(
       createCheckMessagesTool(gatewayDeps),
       createSendMessageTool(gatewayDeps),

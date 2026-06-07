@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { Mailbox } from "./mailbox.js";
 import { Notifier } from "./notifier.js";
 
+const TEST_BOT = "testbot";
+
 describe("Notifier", () => {
   it("posts channel message notify with correlation fields", async () => {
     vi.useFakeTimers();
@@ -11,7 +13,7 @@ describe("Notifier", () => {
     const fetchMock = vi.fn().mockResolvedValue({ status: 202 });
 
     const notifier = new Notifier({
-      agentCoreUrl: "http://127.0.0.1:3000",
+      resolveAgentCoreUrl: () => "http://127.0.0.1:3000",
       mailbox,
       clientId: "test",
       debounceMs: 200,
@@ -22,6 +24,7 @@ describe("Notifier", () => {
     mailbox.add({
       id: "msg-1",
       channel: "telegram",
+      botId: TEST_BOT,
       sender: "graeme",
       text: "hello there",
       threadId: "8672094762",
@@ -43,7 +46,7 @@ describe("Notifier", () => {
       messageIds: string[];
     };
     expect(body.prompt).toBe("hello there");
-    expect(body.correlationId).toBe("telegram:8672094762");
+    expect(body.correlationId).toBe(`telegram:${TEST_BOT}:8672094762`);
     expect(body.threadId).toBe("8672094762");
     expect(body.sender).toBe("graeme");
     expect(body.messageIds).toEqual(["msg-1"]);
@@ -60,7 +63,7 @@ describe("Notifier", () => {
     const fetchMock = vi.fn().mockResolvedValue({ status: 202 });
 
     const notifier = new Notifier({
-      agentCoreUrl: "http://127.0.0.1:3000",
+      resolveAgentCoreUrl: () => "http://127.0.0.1:3000",
       mailbox,
       clientId: "test",
       debounceMs: 200,
@@ -71,6 +74,7 @@ describe("Notifier", () => {
     mailbox.add({
       id: "1",
       channel: "telegram",
+      botId: TEST_BOT,
       sender: "graeme",
       text: "one",
       threadId: "123",
@@ -81,6 +85,7 @@ describe("Notifier", () => {
     mailbox.add({
       id: "2",
       channel: "telegram",
+      botId: TEST_BOT,
       sender: "graeme",
       text: "two",
       threadId: "123",
@@ -109,7 +114,7 @@ describe("Notifier", () => {
     const fetchMock = vi.fn().mockResolvedValue({ status: 202 });
 
     const notifier = new Notifier({
-      agentCoreUrl: "http://127.0.0.1:3000",
+      resolveAgentCoreUrl: () => "http://127.0.0.1:3000",
       mailbox,
       clientId: "test",
       debounceMs: 0,
@@ -120,6 +125,7 @@ describe("Notifier", () => {
     mailbox.add({
       id: "1",
       channel: "telegram",
+      botId: TEST_BOT,
       sender: "graeme",
       text: "one",
       threadId: "123",

@@ -28,7 +28,7 @@ describe("TelegramAdapter", () => {
 
     const normalized = adapter.normalizeUpdate(update);
     expect(normalized).toMatchObject({
-      id: "telegram-42",
+      id: "telegram-default-42",
       channel: "telegram",
       sender: "graeme",
       text: "Hello Aida",

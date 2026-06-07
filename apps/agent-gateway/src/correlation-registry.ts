@@ -32,6 +32,28 @@ export class CorrelationRegistry {
   }
 }
 
-export function buildCorrelationId(channel: string, threadId: string): string {
+export function buildCorrelationId(
+  channel: string,
+  threadId: string,
+  botId?: string,
+): string {
+  if (botId?.trim()) {
+    return `${channel}:${botId.trim()}:${threadId}`;
+  }
   return `${channel}:${threadId}`;
+}
+
+export function parseCorrelationId(correlationId: string): {
+  channel: string;
+  threadId: string;
+  botId?: string;
+} {
+  const parts = correlationId.split(":");
+  if (parts.length === 2) {
+    return { channel: parts[0]!, threadId: parts[1]! };
+  }
+  if (parts.length === 3) {
+    return { channel: parts[0]!, botId: parts[1], threadId: parts[2]! };
+  }
+  throw new Error(`invalid correlation id: ${correlationId}`);
 }
