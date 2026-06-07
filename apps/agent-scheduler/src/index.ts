@@ -5,10 +5,14 @@ import { TickLoop } from "./tick-loop.js";
 
 async function main(): Promise<void> {
   const options = parseCli();
-  const store = new SchedulerStore(options.dataDir);
+  const store = await SchedulerStore.create(options.dbUrl, {
+    authToken: options.dbAuthToken,
+    legacyDataDir: options.legacyDataDir,
+  });
 
-  store.recoverStaleLeases(Date.now());
-  const adjusted = store.applyMissedPolicy(Date.now());
+  const now = Date.now();
+  await store.recoverStaleLeases(now);
+  const adjusted = await store.applyMissedPolicy(now);
   if (adjusted > 0) {
     console.log(`adjusted ${adjusted} overdue cron event(s) per missed policy`);
   }
@@ -26,15 +30,19 @@ async function main(): Promise<void> {
   });
   tickLoop.start(options.tickIntervalMs);
 
-  const shutdown = (signal: string): void => {
+  const shutdown = async (signal: string): Promise<void> => {
     console.log(`received ${signal}, stopping agent-scheduler`);
     tickLoop.stop();
-    store.close();
+    await store.close();
     process.exit(0);
   };
 
-  process.once("SIGINT", () => shutdown("SIGINT"));
-  process.once("SIGTERM", () => shutdown("SIGTERM"));
+  process.once("SIGINT", () => {
+    void shutdown("SIGINT");
+  });
+  process.once("SIGTERM", () => {
+    void shutdown("SIGTERM");
+  });
 
   startServer(
     options.host,

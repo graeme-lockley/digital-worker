@@ -1,7 +1,3 @@
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
-
 import { describe, expect, it, vi } from "vitest";
 
 import { SCHEDULER_PATHS } from "@digital-worker/agent-scheduler-protocol";
@@ -12,10 +8,9 @@ import { TickLoop } from "./tick-loop.js";
 
 describe("scheduler API", () => {
   it("lists runs with agent filter", async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), "scheduler-api-"));
-    const store = new SchedulerStore(dir);
+    const store = await SchedulerStore.create(":memory:");
     const now = Date.now();
-    store.createEvent({
+    await store.createEvent({
       id: "evt-api",
       agentId: "agent-x",
       model: "m1",
@@ -26,7 +21,7 @@ describe("scheduler API", () => {
       createdBy: "agent-x",
       now,
     });
-    store.createRun({
+    await store.createRun({
       id: "run-api",
       eventId: "evt-api",
       scheduledFor: now,
@@ -34,7 +29,7 @@ describe("scheduler API", () => {
       model: "m1",
       attempt: 1,
     });
-    store.finishRun("run-api", "succeeded", now + 100);
+    await store.finishRun("run-api", "succeeded", now + 100);
 
     const tickLoop = new TickLoop({
       store,
@@ -57,6 +52,6 @@ describe("scheduler API", () => {
     expect(body.total).toBe(1);
     expect(body.runs[0]?.agentId).toBe("agent-x");
     expect(body.runs[0]?.prompt).toBe("prompt text");
-    store.close();
+    await store.close();
   });
 });

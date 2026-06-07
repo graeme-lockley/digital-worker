@@ -181,6 +181,8 @@ services:
     ports:
       - "3003:3003"
     depends_on:
+      libsql:
+        condition: service_healthy
       agent-register:
         condition: service_healthy
       agent-core:
@@ -198,12 +200,11 @@ services:
       - http://agent-register:3001
       - --gateway-url
       - http://agent-gateway:3002
-      - --data-dir
-      - /data
+      - --db-url
+      - http://libsql:8080
     environment:
       GATEWAY_URL: http://agent-gateway:3002
-    volumes:
-      - scheduler-data:/data
+      LIBSQL_URL: http://libsql:8080
     healthcheck:
       test:
         [
@@ -220,4 +221,3 @@ services:
 volumes:
   libsql-data:
   gateway-data:
-  scheduler-data:

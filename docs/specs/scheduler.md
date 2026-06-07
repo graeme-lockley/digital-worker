@@ -1,13 +1,13 @@
 # Agent scheduler
 
-Durable scheduling service for digital workers. Agents create one-shot or recurring (5-field cron) events that fire via `POST /api/v1/chat`, stream the agent response into SQLite, and expose a read-only web UI for operators.
+Durable scheduling service for digital workers. Agents create one-shot or recurring (5-field cron) events that fire via `POST /api/v1/chat`, stream the agent response into libSQL, and expose a read-only web UI for operators.
 
 ## Service
 
 - **App:** `apps/agent-scheduler`
 - **Protocol:** `@digital-worker/agent-scheduler-protocol`
 - **Default port:** `3003` (API + static UI at `/`)
-- **Storage:** SQLite (`scheduler.db` under `--data-dir`)
+- **Storage:** libSQL via `@libsql/client` (`--db-url` / `LIBSQL_URL`; default `file:./data/agent-scheduler/scheduler.db` for local dev)
 
 ## Local development
 
@@ -16,7 +16,7 @@ pnpm install
 pnpm build
 pnpm --filter @digital-worker/agent-scheduler dev -- \
   --register-url http://127.0.0.1:3001 \
-  --data-dir ./data/agent-scheduler
+  --db-url file:./data/agent-scheduler/scheduler.db
 ```
 
 Browse `http://127.0.0.1:3003/` for the read-only schedules/runs UI.
@@ -25,7 +25,7 @@ Browse `http://127.0.0.1:3003/` for the read-only schedules/runs UI.
 
 The Compose stack includes **agent-scheduler** on host port **3003**. **agent-core** is started with `--scheduler-url http://agent-scheduler:3003`, enabling scheduling tools when the scheduler is reachable.
 
-Persistent scheduler data uses the `scheduler-data` volume (`/data` in the container).
+Persistent scheduler data lives in the central **libsql** service (`--db-url http://libsql:8080`). For one-off imports from an old `scheduler.db`, pass `--legacy-data-dir` when the target libSQL store is still empty.
 
 ## Agent tools (agent-core)
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { AGENT_STATUS } from "@digital-worker/agent-register-protocol";
 
-import { AgentRegistryError, AgentRegistryStore } from "./store.js";
+import { AgentRegistryStore } from "./store.js";
 
 const sampleRequest = {
   agentId: "agent-1",
@@ -22,13 +22,23 @@ describe("AgentRegistryStore", () => {
     await store.close();
   });
 
-  it("rejects duplicate registration", async () => {
+  it("re-registers an existing agent on reconnect", async () => {
     const store = await AgentRegistryStore.create(":memory:");
-    await store.register(sampleRequest);
+    const first = await store.register(sampleRequest);
+    await store.markSleeping(sampleRequest.agentId);
 
-    await expect(store.register(sampleRequest)).rejects.toThrow(
-      AgentRegistryError,
-    );
+    const updated = {
+      ...sampleRequest,
+      name: "worker-restarted",
+      endpoint: { url: "http://127.0.0.1:3001" },
+    };
+    const second = await store.register(updated);
+
+    expect(second.name).toBe("worker-restarted");
+    expect(second.endpoint.url).toBe("http://127.0.0.1:3001");
+    expect(second.status).toBe(AGENT_STATUS.AVAILABLE);
+    expect(second.registeredAt).toBe(first.registeredAt);
+    expect(await store.list()).toHaveLength(1);
     await store.close();
   });
 

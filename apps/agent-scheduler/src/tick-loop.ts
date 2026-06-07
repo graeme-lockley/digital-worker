@@ -67,8 +67,8 @@ export class TickLoop {
     this.ticking = true;
     try {
       const now = Date.now();
-      this.deps.store.recoverStaleLeases(now);
-      const due = this.deps.store.claimDueEvents(now, this.deps.leaseMs);
+      await this.deps.store.recoverStaleLeases(now);
+      const due = await this.deps.store.claimDueEvents(now, this.deps.leaseMs);
       for (const event of due) {
         await this.processEvent(event, now);
       }
@@ -79,7 +79,7 @@ export class TickLoop {
 
   private async processEvent(event: ScheduledEvent, now: number): Promise<void> {
     try {
-      if (this.deps.store.hasRunningRun(event.id)) {
+      if (await this.deps.store.hasRunningRun(event.id)) {
         await this.rescheduleOverlap(event, now);
         return;
       }
@@ -108,8 +108,8 @@ export class TickLoop {
 
       const scheduledFor = event.fireAt;
       const attempt =
-        this.deps.store.countConsecutiveFailures(event.id) + 1;
-      const run = this.deps.store.createRun({
+        (await this.deps.store.countConsecutiveFailures(event.id)) + 1;
+      const run = await this.deps.store.createRun({
         id: crypto.randomUUID(),
         eventId: event.id,
         scheduledFor,
@@ -128,7 +128,7 @@ export class TickLoop {
           timeoutMs: this.deps.chatTimeoutMs,
           fetchFn: this.fetchFn,
           onToken: (chunk) => {
-            this.deps.store.appendTranscript(run.id, chunk);
+            void this.deps.store.appendTranscript(run.id, chunk);
           },
         });
       } catch (error) {
@@ -138,18 +138,18 @@ export class TickLoop {
             : error instanceof Error
               ? error.message
               : "chat fire failed";
-        this.deps.store.finishRun(run.id, "failed", Date.now(), message);
+        await this.deps.store.finishRun(run.id, "failed", Date.now(), message);
         await this.scheduleFailureRetry(event, now, attempt, message);
         return;
       }
 
       if (result.error) {
-        this.deps.store.finishRun(run.id, "failed", Date.now(), result.error);
+        await this.deps.store.finishRun(run.id, "failed", Date.now(), result.error);
         await this.scheduleFailureRetry(event, now, attempt, result.error);
         return;
       }
 
-      this.deps.store.finishRun(run.id, "succeeded", Date.now());
+      await this.deps.store.finishRun(run.id, "succeeded", Date.now());
       this.sleepingRetries.delete(event.id);
 
       await this.maybeDeliverFallback(event, run.id, result.transcript);
@@ -160,9 +160,9 @@ export class TickLoop {
           event.timezone,
           Date.now(),
         );
-        this.deps.store.advanceEvent(event.id, { nextFireAt }, now);
+        await this.deps.store.advanceEvent(event.id, { nextFireAt }, now);
       } else {
-        this.deps.store.advanceEvent(event.id, { completed: true }, now);
+        await this.deps.store.advanceEvent(event.id, { completed: true }, now);
       }
     } catch (error) {
       this.deps.onError?.(error, { eventId: event.id });
@@ -171,9 +171,9 @@ export class TickLoop {
         return;
       }
       console.error(`failed to process event ${event.id}:`, error);
-      this.deps.store.releaseLease(event.id, Date.now());
+      await this.deps.store.releaseLease(event.id, Date.now());
     } finally {
-      this.deps.store.releaseLease(event.id, Date.now());
+      await this.deps.store.releaseLease(event.id, Date.now());
     }
   }
 
@@ -181,8 +181,8 @@ export class TickLoop {
     const nextFireAt = event.cron
       ? computeNextFireAt(event.cron, event.timezone, now)
       : now + 60_000;
-    this.deps.store.setEventFireAt(event.id, nextFireAt, now);
-    this.deps.store.releaseLease(event.id, now);
+    await this.deps.store.setEventFireAt(event.id, nextFireAt, now);
+    await this.deps.store.releaseLease(event.id, now);
   }
 
   private async rescheduleSleeping(event: ScheduledEvent, now: number): Promise<void> {
@@ -190,8 +190,8 @@ export class TickLoop {
     this.sleepingRetries.set(event.id, count);
     const index = Math.min(count - 1, SLEEPING_BACKOFF_MS.length - 1);
     const delay = SLEEPING_BACKOFF_MS[index]!;
-    this.deps.store.setEventFireAt(event.id, now + delay, now);
-    this.deps.store.releaseLease(event.id, now);
+    await this.deps.store.setEventFireAt(event.id, now + delay, now);
+    await this.deps.store.releaseLease(event.id, now);
   }
 
   private async scheduleFailureRetry(
@@ -207,9 +207,9 @@ export class TickLoop {
           event.timezone,
           now,
         );
-        this.deps.store.advanceEvent(event.id, { nextFireAt }, now);
+        await this.deps.store.advanceEvent(event.id, { nextFireAt }, now);
       } else {
-        this.deps.store.setEventFireAt(event.id, now + 3_600_000, now);
+        await this.deps.store.setEventFireAt(event.id, now + 3_600_000, now);
       }
       console.error(
         `event ${event.id} exceeded max fire attempts; last error: ${message}`,
@@ -219,7 +219,7 @@ export class TickLoop {
 
     const index = Math.min(attempt - 1, FAILURE_BACKOFF_MS.length - 1);
     const delay = FAILURE_BACKOFF_MS[index]!;
-    this.deps.store.setEventFireAt(event.id, now + delay, now);
+    await this.deps.store.setEventFireAt(event.id, now + delay, now);
   }
 
   private async failEvent(
@@ -227,8 +227,8 @@ export class TickLoop {
     now: number,
     message: string,
   ): Promise<void> {
-    const attempt = this.deps.store.countConsecutiveFailures(event.id) + 1;
-    const run = this.deps.store.createRun({
+    const attempt = (await this.deps.store.countConsecutiveFailures(event.id)) + 1;
+    const run = await this.deps.store.createRun({
       id: crypto.randomUUID(),
       eventId: event.id,
       scheduledFor: event.fireAt,
@@ -236,7 +236,7 @@ export class TickLoop {
       model: event.model,
       attempt,
     });
-    this.deps.store.finishRun(run.id, "failed", now, message);
+    await this.deps.store.finishRun(run.id, "failed", now, message);
     await this.scheduleFailureRetry(event, now, attempt, message);
   }
 
@@ -274,7 +274,7 @@ export class TickLoop {
         this.fetchFn,
       );
       if (result.delivered) {
-        this.deps.store.markRunDeliverFallback(runId);
+        await this.deps.store.markRunDeliverFallback(runId);
       }
     } catch (error) {
       const message =

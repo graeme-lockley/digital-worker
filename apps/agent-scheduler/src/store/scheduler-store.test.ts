@@ -1,21 +1,16 @@
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
-
 import { describe, expect, it } from "vitest";
 
 import { SchedulerStore } from "./scheduler-store.js";
 
-async function openStore(): Promise<{ store: SchedulerStore; dir: string }> {
-  const dir = await mkdtemp(path.join(tmpdir(), "scheduler-store-"));
-  return { store: new SchedulerStore(dir), dir };
+async function openStore(): Promise<SchedulerStore> {
+  return SchedulerStore.create(":memory:");
 }
 
 describe("SchedulerStore", () => {
-  it("creates and lists events", () => {
-    const { store } = openStoreSync();
+  it("creates and lists events", async () => {
+    const store = await openStore();
     const now = Date.now();
-    const event = store.createEvent({
+    const event = await store.createEvent({
       id: "evt-1",
       agentId: "agent-a",
       model: "deepseek/deepseek-v4-flash",
@@ -28,15 +23,15 @@ describe("SchedulerStore", () => {
     });
 
     expect(event.id).toBe("evt-1");
-    const listed = store.listEvents({ agentId: "agent-a" });
+    const listed = await store.listEvents({ agentId: "agent-a" });
     expect(listed).toHaveLength(1);
-    store.close();
+    await store.close();
   });
 
-  it("claims due events with lease", () => {
-    const { store } = openStoreSync();
+  it("claims due events with lease", async () => {
+    const store = await openStore();
     const now = Date.now();
-    store.createEvent({
+    await store.createEvent({
       id: "evt-due",
       agentId: "agent-a",
       model: "m1",
@@ -48,19 +43,19 @@ describe("SchedulerStore", () => {
       now,
     });
 
-    const claimed = store.claimDueEvents(now, 60_000);
+    const claimed = await store.claimDueEvents(now, 60_000);
     expect(claimed).toHaveLength(1);
     expect(claimed[0]?.leaseUntil).toBeDefined();
 
-    const secondClaim = store.claimDueEvents(now, 60_000);
+    const secondClaim = await store.claimDueEvents(now, 60_000);
     expect(secondClaim).toHaveLength(0);
-    store.close();
+    await store.close();
   });
 
-  it("recovers stale leases and interrupts running runs", () => {
-    const { store } = openStoreSync();
+  it("recovers stale leases and interrupts running runs", async () => {
+    const store = await openStore();
     const now = Date.now();
-    store.createEvent({
+    await store.createEvent({
       id: "evt-lease",
       agentId: "agent-a",
       model: "m1",
@@ -71,8 +66,8 @@ describe("SchedulerStore", () => {
       createdBy: "agent-a",
       now,
     });
-    store.claimDueEvents(now, 60_000);
-    const run = store.createRun({
+    await store.claimDueEvents(now, 60_000);
+    const run = await store.createRun({
       id: "run-1",
       eventId: "evt-lease",
       scheduledFor: now - 1000,
@@ -82,16 +77,16 @@ describe("SchedulerStore", () => {
     });
     expect(run.status).toBe("running");
 
-    store.recoverStaleLeases(now + 120_000);
-    const updated = store.getRun("run-1");
+    await store.recoverStaleLeases(now + 120_000);
+    const updated = await store.getRun("run-1");
     expect(updated?.status).toBe("interrupted");
-    store.close();
+    await store.close();
   });
 
-  it("applies skip missed policy for overdue cron events", () => {
-    const { store } = openStoreSync();
+  it("applies skip missed policy for overdue cron events", async () => {
+    const store = await openStore();
     const now = Date.now();
-    store.createEvent({
+    await store.createEvent({
       id: "evt-cron",
       agentId: "agent-a",
       model: "m1",
@@ -104,17 +99,17 @@ describe("SchedulerStore", () => {
       now: now - 86_400_000,
     });
 
-    const adjusted = store.applyMissedPolicy(now);
+    const adjusted = await store.applyMissedPolicy(now);
     expect(adjusted).toBe(1);
-    const event = store.getEvent("evt-cron");
+    const event = await store.getEvent("evt-cron");
     expect(event?.fireAt).toBeGreaterThan(now);
-    store.close();
+    await store.close();
   });
 
-  it("counts consecutive failures since last success", () => {
-    const { store } = openStoreSync();
+  it("counts consecutive failures since last success", async () => {
+    const store = await openStore();
     const now = Date.now();
-    store.createEvent({
+    await store.createEvent({
       id: "evt-retry",
       agentId: "agent-a",
       model: "m1",
@@ -126,9 +121,9 @@ describe("SchedulerStore", () => {
       now,
     });
 
-    expect(store.countConsecutiveFailures("evt-retry")).toBe(0);
+    expect(await store.countConsecutiveFailures("evt-retry")).toBe(0);
 
-    store.createRun({
+    await store.createRun({
       id: "run-ok-1",
       eventId: "evt-retry",
       scheduledFor: now,
@@ -136,8 +131,8 @@ describe("SchedulerStore", () => {
       model: "m1",
       attempt: 1,
     });
-    store.finishRun("run-ok-1", "succeeded", now + 100);
-    store.createRun({
+    await store.finishRun("run-ok-1", "succeeded", now + 100);
+    await store.createRun({
       id: "run-ok-2",
       eventId: "evt-retry",
       scheduledFor: now + 1000,
@@ -145,9 +140,9 @@ describe("SchedulerStore", () => {
       model: "m1",
       attempt: 1,
     });
-    store.finishRun("run-ok-2", "succeeded", now + 1100);
+    await store.finishRun("run-ok-2", "succeeded", now + 1100);
 
-    store.createRun({
+    await store.createRun({
       id: "run-fail-1",
       eventId: "evt-retry",
       scheduledFor: now + 2000,
@@ -155,8 +150,8 @@ describe("SchedulerStore", () => {
       model: "m1",
       attempt: 1,
     });
-    store.finishRun("run-fail-1", "failed", now + 2100, "error 1");
-    store.createRun({
+    await store.finishRun("run-fail-1", "failed", now + 2100, "error 1");
+    await store.createRun({
       id: "run-fail-2",
       eventId: "evt-retry",
       scheduledFor: now + 3000,
@@ -164,11 +159,11 @@ describe("SchedulerStore", () => {
       model: "m1",
       attempt: 2,
     });
-    store.finishRun("run-fail-2", "failed", now + 3100, "error 2");
+    await store.finishRun("run-fail-2", "failed", now + 3100, "error 2");
 
-    expect(store.countConsecutiveFailures("evt-retry")).toBe(2);
+    expect(await store.countConsecutiveFailures("evt-retry")).toBe(2);
 
-    store.createRun({
+    await store.createRun({
       id: "run-ok-3",
       eventId: "evt-retry",
       scheduledFor: now + 4000,
@@ -176,16 +171,16 @@ describe("SchedulerStore", () => {
       model: "m1",
       attempt: 3,
     });
-    store.finishRun("run-ok-3", "succeeded", now + 4100);
+    await store.finishRun("run-ok-3", "succeeded", now + 4100);
 
-    expect(store.countConsecutiveFailures("evt-retry")).toBe(0);
-    store.close();
+    expect(await store.countConsecutiveFailures("evt-retry")).toBe(0);
+    await store.close();
   });
 
-  it("lists runs joined with event metadata", () => {
-    const { store } = openStoreSync();
+  it("lists runs joined with event metadata", async () => {
+    const store = await openStore();
     const now = Date.now();
-    store.createEvent({
+    await store.createEvent({
       id: "evt-runs",
       agentId: "agent-b",
       model: "m1",
@@ -196,7 +191,7 @@ describe("SchedulerStore", () => {
       createdBy: "agent-b",
       now,
     });
-    store.createRun({
+    await store.createRun({
       id: "run-a",
       eventId: "evt-runs",
       scheduledFor: now,
@@ -204,9 +199,9 @@ describe("SchedulerStore", () => {
       model: "m1",
       attempt: 1,
     });
-    store.finishRun("run-a", "succeeded", now + 500);
+    await store.finishRun("run-a", "succeeded", now + 500);
 
-    const { runs, total } = store.listRuns({
+    const { runs, total } = await store.listRuns({
       agentId: "agent-b",
       limit: 10,
       offset: 0,
@@ -214,11 +209,6 @@ describe("SchedulerStore", () => {
     expect(total).toBe(1);
     expect(runs[0]?.prompt).toBe("joined prompt");
     expect(runs[0]?.agentId).toBe("agent-b");
-    store.close();
+    await store.close();
   });
 });
-
-function openStoreSync(): { store: SchedulerStore; dir: string } {
-  const dir = path.join(tmpdir(), `scheduler-store-${crypto.randomUUID()}`);
-  return { store: new SchedulerStore(dir), dir };
-}

@@ -20,6 +20,7 @@
     "@digital-worker/agent-register-protocol": "workspace:*",
     "@digital-worker/agent-scheduler-protocol": "workspace:*",
     "@hono/node-server": "^1.14.4",
+    "@libsql/client": "^0.17.3",
     "commander": "^14.0.0",
     "cron-parser": "^5.3.0",
     "hono": "^4.7.10"

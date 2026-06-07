@@ -90,7 +90,7 @@ export function createApp(ctx: SchedulerContext): Hono {
     }
 
     const now = Date.now();
-    const event = ctx.store.createEvent({
+    const event = await ctx.store.createEvent({
       id: crypto.randomUUID(),
       agentId: input.agentId,
       model: input.model,
@@ -110,7 +110,7 @@ export function createApp(ctx: SchedulerContext): Hono {
     return c.json(response, 201);
   });
 
-  app.get(SCHEDULER_PATHS.events, (c) => {
+  app.get(SCHEDULER_PATHS.events, async (c) => {
     const agentId = c.req.query("agentId")?.trim();
     const statusRaw = c.req.query("status")?.trim();
     const status =
@@ -124,7 +124,7 @@ export function createApp(ctx: SchedulerContext): Hono {
       );
     }
 
-    const events = ctx.store.listEvents({
+    const events = await ctx.store.listEvents({
       agentId: agentId || undefined,
       status,
     });
@@ -132,12 +132,12 @@ export function createApp(ctx: SchedulerContext): Hono {
     return c.json(response);
   });
 
-  app.get(`${SCHEDULER_PATHS.events}/:id`, (c) => {
-    const event = ctx.store.getEvent(c.req.param("id"));
+  app.get(`${SCHEDULER_PATHS.events}/:id`, async (c) => {
+    const event = await ctx.store.getEvent(c.req.param("id"));
     if (!event) {
       return apiError(c, SCHEDULER_ERROR_CODES.NOT_FOUND, "event not found", 404);
     }
-    const { runs } = ctx.store.listRuns({
+    const { runs } = await ctx.store.listRuns({
       eventId: event.id,
       limit: 10,
       offset: 0,
@@ -150,11 +150,11 @@ export function createApp(ctx: SchedulerContext): Hono {
   });
 
   app.delete(`${SCHEDULER_PATHS.events}/:id`, async (c) => {
-    const event = ctx.store.cancelEvent(c.req.param("id"), Date.now());
+    const event = await ctx.store.cancelEvent(c.req.param("id"), Date.now());
     if (!event) {
       return apiError(c, SCHEDULER_ERROR_CODES.NOT_FOUND, "event not found", 404);
     }
-    const { runs } = ctx.store.listRuns({
+    const { runs } = await ctx.store.listRuns({
       eventId: event.id,
       limit: 10,
       offset: 0,
@@ -166,12 +166,12 @@ export function createApp(ctx: SchedulerContext): Hono {
     return c.json(response);
   });
 
-  app.post(`${SCHEDULER_PATHS.events}/:id/pause`, (c) => {
-    const event = ctx.store.pauseEvent(c.req.param("id"), Date.now());
+  app.post(`${SCHEDULER_PATHS.events}/:id/pause`, async (c) => {
+    const event = await ctx.store.pauseEvent(c.req.param("id"), Date.now());
     if (!event) {
       return apiError(c, SCHEDULER_ERROR_CODES.NOT_FOUND, "event not found", 404);
     }
-    const { runs } = ctx.store.listRuns({
+    const { runs } = await ctx.store.listRuns({
       eventId: event.id,
       limit: 10,
       offset: 0,
@@ -183,8 +183,8 @@ export function createApp(ctx: SchedulerContext): Hono {
     return c.json(response);
   });
 
-  app.post(`${SCHEDULER_PATHS.events}/:id/resume`, (c) => {
-    const existing = ctx.store.getEvent(c.req.param("id"));
+  app.post(`${SCHEDULER_PATHS.events}/:id/resume`, async (c) => {
+    const existing = await ctx.store.getEvent(c.req.param("id"));
     if (!existing) {
       return apiError(c, SCHEDULER_ERROR_CODES.NOT_FOUND, "event not found", 404);
     }
@@ -193,11 +193,11 @@ export function createApp(ctx: SchedulerContext): Hono {
     const nextFireAt = existing.cron
       ? computeInitialFireAt(existing.cron, existing.timezone)
       : Math.max(existing.fireAt, now);
-    const event = ctx.store.resumeEvent(existing.id, nextFireAt, now);
+    const event = await ctx.store.resumeEvent(existing.id, nextFireAt, now);
     if (!event) {
       return apiError(c, SCHEDULER_ERROR_CODES.NOT_FOUND, "event not found", 404);
     }
-    const { runs } = ctx.store.listRuns({
+    const { runs } = await ctx.store.listRuns({
       eventId: event.id,
       limit: 10,
       offset: 0,
@@ -209,8 +209,8 @@ export function createApp(ctx: SchedulerContext): Hono {
     return c.json(response);
   });
 
-  app.get(`${SCHEDULER_PATHS.events}/:id/runs`, (c) => {
-    const event = ctx.store.getEvent(c.req.param("id"));
+  app.get(`${SCHEDULER_PATHS.events}/:id/runs`, async (c) => {
+    const event = await ctx.store.getEvent(c.req.param("id"));
     if (!event) {
       return apiError(c, SCHEDULER_ERROR_CODES.NOT_FOUND, "event not found", 404);
     }
@@ -229,7 +229,7 @@ export function createApp(ctx: SchedulerContext): Hono {
       );
     }
 
-    const { runs, total } = ctx.store.listRuns({
+    const { runs, total } = await ctx.store.listRuns({
       eventId: event.id,
       status,
       limit,
@@ -242,7 +242,7 @@ export function createApp(ctx: SchedulerContext): Hono {
     return c.json(response);
   });
 
-  app.get(SCHEDULER_PATHS.runs, (c) => {
+  app.get(SCHEDULER_PATHS.runs, async (c) => {
     const limit = parseLimit(c.req.query("limit"), 50);
     const offset = parseOffset(c.req.query("offset"));
     const agentId = c.req.query("agentId")?.trim();
@@ -258,7 +258,7 @@ export function createApp(ctx: SchedulerContext): Hono {
       );
     }
 
-    const { runs, total } = ctx.store.listRuns({
+    const { runs, total } = await ctx.store.listRuns({
       agentId: agentId || undefined,
       status,
       limit,
@@ -271,8 +271,8 @@ export function createApp(ctx: SchedulerContext): Hono {
     return c.json(response);
   });
 
-  app.get(`${SCHEDULER_PATHS.runs}/:id`, (c) => {
-    const detail = ctx.store.getRunWithEvent(c.req.param("id"));
+  app.get(`${SCHEDULER_PATHS.runs}/:id`, async (c) => {
+    const detail = await ctx.store.getRunWithEvent(c.req.param("id"));
     if (!detail) {
       return apiError(c, SCHEDULER_ERROR_CODES.NOT_FOUND, "run not found", 404);
     }
@@ -284,7 +284,7 @@ export function createApp(ctx: SchedulerContext): Hono {
   });
 
   app.get(SCHEDULER_PATHS.agents, async (c) => {
-    const agentIds = ctx.store.listDistinctAgentIds();
+    const agentIds = await ctx.store.listDistinctAgentIds();
     let registerAgents: Awaited<ReturnType<typeof fetchRegisteredAgents>> = [];
     try {
       registerAgents = await fetchRegisteredAgents(ctx.registerUrl);

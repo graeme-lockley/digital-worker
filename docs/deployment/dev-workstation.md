@@ -66,7 +66,7 @@ docker-compose --env-file .env --project-directory . \
 - Central libSQL (`sqld`) database for operational services
 - Data volume: `libsql-data` → `/var/lib/sqld`
 - Host port `8080` (optional direct access; apps use `http://libsql:8080` on the Compose network)
-- Healthcheck: `GET /health` on port 8080; **agent-register** waits for `service_healthy` before starting
+- Healthcheck: `GET /health` on port 8080; **agent-register** and **agent-scheduler** wait for `service_healthy` before starting
 
 ### agent-register
 
@@ -101,8 +101,9 @@ docker-compose --env-file .env --project-directory . \
 
 ### agent-scheduler
 
-- Command: `node dist/index.js --host 0.0.0.0 --port 3003 --register-url http://agent-register:3001 --data-dir /data`
-- SQLite persistence on volume `scheduler-data`
+- Depends on `libsql` (healthy), `agent-register`, `agent-core`, `agent-gateway`
+- Command: `node dist/index.js --host 0.0.0.0 --port 3003 --register-url http://agent-register:3001 --db-url http://libsql:8080`
+- Schedule data persisted in libSQL (`libsql-data` volume); no SQLite volume in the container
 - Serves read-only web UI at **http://127.0.0.1:3003/**
 - Fires due events via agent-core `POST /api/v1/chat` (SSE transcript capture)
 - **agent-core** uses `--scheduler-url http://agent-scheduler:3003` for scheduling tools

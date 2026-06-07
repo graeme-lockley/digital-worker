@@ -53,6 +53,8 @@ interface RegisterAgentResponse {
 
 Registration may occur before the first successful heartbeat; status becomes `AVAILABLE` when polls succeed.
 
+Re-registering the same `agentId` updates name, purpose, skills, and endpoint, sets status to `AVAILABLE`, and preserves the original `registeredAt` (reconnect after restart or unclean shutdown).
+
 ## POST /api/v1/agents/deregister
 
 **Request body**

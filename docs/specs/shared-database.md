@@ -6,7 +6,7 @@ Normative description of the central **libSQL** (`sqld`) database service used b
 
 ## Purpose
 
-Provide a single durable SQLite-compatible database server for platform services. **agent-register** is the first consumer; agent-scheduler and agent-gateway may migrate later.
+Provide a single durable SQLite-compatible database server for platform services. **agent-register** and **agent-scheduler** persist to libSQL; **agent-gateway** may migrate later.
 
 **agent-core memory** (FTS5 index + markdown in the workspace bind mount) stays outside this service by design.
 
@@ -18,7 +18,7 @@ Provide a single durable SQLite-compatible database server for platform services
 | Client | `@libsql/client` | Official libSQL driver; supports `file:` (local) and `http://` (remote) URLs |
 | Dev auth | Optional `LIBSQL_AUTH_TOKEN` | No auth in local dev-workstation by default |
 
-Embedded `node:sqlite` (`DatabaseSync`) remains in use for agent-scheduler and agent-core memory until those stores migrate.
+Embedded `node:sqlite` (`DatabaseSync`) remains in use for agent-core memory only.
 
 ## Dev-workstation service
 
@@ -34,8 +34,9 @@ Embedded `node:sqlite` (`DatabaseSync`) remains in use for agent-scheduler and a
 
 | Environment | URL | Consumer |
 |-------------|-----|----------|
-| Docker dev-workstation | `http://libsql:8080` | agent-register |
+| Docker dev-workstation | `http://libsql:8080` | agent-register, agent-scheduler |
 | Local `pnpm dev` (register) | `file:./data/agent-register/register.db` (default) | agent-register |
+| Local `pnpm dev` (scheduler) | `file:./data/agent-scheduler/scheduler.db` (default) | agent-scheduler |
 
 Set `LIBSQL_URL` to override the default. Optional `LIBSQL_AUTH_TOKEN` is passed to `@libsql/client` when the server requires auth.
 
@@ -44,11 +45,12 @@ Set `LIBSQL_URL` to override the default. Optional `LIBSQL_AUTH_TOKEN` is passed
 | App | Status | Schema |
 |-----|--------|--------|
 | agent-register | **Done** | `agent` table — see [agent-register-api](./agent-register-api.md#storage) |
-| agent-scheduler | Deferred | Local `scheduler.db` via `node:sqlite` today |
+| agent-scheduler | **Done** | `scheduled_event`, `scheduled_run`, `meta` — see [scheduler](./scheduler.md) |
 | agent-gateway | Deferred | JSON `state.json` today |
 
 ## Operational notes
 
 - Register startup loads persisted agents from libSQL; heartbeat monitor reconciles `AVAILABLE` / `SLEEPING` on the next poll.
-- Back up the `libsql-data` Docker volume for registry durability across host rebuilds.
+- Back up the `libsql-data` Docker volume for registry and scheduler durability across host rebuilds.
+- agent-scheduler can import rows from a legacy `scheduler.db` when `--legacy-data-dir` is set and the target store is empty (optional; used for one-off migration).
 - Do not mount NFS/shared filesystems for the sqld data directory (SQLite file-locking constraints).

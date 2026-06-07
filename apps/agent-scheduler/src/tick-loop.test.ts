@@ -1,7 +1,3 @@
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
-
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -42,10 +38,9 @@ function sseBody(events: unknown[]): ReadableStream<Uint8Array> {
 
 describe("TickLoop", () => {
   it("fires chat and completes one-shot event", async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), "tick-loop-"));
-    const store = new SchedulerStore(dir);
+    const store = await SchedulerStore.create(":memory:");
     const now = Date.now();
-    store.createEvent({
+    await store.createEvent({
       id: "evt-1",
       agentId: "agent-a",
       model: "deepseek/deepseek-v4-flash",
@@ -105,19 +100,18 @@ describe("TickLoop", () => {
 
     await loop.tick();
 
-    const event = store.getEvent("evt-1");
+    const event = await store.getEvent("evt-1");
     expect(event?.status).toBe("completed");
-    const { runs } = store.listRuns({ eventId: "evt-1", limit: 10, offset: 0 });
+    const { runs } = await store.listRuns({ eventId: "evt-1", limit: 10, offset: 0 });
     expect(runs[0]?.status).toBe("succeeded");
     expect(runs[0]?.transcript).toBe("Scheduled reply");
-    store.close();
+    await store.close();
   });
 
   it("defers when agent is sleeping", async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), "tick-loop-"));
-    const store = new SchedulerStore(dir);
+    const store = await SchedulerStore.create(":memory:");
     const now = Date.now();
-    store.createEvent({
+    await store.createEvent({
       id: "evt-sleep",
       agentId: "agent-a",
       model: "deepseek/deepseek-v4-flash",
@@ -148,17 +142,18 @@ describe("TickLoop", () => {
     });
 
     await loop.tick();
-    const event = store.getEvent("evt-sleep");
+    const event = await store.getEvent("evt-sleep");
     expect(event?.fireAt).toBeGreaterThan(now);
-    expect(store.listRuns({ eventId: "evt-sleep", limit: 10, offset: 0 }).runs).toHaveLength(0);
-    store.close();
+    expect(
+      (await store.listRuns({ eventId: "evt-sleep", limit: 10, offset: 0 })).runs,
+    ).toHaveLength(0);
+    await store.close();
   });
 
   it("skips overlap when a run is still running", async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), "tick-loop-"));
-    const store = new SchedulerStore(dir);
+    const store = await SchedulerStore.create(":memory:");
     const now = Date.now();
-    store.createEvent({
+    await store.createEvent({
       id: "evt-overlap",
       agentId: "agent-a",
       model: "deepseek/deepseek-v4-flash",
@@ -170,7 +165,7 @@ describe("TickLoop", () => {
       createdBy: "agent-a",
       now,
     });
-    store.createRun({
+    await store.createRun({
       id: "run-active",
       eventId: "evt-overlap",
       scheduledFor: now - 5000,
@@ -193,17 +188,16 @@ describe("TickLoop", () => {
     });
 
     await loop.tick();
-    const event = store.getEvent("evt-overlap");
+    const event = await store.getEvent("evt-overlap");
     expect(event?.fireAt).toBeGreaterThan(now);
     expect(fetchFn).not.toHaveBeenCalled();
-    store.close();
+    await store.close();
   });
 
   it("retries after failure using consecutive count, not total run history", async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), "tick-loop-"));
-    const store = new SchedulerStore(dir);
+    const store = await SchedulerStore.create(":memory:");
     const now = Date.now();
-    store.createEvent({
+    await store.createEvent({
       id: "evt-recurring",
       agentId: "agent-a",
       model: "deepseek/deepseek-v4-flash",
@@ -218,7 +212,7 @@ describe("TickLoop", () => {
 
     for (let i = 0; i < 7; i += 1) {
       const runId = `run-ok-${i}`;
-      store.createRun({
+      await store.createRun({
         id: runId,
         eventId: "evt-recurring",
         scheduledFor: now - 86_400_000 * (7 - i),
@@ -226,7 +220,7 @@ describe("TickLoop", () => {
         model: "deepseek/deepseek-v4-flash",
         attempt: 1,
       });
-      store.finishRun(runId, "succeeded", now - 86_400_000 * (7 - i) + 1000);
+      await store.finishRun(runId, "succeeded", now - 86_400_000 * (7 - i) + 1000);
     }
 
     const fetchFn = vi.fn(async (input: string | URL, init?: RequestInit) => {
@@ -269,23 +263,22 @@ describe("TickLoop", () => {
 
     await loop.tick();
 
-    const event = store.getEvent("evt-recurring");
+    const event = await store.getEvent("evt-recurring");
     expect(event?.status).toBe("active");
     expect(event?.fireAt).toBeGreaterThanOrEqual(now + 29_000);
     expect(event?.fireAt).toBeLessThanOrEqual(now + 31_000);
 
-    const { runs } = store.listRuns({ eventId: "evt-recurring", limit: 20, offset: 0 });
+    const { runs } = await store.listRuns({ eventId: "evt-recurring", limit: 20, offset: 0 });
     const latest = runs[0];
     expect(latest?.status).toBe("failed");
     expect(latest?.attempt).toBe(1);
-    store.close();
+    await store.close();
   });
 
   it("fallback-delivers transcript when deliverTo set and agent did not send", async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), "tick-loop-"));
-    const store = new SchedulerStore(dir);
+    const store = await SchedulerStore.create(":memory:");
     const now = Date.now();
-    store.createEvent({
+    await store.createEvent({
       id: "evt-fallback",
       agentId: "agent-a",
       model: "deepseek/deepseek-v4-flash",
@@ -356,8 +349,8 @@ describe("TickLoop", () => {
       threadId: "8672094762",
       text: "Briefing body with headlines and weather only",
     });
-    const { runs } = store.listRuns({ eventId: "evt-fallback", limit: 5, offset: 0 });
+    const { runs } = await store.listRuns({ eventId: "evt-fallback", limit: 5, offset: 0 });
     expect(runs[0]?.deliverFallback).toBe(true);
-    store.close();
+    await store.close();
   });
 });

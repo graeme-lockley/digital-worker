@@ -58,14 +58,7 @@ export class AgentRegistryStore {
 
   async register(request: RegisterAgentRequest): Promise<RegisteredAgent> {
     const existing = await this.get(request.agentId);
-    if (existing) {
-      throw new AgentRegistryError(
-        "AGENT_ALREADY_REGISTERED",
-        `agent ${request.agentId} is already registered`,
-      );
-    }
-
-    const registeredAt = new Date().toISOString();
+    const now = new Date().toISOString();
     const agent: RegisteredAgent = {
       agentId: request.agentId,
       name: request.name,
@@ -73,9 +66,30 @@ export class AgentRegistryStore {
       skills: [...request.skills],
       endpoint: { url: request.endpoint.url },
       status: AGENT_STATUS.AVAILABLE,
-      registeredAt,
-      lastHeartbeatAt: registeredAt,
+      registeredAt: existing?.registeredAt ?? now,
+      lastHeartbeatAt: now,
     };
+
+    if (existing) {
+      await this.client.execute({
+        sql: `
+          UPDATE agent
+          SET name = ?, purpose = ?, skills = ?, endpoint_url = ?,
+              status = ?, last_heartbeat_at = ?
+          WHERE agent_id = ?
+        `,
+        args: [
+          agent.name,
+          agent.purpose,
+          JSON.stringify(agent.skills),
+          agent.endpoint.url,
+          agent.status,
+          agent.lastHeartbeatAt,
+          agent.agentId,
+        ],
+      });
+      return agent;
+    }
 
     await this.client.execute({
       sql: `

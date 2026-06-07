@@ -43,7 +43,7 @@ Apps import these packages — do not duplicate request/response shapes in appli
 | Client | `@libsql/client` | Same driver for `file:` (local) and `http://` (Compose) |
 | Not centralized | agent-core memory | Workspace bind mount stays portable per agent |
 
-Spec: [specs/shared-database.md](./specs/shared-database.md). Scheduler and gateway store migration deferred.
+Spec: [specs/shared-database.md](./specs/shared-database.md). Gateway store migration deferred.
 
 ### agent-tui
 

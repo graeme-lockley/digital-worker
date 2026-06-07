@@ -5,7 +5,9 @@ import { userArgv } from "./user-argv.js";
 export type SchedulerOptions = {
   host: string;
   port: number;
-  dataDir: string;
+  dbUrl: string;
+  dbAuthToken?: string;
+  legacyDataDir?: string;
   registerUrl: string;
   tickIntervalMs: number;
   leaseMs: number;
@@ -22,9 +24,16 @@ export function parseCli(argv: readonly string[] = process.argv): SchedulerOptio
     .option("-H, --host <host>", "bind host", "127.0.0.1")
     .option("-p, --port <port>", "HTTP port", "3003")
     .option(
-      "--data-dir <path>",
-      "directory for SQLite scheduler database",
-      process.env.SCHEDULER_DATA_DIR ?? "./data/agent-scheduler",
+      "--db-url <url>",
+      "libSQL database URL (or LIBSQL_URL env)",
+      process.env.LIBSQL_URL ??
+        process.env.SCHEDULER_DB_URL ??
+        "file:./data/agent-scheduler/scheduler.db",
+    )
+    .option(
+      "--legacy-data-dir <path>",
+      "import legacy scheduler.db from this directory when the target store is empty",
+      process.env.SCHEDULER_LEGACY_DATA_DIR,
     )
     .option(
       "--register-url <url>",
@@ -61,7 +70,8 @@ export function parseCli(argv: readonly string[] = process.argv): SchedulerOptio
   const opts = program.opts<{
     host: string;
     port: string;
-    dataDir: string;
+    dbUrl: string;
+    legacyDataDir?: string;
     registerUrl: string;
     tickIntervalMs: string;
     leaseMs: string;
@@ -104,10 +114,20 @@ export function parseCli(argv: readonly string[] = process.argv): SchedulerOptio
     }
   }
 
+  const dbUrl = opts.dbUrl.trim();
+  if (!dbUrl) {
+    program.error("db-url must not be empty");
+  }
+
+  const legacyDataDir = opts.legacyDataDir?.trim() || undefined;
+  const dbAuthToken = process.env.LIBSQL_AUTH_TOKEN?.trim() || undefined;
+
   return {
     host: opts.host,
     port,
-    dataDir: opts.dataDir,
+    dbUrl,
+    dbAuthToken,
+    legacyDataDir,
     registerUrl: opts.registerUrl,
     tickIntervalMs,
     leaseMs,
