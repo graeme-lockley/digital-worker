@@ -12,9 +12,9 @@ Extend **agent-gateway** with an email `ChannelAdapter` (IMAP IDLE inbound, SMTP
 
 The Docker dev-workstation stack loads project-root `.env` automatically, but local `pnpm dev` for agent-core still requires manually exporting API keys or passing `--api-key`. Loading `.env` at startup (via Node `--env-file` or explicit dotenv) would align local development with Docker and remove a recurring friction point documented in [local-development.md](./deployment/local-development.md).
 
-### Register persistence
+### Centralize scheduler and gateway stores on libSQL
 
-`AgentRegistryStore` in agent-register is in-memory. Restarting the register service loses the agent list until workers re-register. Durable storage (file, SQLite, or external DB) is needed for production deployments where the registry must survive process restarts and provide a stable discovery surface.
+agent-register persists to the shared libSQL service. **agent-scheduler** (`node:sqlite` per container) and **agent-gateway** (JSON `state.json`) still use embedded stores. Migrate them to the central `sqld` instance when multi-service durability is needed. See [specs/shared-database.md](./specs/shared-database.md).
 
 ### Priority / judgment dequeue
 

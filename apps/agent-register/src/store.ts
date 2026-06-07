@@ -1,15 +1,64 @@
+import { mkdirSync } from "node:fs";
+import path from "node:path";
+
 import {
   AGENT_STATUS,
   type AgentStatus,
   type RegisteredAgent,
   type RegisterAgentRequest,
 } from "@digital-worker/agent-register-protocol";
+import { createClient, type Client } from "@libsql/client";
+
+type AgentRow = {
+  agent_id: string;
+  name: string;
+  purpose: string;
+  skills: string;
+  endpoint_url: string;
+  status: string;
+  registered_at: string;
+  last_heartbeat_at: string | null;
+};
 
 export class AgentRegistryStore {
-  private readonly agents = new Map<string, RegisteredAgent>();
+  private constructor(private readonly client: Client) {}
 
-  register(request: RegisterAgentRequest): RegisteredAgent {
-    if (this.agents.has(request.agentId)) {
+  static async create(
+    dbUrl: string,
+    authToken?: string,
+  ): Promise<AgentRegistryStore> {
+    ensureFileDbDir(dbUrl);
+    const client = createClient({
+      url: dbUrl,
+      authToken,
+    });
+    const store = new AgentRegistryStore(client);
+    await connectWithRetry(dbUrl, () => store.initSchema());
+    return store;
+  }
+
+  async close(): Promise<void> {
+    this.client.close();
+  }
+
+  private async initSchema(): Promise<void> {
+    await this.client.execute(`
+      CREATE TABLE IF NOT EXISTS agent (
+        agent_id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        purpose TEXT NOT NULL,
+        skills TEXT NOT NULL,
+        endpoint_url TEXT NOT NULL,
+        status TEXT NOT NULL,
+        registered_at TEXT NOT NULL,
+        last_heartbeat_at TEXT
+      )
+    `);
+  }
+
+  async register(request: RegisterAgentRequest): Promise<RegisteredAgent> {
+    const existing = await this.get(request.agentId);
+    if (existing) {
       throw new AgentRegistryError(
         "AGENT_ALREADY_REGISTERED",
         `agent ${request.agentId} is already registered`,
@@ -28,12 +77,30 @@ export class AgentRegistryStore {
       lastHeartbeatAt: registeredAt,
     };
 
-    this.agents.set(request.agentId, agent);
+    await this.client.execute({
+      sql: `
+        INSERT INTO agent (
+          agent_id, name, purpose, skills, endpoint_url,
+          status, registered_at, last_heartbeat_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      args: [
+        agent.agentId,
+        agent.name,
+        agent.purpose,
+        JSON.stringify(agent.skills),
+        agent.endpoint.url,
+        agent.status,
+        agent.registeredAt,
+        agent.lastHeartbeatAt,
+      ],
+    });
+
     return agent;
   }
 
-  deregister(agentId: string): RegisteredAgent {
-    const agent = this.agents.get(agentId);
+  async deregister(agentId: string): Promise<RegisteredAgent> {
+    const agent = await this.get(agentId);
     if (!agent) {
       throw new AgentRegistryError(
         "AGENT_NOT_FOUND",
@@ -41,42 +108,98 @@ export class AgentRegistryStore {
       );
     }
 
-    this.agents.delete(agentId);
+    await this.client.execute({
+      sql: "DELETE FROM agent WHERE agent_id = ?",
+      args: [agentId],
+    });
+
     return agent;
   }
 
-  list(): RegisteredAgent[] {
-    return [...this.agents.values()];
+  async list(): Promise<RegisteredAgent[]> {
+    const result = await this.client.execute("SELECT * FROM agent");
+    return result.rows.map((row) => rowToAgent(row as unknown as AgentRow));
   }
 
-  get(agentId: string): RegisteredAgent | undefined {
-    return this.agents.get(agentId);
+  async get(agentId: string): Promise<RegisteredAgent | undefined> {
+    const result = await this.client.execute({
+      sql: "SELECT * FROM agent WHERE agent_id = ?",
+      args: [agentId],
+    });
+
+    const row = result.rows[0];
+    return row ? rowToAgent(row as unknown as AgentRow) : undefined;
   }
 
-  updateHeartbeat(agentId: string, heartbeatAt: string): void {
-    const agent = this.agents.get(agentId);
-    if (!agent) {
-      return;
-    }
-
-    this.agents.set(agentId, {
-      ...agent,
-      lastHeartbeatAt: heartbeatAt,
-      status: AGENT_STATUS.AVAILABLE,
+  async updateHeartbeat(agentId: string, heartbeatAt: string): Promise<void> {
+    await this.client.execute({
+      sql: `
+        UPDATE agent
+        SET last_heartbeat_at = ?, status = ?
+        WHERE agent_id = ?
+      `,
+      args: [heartbeatAt, AGENT_STATUS.AVAILABLE, agentId],
     });
   }
 
-  markSleeping(agentId: string): void {
-    const agent = this.agents.get(agentId);
-    if (!agent) {
-      return;
-    }
-
-    this.agents.set(agentId, {
-      ...agent,
-      status: AGENT_STATUS.SLEEPING,
+  async markSleeping(agentId: string): Promise<void> {
+    await this.client.execute({
+      sql: "UPDATE agent SET status = ? WHERE agent_id = ?",
+      args: [AGENT_STATUS.SLEEPING, agentId],
     });
   }
+}
+
+function rowToAgent(row: AgentRow): RegisteredAgent {
+  return {
+    agentId: row.agent_id,
+    name: row.name,
+    purpose: row.purpose,
+    skills: JSON.parse(row.skills) as string[],
+    endpoint: { url: row.endpoint_url },
+    status: row.status as AgentStatus,
+    registeredAt: row.registered_at,
+    lastHeartbeatAt: row.last_heartbeat_at,
+  };
+}
+
+async function connectWithRetry(
+  dbUrl: string,
+  connect: () => Promise<void>,
+): Promise<void> {
+  const isRemote =
+    dbUrl.startsWith("http://") || dbUrl.startsWith("https://");
+  const maxAttempts = isRemote ? 30 : 1;
+  const delayMs = 1000;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await connect();
+      return;
+    } catch (error) {
+      if (attempt === maxAttempts) {
+        throw error;
+      }
+      await sleep(delayMs);
+    }
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function ensureFileDbDir(dbUrl: string): void {
+  if (!dbUrl.startsWith("file:")) {
+    return;
+  }
+
+  const filePath = dbUrl.slice("file:".length);
+  if (filePath === ":memory:" || filePath.startsWith(":memory:")) {
+    return;
+  }
+
+  mkdirSync(path.dirname(path.resolve(filePath)), { recursive: true });
 }
 
 export class AgentRegistryError extends Error {

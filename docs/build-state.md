@@ -2,11 +2,11 @@
 
 Living snapshot of what this repository implements. Update this file when features land or priorities shift.
 
-**Last updated:** 2026-06-06
+**Last updated:** 2026-06-07
 
 ## Summary
 
-The dev-workstation stack runs **agent-register** (discovery + heartbeat), **agent-core** (LLM worker with workspace identity), **agent-gateway** (Telegram channel edge), and **agent-scheduler** (durable cron/one-shot events + run history UI). **agent-tui** provides a terminal chat client; **agent-observer** provides live operator observability. Chat uses SSE streaming backed by [pi-agent-core](https://github.com/earendil-works/pi). External channels use a doorbell/mailbox model via [gateway spec](./specs/gateway.md).
+The dev-workstation stack runs **libsql** (central database), **agent-register** (discovery + heartbeat, libSQL-backed), **agent-core** (LLM worker with workspace identity), **agent-gateway** (Telegram channel edge), and **agent-scheduler** (durable cron/one-shot events + run history UI). **agent-tui** provides a terminal chat client; **agent-observer** provides live operator observability. Chat uses SSE streaming backed by [pi-agent-core](https://github.com/earendil-works/pi). External channels use a doorbell/mailbox model via [gateway spec](./specs/gateway.md).
 
 ## Feature matrix
 
@@ -41,7 +41,8 @@ The dev-workstation stack runs **agent-register** (discovery + heartbeat), **age
 | Command queue (`/status`, `/abandon`, `/restart`, `/shutdown`) | **Done** | [agent-core-api](./specs/agent-core-api.md), [worker-runtime](./specs/worker-runtime.md) | `apps/agent-core`, `apps/agent-tui` |
 | Priority / judgment dequeue | **Not started** | [roadmap](./roadmap.md) | FIFO only today |
 | Skills loaded from markdown | **Done** | [skills](./specs/skills.md) | `SkillRegistry`, `refresh_skills` |
-| Register persistence | **Not started** | [roadmap](./roadmap.md) | In-memory store |
+| Central libSQL service (dev-workstation) | **Done** | [shared-database](./specs/shared-database.md) | `infra/dev-workstation/docker-compose.yml` |
+| Register persistence (libSQL) | **Done** | [agent-register-api](./specs/agent-register-api.md), [shared-database](./specs/shared-database.md) | `apps/agent-register/src/store.ts` |
 | Workspace bind mount (Docker dev) | **Done** | [workspace-identity](./specs/workspace-identity.md) | `infra/dev-workstation/docker-compose.yml` (`./workspace/Aida`) |
 | Episodic memory (daily logs, flush, search) | **Done** | [memory](./specs/memory.md) | `apps/agent-core/src/memory/` |
 | Memory roll-up + cron maintenance | **Done** | [memory](./specs/memory.md) | Distill + Ollama in Docker image |

@@ -13,34 +13,54 @@ const sampleRequest = {
 };
 
 describe("AgentRegistryStore", () => {
-  it("registers and lists an agent", () => {
-    const store = new AgentRegistryStore();
-    const agent = store.register(sampleRequest);
+  it("registers and lists an agent", async () => {
+    const store = await AgentRegistryStore.create(":memory:");
+    const agent = await store.register(sampleRequest);
 
     expect(agent.status).toBe(AGENT_STATUS.AVAILABLE);
-    expect(store.list()).toHaveLength(1);
+    expect(await store.list()).toHaveLength(1);
+    await store.close();
   });
 
-  it("rejects duplicate registration", () => {
-    const store = new AgentRegistryStore();
-    store.register(sampleRequest);
+  it("rejects duplicate registration", async () => {
+    const store = await AgentRegistryStore.create(":memory:");
+    await store.register(sampleRequest);
 
-    expect(() => store.register(sampleRequest)).toThrow(AgentRegistryError);
+    await expect(store.register(sampleRequest)).rejects.toThrow(
+      AgentRegistryError,
+    );
+    await store.close();
   });
 
-  it("deregisters an agent", () => {
-    const store = new AgentRegistryStore();
-    store.register(sampleRequest);
-    store.deregister(sampleRequest.agentId);
+  it("deregisters an agent", async () => {
+    const store = await AgentRegistryStore.create(":memory:");
+    await store.register(sampleRequest);
+    await store.deregister(sampleRequest.agentId);
 
-    expect(store.list()).toHaveLength(0);
+    expect(await store.list()).toHaveLength(0);
+    await store.close();
   });
 
-  it("marks an agent as sleeping", () => {
-    const store = new AgentRegistryStore();
-    store.register(sampleRequest);
-    store.markSleeping(sampleRequest.agentId);
+  it("marks an agent as sleeping", async () => {
+    const store = await AgentRegistryStore.create(":memory:");
+    await store.register(sampleRequest);
+    await store.markSleeping(sampleRequest.agentId);
 
-    expect(store.get(sampleRequest.agentId)?.status).toBe(AGENT_STATUS.SLEEPING);
+    expect((await store.get(sampleRequest.agentId))?.status).toBe(
+      AGENT_STATUS.SLEEPING,
+    );
+    await store.close();
+  });
+
+  it("loads persisted agents after restart", async () => {
+    const dbUrl = "file::memory:?cache=shared";
+    const store = await AgentRegistryStore.create(dbUrl);
+    await store.register(sampleRequest);
+    await store.close();
+
+    const reopened = await AgentRegistryStore.create(dbUrl);
+    expect(await reopened.list()).toHaveLength(1);
+    expect((await reopened.get(sampleRequest.agentId))?.name).toBe("worker");
+    await reopened.close();
   });
 });

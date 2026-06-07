@@ -40,12 +40,12 @@ export class HeartbeatMonitor {
   }
 
   async pollAll(): Promise<void> {
-    const agents = this.options.store.list();
+    const agents = await this.options.store.list();
     await Promise.all(agents.map((agent) => this.pollAgent(agent.agentId)));
   }
 
   async pollAgent(agentId: string): Promise<void> {
-    const agent = this.options.store.get(agentId);
+    const agent = await this.options.store.get(agentId);
     if (!agent) {
       return;
     }
@@ -63,19 +63,19 @@ export class HeartbeatMonitor {
       });
 
       if (!response.ok) {
-        this.options.store.markSleeping(agentId);
+        await this.options.store.markSleeping(agentId);
         return;
       }
 
       const body = (await response.json()) as HeartbeatResponse;
       if (body.agentId !== agentId || body.status !== "ok") {
-        this.options.store.markSleeping(agentId);
+        await this.options.store.markSleeping(agentId);
         return;
       }
 
-      this.options.store.updateHeartbeat(agentId, body.timestamp);
+      await this.options.store.updateHeartbeat(agentId, body.timestamp);
     } catch {
-      this.options.store.markSleeping(agentId);
+      await this.options.store.markSleeping(agentId);
     }
   }
 }

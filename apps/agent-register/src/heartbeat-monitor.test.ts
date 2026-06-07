@@ -7,8 +7,8 @@ import { AgentRegistryStore } from "./store.js";
 
 describe("HeartbeatMonitor", () => {
   it("marks agent AVAILABLE when heartbeat succeeds", async () => {
-    const store = new AgentRegistryStore();
-    store.register({
+    const store = await AgentRegistryStore.create(":memory:");
+    await store.register({
       agentId: "agent-1",
       name: "worker",
       purpose: "tasks",
@@ -34,13 +34,14 @@ describe("HeartbeatMonitor", () => {
 
     await monitor.pollAgent("agent-1");
 
-    expect(store.get("agent-1")?.status).toBe(AGENT_STATUS.AVAILABLE);
+    expect((await store.get("agent-1"))?.status).toBe(AGENT_STATUS.AVAILABLE);
     expect(fetchFn).toHaveBeenCalledOnce();
+    await store.close();
   });
 
   it("marks agent SLEEPING when heartbeat fails", async () => {
-    const store = new AgentRegistryStore();
-    store.register({
+    const store = await AgentRegistryStore.create(":memory:");
+    await store.register({
       agentId: "agent-1",
       name: "worker",
       purpose: "tasks",
@@ -48,7 +49,7 @@ describe("HeartbeatMonitor", () => {
       endpoint: { url: "http://127.0.0.1:3000" },
     });
 
-    expect(store.get("agent-1")?.status).toBe(AGENT_STATUS.AVAILABLE);
+    expect((await store.get("agent-1"))?.status).toBe(AGENT_STATUS.AVAILABLE);
 
     const monitor = new HeartbeatMonitor({
       store,
@@ -59,6 +60,7 @@ describe("HeartbeatMonitor", () => {
 
     await monitor.pollAgent("agent-1");
 
-    expect(store.get("agent-1")?.status).toBe(AGENT_STATUS.SLEEPING);
+    expect((await store.get("agent-1"))?.status).toBe(AGENT_STATUS.SLEEPING);
+    await store.close();
   });
 });

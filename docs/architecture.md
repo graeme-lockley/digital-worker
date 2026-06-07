@@ -32,8 +32,18 @@ Apps import these packages — do not duplicate request/response shapes in appli
 |---------|--------|-----------|
 | HTTP API | Hono + @hono/node-server | Same stack as agent-core |
 | CLI | Commander | Host, port, heartbeat interval/timeout |
-| Registry store | In-memory | Sufficient for v1; persistence on [roadmap](./roadmap.md) |
+| Registry store | libSQL via `@libsql/client` | Durable; central `sqld` in Docker, `file:` default for local dev — [shared-database](./specs/shared-database.md) |
 | Heartbeat monitor | `setInterval` + `fetch` | Polls agent `POST /api/v1/heartbeat` |
+
+### Shared database (libSQL)
+
+| Concern | Choice | Rationale |
+|---------|--------|-----------|
+| Server | libSQL `sqld` in Docker | SQLite-compatible network server; first consumer is agent-register |
+| Client | `@libsql/client` | Same driver for `file:` (local) and `http://` (Compose) |
+| Not centralized | agent-core memory | Workspace bind mount stays portable per agent |
+
+Spec: [specs/shared-database.md](./specs/shared-database.md). Scheduler and gateway store migration deferred.
 
 ### agent-tui
 

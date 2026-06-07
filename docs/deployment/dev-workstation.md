@@ -55,14 +55,24 @@ docker-compose --env-file .env --project-directory . \
 
 | Service | Host port | Container name | Image Dockerfile |
 |---------|-----------|----------------|------------------|
+| libsql | 8080 | — | `ghcr.io/tursodatabase/libsql-server:latest` |
 | agent-register | 3001 | — | `Dockerfile.agent-register` |
 | agent-core | 3000 | — | `Dockerfile.agent-core` |
 | agent-gateway | 3002 | — | `Dockerfile.agent-gateway` |
 | agent-scheduler | 3003 | — | `Dockerfile.agent-scheduler` |
 
+### libsql
+
+- Central libSQL (`sqld`) database for operational services
+- Data volume: `libsql-data` → `/var/lib/sqld`
+- Host port `8080` (optional direct access; apps use `http://libsql:8080` on the Compose network)
+- Healthcheck: `GET /health` on port 8080; **agent-register** waits for `service_healthy` before starting
+
 ### agent-register
 
-- Command: `node dist/index.js --host 0.0.0.0 --port 3001`
+- Depends on `libsql`
+- Command: `node dist/index.js --host 0.0.0.0 --port 3001 --db-url http://libsql:8080`
+- Registry persisted in libSQL (`agent` table); survives register restarts
 - Heartbeat interval 15s, timeout 5s
 
 ### agent-core

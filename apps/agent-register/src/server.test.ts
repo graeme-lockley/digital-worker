@@ -10,8 +10,8 @@ import { HeartbeatMonitor } from "./heartbeat-monitor.js";
 import { createApp } from "./server.js";
 import { AgentRegistryStore } from "./store.js";
 
-function createTestApp() {
-  const store = new AgentRegistryStore();
+async function createTestApp() {
+  const store = await AgentRegistryStore.create(":memory:");
   const heartbeatMonitor = new HeartbeatMonitor({
     store,
     intervalMs: 60_000,
@@ -23,7 +23,7 @@ function createTestApp() {
 
 describe("createApp", () => {
   it("registers an agent", async () => {
-    const { app } = createTestApp();
+    const { app, store } = await createTestApp();
     const response = await app.request(AGENT_REGISTER_PATHS.register, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -41,10 +41,11 @@ describe("createApp", () => {
       agentId: "agent-1",
       status: AGENT_STATUS.AVAILABLE,
     });
+    await store.close();
   });
 
   it("lists registered agents", async () => {
-    const { app } = createTestApp();
+    const { app, store } = await createTestApp();
     await app.request(AGENT_REGISTER_PATHS.register, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -61,10 +62,11 @@ describe("createApp", () => {
     const body = (await response.json()) as ListAgentsResponse;
 
     expect(body.agents).toHaveLength(1);
+    await store.close();
   });
 
   it("deregisters an agent", async () => {
-    const { app } = createTestApp();
+    const { app, store } = await createTestApp();
     await app.request(AGENT_REGISTER_PATHS.register, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -84,5 +86,6 @@ describe("createApp", () => {
     });
 
     expect(response.status).toBe(200);
+    await store.close();
   });
 });

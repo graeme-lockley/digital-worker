@@ -53,6 +53,7 @@ docs/
     skills.md
     agent-core-api.md
     agent-register-api.md
+    shared-database.md
     chat-streaming.md
     gateway.md
 

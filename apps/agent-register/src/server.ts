@@ -25,8 +25,8 @@ export function createApp(deps: AppDependencies): Hono {
 
   app.get("/health", (c) => c.json({ status: "ok" }));
 
-  app.get(AGENT_REGISTER_PATHS.list, (c) => {
-    const body: ListAgentsResponse = { agents: deps.store.list() };
+  app.get(AGENT_REGISTER_PATHS.list, async (c) => {
+    const body: ListAgentsResponse = { agents: await deps.store.list() };
     return c.json(body);
   });
 
@@ -42,7 +42,7 @@ export function createApp(deps: AppDependencies): Hono {
     }
 
     try {
-      const agent = deps.store.register(body);
+      const agent = await deps.store.register(body);
       const response: RegisterAgentResponse = {
         agentId: agent.agentId,
         status: agent.status,
@@ -65,7 +65,7 @@ export function createApp(deps: AppDependencies): Hono {
     }
 
     try {
-      deps.store.deregister(body.agentId);
+      await deps.store.deregister(body.agentId);
       const response: DeregisterAgentResponse = {
         agentId: body.agentId,
         deregisteredAt: new Date().toISOString(),

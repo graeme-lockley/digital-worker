@@ -7,6 +7,8 @@ export type ServerOptions = {
   port: number;
   heartbeatIntervalMs: number;
   heartbeatTimeoutMs: number;
+  dbUrl: string;
+  dbAuthToken?: string;
 };
 
 export function parseCli(argv: readonly string[] = process.argv): ServerOptions {
@@ -24,6 +26,11 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
       "--heartbeat-timeout <ms>",
       "timeout per agent heartbeat request (ms)",
       "5000",
+    )
+    .option(
+      "--db-url <url>",
+      "libSQL database URL (or LIBSQL_URL env)",
+      process.env.LIBSQL_URL ?? "file:./data/agent-register/register.db",
     );
 
   program.parse(userArgv(argv), { from: "user" });
@@ -33,6 +40,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     port: string;
     heartbeatInterval: string;
     heartbeatTimeout: string;
+    dbUrl: string;
   }>();
 
   const port = parsePort(opts.port, program);
@@ -47,11 +55,20 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     program,
   );
 
+  const dbUrl = opts.dbUrl.trim();
+  if (!dbUrl) {
+    program.error("db-url must not be empty");
+  }
+
+  const dbAuthToken = process.env.LIBSQL_AUTH_TOKEN?.trim() || undefined;
+
   return {
     host: opts.host,
     port,
     heartbeatIntervalMs,
     heartbeatTimeoutMs,
+    dbUrl,
+    dbAuthToken,
   };
 }
 

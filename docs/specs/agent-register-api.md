@@ -129,18 +129,26 @@ interface ApiErrorResponse {
 
 ## Storage
 
-**Current:** in-memory only (`AgentRegistryStore`). Process restart clears registry.
+**Current:** libSQL via `@libsql/client` (`AgentRegistryStore`). Registry survives process restarts.
 
-**Planned:** persistence — [roadmap.md](../roadmap.md).
+| Table | Columns |
+|-------|---------|
+| `agent` | `agent_id` (PK), `name`, `purpose`, `skills` (JSON text), `endpoint_url`, `status`, `registered_at`, `last_heartbeat_at` |
+
+Docker dev-workstation connects to the central `libsql` service (`http://libsql:8080`). Local `pnpm dev` defaults to `file:./data/agent-register/register.db`.
+
+See [shared-database.md](./shared-database.md).
 
 ## CLI configuration
 
-| Flag | Default | Purpose |
-|------|---------|---------|
+| Flag / env | Default | Purpose |
+|------------|---------|---------|
 | `--host` | `127.0.0.1` | Bind host |
 | `--port` | `3001` | HTTP port |
 | `--heartbeat-interval` | `15000` | Poll interval (ms) |
 | `--heartbeat-timeout` | `5000` | Poll timeout (ms) |
+| `--db-url` / `LIBSQL_URL` | `file:./data/agent-register/register.db` | libSQL database URL |
+| `LIBSQL_AUTH_TOKEN` | — | Optional auth token for remote libSQL |
 
 ## Deployment
 
