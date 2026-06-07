@@ -11,6 +11,8 @@ export type SchedulerOptions = {
   leaseMs: number;
   clientId: string;
   chatTimeoutMs: number;
+  /** agent-gateway base URL for fallback outbound delivery. */
+  gatewayUrl?: string;
 };
 
 export function parseCli(argv: readonly string[] = process.argv): SchedulerOptions {
@@ -48,6 +50,10 @@ export function parseCli(argv: readonly string[] = process.argv): SchedulerOptio
       "--chat-timeout-ms <ms>",
       "timeout for chat fire SSE stream",
       process.env.SCHEDULER_CHAT_TIMEOUT_MS ?? String(30 * 60 * 1000),
+    )
+    .option(
+      "--gateway-url <url>",
+      "agent-gateway base URL for fallback Telegram delivery (or GATEWAY_URL env)",
     );
 
   program.parse(userArgv(argv), { from: "user" });
@@ -61,6 +67,7 @@ export function parseCli(argv: readonly string[] = process.argv): SchedulerOptio
     leaseMs: string;
     clientId: string;
     chatTimeoutMs: string;
+    gatewayUrl?: string;
   }>();
 
   const port = Number(opts.port);
@@ -89,6 +96,14 @@ export function parseCli(argv: readonly string[] = process.argv): SchedulerOptio
     program.error(`invalid chat-timeout-ms: ${opts.chatTimeoutMs}`);
   }
 
+  if (opts.gatewayUrl) {
+    try {
+      new URL(opts.gatewayUrl);
+    } catch {
+      program.error(`invalid gateway-url: ${opts.gatewayUrl}`);
+    }
+  }
+
   return {
     host: opts.host,
     port,
@@ -98,5 +113,7 @@ export function parseCli(argv: readonly string[] = process.argv): SchedulerOptio
     leaseMs,
     clientId: opts.clientId.trim() || "agent-scheduler",
     chatTimeoutMs,
+    gatewayUrl:
+      opts.gatewayUrl?.trim() || process.env.GATEWAY_URL?.trim() || undefined,
   };
 }

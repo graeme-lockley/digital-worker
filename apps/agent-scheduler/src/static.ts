@@ -14,5 +14,9 @@ export function registerStaticRoutes(app: Hono): void {
     serveStatic({ root: publicDir, path: "styles.css" }),
   );
   app.use("/app.js", serveStatic({ root: publicDir, path: "app.js" }));
+  app.use(
+    "/ui-helpers.js",
+    serveStatic({ root: publicDir, path: "ui-helpers.js" }),
+  );
   app.get("/", serveStatic({ root: publicDir, path: "index.html" }));
 }

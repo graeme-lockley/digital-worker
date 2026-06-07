@@ -168,6 +168,9 @@ importers:
       '@digital-worker/agent-core-protocol':
         specifier: workspace:*
         version: link:../../packages/agent-core-protocol
+      '@digital-worker/agent-gateway-protocol':
+        specifier: workspace:*
+        version: link:../../packages/agent-gateway-protocol
       '@digital-worker/agent-register-protocol':
         specifier: workspace:*
         version: link:../../packages/agent-register-protocol

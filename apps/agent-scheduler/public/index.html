@@ -26,17 +26,40 @@
 
     <main>
       <section id="view-schedules" class="view">
-        <h2>Schedules</h2>
-        <div id="schedules-empty" class="empty hidden">No scheduled events.</div>
+        <div class="view-heading">
+          <h2>Schedules</h2>
+          <label class="view-filter">
+            Status
+            <select id="schedule-status-filter">
+              <option value="active" selected>Active</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="">All</option>
+            </select>
+          </label>
+        </div>
+        <div id="schedules-empty" class="empty hidden">No scheduled events match the current filter.</div>
         <table id="schedules-table" class="data-table hidden">
           <thead>
             <tr>
-              <th>Agent</th>
-              <th>Status</th>
-              <th>Schedule</th>
-              <th>Next fire</th>
-              <th>Model</th>
-              <th>Prompt</th>
+              <th class="sortable" data-sort="agent" scope="col">
+                Agent <span class="sort-indicator" aria-hidden="true"></span>
+              </th>
+              <th class="sortable" data-sort="status" scope="col">
+                Status <span class="sort-indicator" aria-hidden="true"></span>
+              </th>
+              <th class="sortable" data-sort="schedule" scope="col">
+                Schedule <span class="sort-indicator" aria-hidden="true"></span>
+              </th>
+              <th class="sortable" data-sort="fireAt" scope="col" aria-sort="ascending">
+                Next fire <span class="sort-indicator" aria-hidden="true">▲</span>
+              </th>
+              <th class="sortable" data-sort="model" scope="col">
+                Model <span class="sort-indicator" aria-hidden="true"></span>
+              </th>
+              <th class="sortable" data-sort="prompt" scope="col">
+                Prompt <span class="sort-indicator" aria-hidden="true"></span>
+              </th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -53,6 +76,7 @@
               <th>Scheduled</th>
               <th>Status</th>
               <th>Duration</th>
+              <th>Delivery</th>
               <th>Prompt</th>
             </tr>
           </thead>
@@ -76,6 +100,7 @@
               <th>Scheduled</th>
               <th>Status</th>
               <th>Attempt</th>
+              <th>Delivery</th>
               <th>Transcript</th>
             </tr>
           </thead>
@@ -87,6 +112,7 @@
         <p><a href="#runs">← Back to runs</a></p>
         <h2>Run detail</h2>
         <div id="run-meta" class="meta"></div>
+        <div id="run-delivery" class="meta delivery"></div>
         <div class="two-panel">
           <div class="panel">
             <h3>Prompt</h3>

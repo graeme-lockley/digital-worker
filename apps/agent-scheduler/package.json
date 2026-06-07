@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@digital-worker/agent-core-protocol": "workspace:*",
+    "@digital-worker/agent-gateway-protocol": "workspace:*",
     "@digital-worker/agent-register-protocol": "workspace:*",
     "@digital-worker/agent-scheduler-protocol": "workspace:*",
     "@hono/node-server": "^1.14.4",

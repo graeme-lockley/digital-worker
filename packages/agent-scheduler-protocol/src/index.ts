@@ -46,11 +46,27 @@ export type MissedFirePolicy = "fire-once" | "skip";
 /** When a previous run is still in progress. v1 default: skip. */
 export type OverlapPolicy = "skip";
 
+export type DeliveryHint =
+  | "internal"
+  | "agent-likely"
+  | "scheduler-fallback"
+  | "not-detected"
+  | "n/a";
+
+/** Optional fallback delivery target when the agent does not send_message. */
+export interface DeliverTo {
+  channel: string;
+  threadId?: string;
+}
+
 export interface ScheduledEvent {
   id: string;
   agentId: string;
   model: string;
   prompt: string;
+  /** When true, no delivery suffix is appended and fallback delivery is skipped. */
+  internalOnly?: boolean;
+  deliverTo?: DeliverTo;
   /** Standard 5-field cron when recurring. */
   cron?: string;
   /** Next fire time (epoch ms). Always set in storage. */
@@ -75,6 +91,10 @@ export interface ScheduledRun {
   transcript: string;
   error?: string;
   attempt: number;
+  /** Scheduler sent transcript via gateway outbound after a successful run. */
+  deliverFallback?: boolean;
+  /** Computed when listing or fetching runs (not persisted). */
+  deliveryHint?: DeliveryHint;
 }
 
 /** Run row joined with parent event fields for list views. */
@@ -94,6 +114,8 @@ export interface CreateEventRequest {
   timezone?: string;
   missedPolicy?: MissedFirePolicy;
   createdBy: string;
+  internalOnly?: boolean;
+  deliverTo?: DeliverTo;
 }
 
 export interface CreateEventResponse {

@@ -7,6 +7,12 @@ import {
   parseViewHash,
   shouldAutoRefresh,
 } from "./ui-helpers.js";
+import {
+  buildEventsQuery,
+  DEFAULT_SCHEDULE_SORT,
+  nextScheduleSort,
+  sortScheduleEvents,
+} from "../public/ui-helpers.js";
 
 describe("ui-helpers", () => {
   it("builds runs query string", () => {
@@ -29,5 +35,59 @@ describe("ui-helpers", () => {
   it("detects running auto-refresh", () => {
     expect(shouldAutoRefresh([{ status: "running" }])).toBe(true);
     expect(shouldAutoRefresh([{ status: "succeeded" }])).toBe(false);
+  });
+});
+
+describe("schedule table helpers", () => {
+  const sampleEvents = [
+    {
+      id: "b",
+      agentId: "zeta",
+      status: "active",
+      cron: "0 9 * * *",
+      timezone: "UTC",
+      fireAt: 2000,
+      model: "model-b",
+      prompt: "beta",
+    },
+    {
+      id: "a",
+      agentId: "alpha",
+      status: "completed",
+      fireAt: 1000,
+      model: "model-a",
+      prompt: "alpha task",
+    },
+  ];
+
+  it("builds events query with agent and status filters", () => {
+    expect(buildEventsQuery({ agentId: "a1", status: "active" })).toBe(
+      "?agentId=a1&status=active",
+    );
+    expect(buildEventsQuery({ status: "active" })).toBe("?status=active");
+    expect(buildEventsQuery({})).toBe("");
+  });
+
+  it("defaults sort to next fire ascending", () => {
+    expect(DEFAULT_SCHEDULE_SORT).toEqual({ column: "fireAt", direction: "asc" });
+    const sorted = sortScheduleEvents(sampleEvents, DEFAULT_SCHEDULE_SORT);
+    expect(sorted.map((event) => event.id)).toEqual(["a", "b"]);
+  });
+
+  it("sorts by column and toggles direction", () => {
+    const byAgent = sortScheduleEvents(sampleEvents, {
+      column: "agent",
+      direction: "asc",
+    });
+    expect(byAgent.map((event) => event.agentId)).toEqual(["alpha", "zeta"]);
+
+    expect(nextScheduleSort({ column: "fireAt", direction: "asc" }, "fireAt")).toEqual({
+      column: "fireAt",
+      direction: "desc",
+    });
+    expect(nextScheduleSort({ column: "fireAt", direction: "asc" }, "agent")).toEqual({
+      column: "agent",
+      direction: "asc",
+    });
   });
 });

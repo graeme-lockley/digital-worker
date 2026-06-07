@@ -280,4 +280,84 @@ describe("TickLoop", () => {
     expect(latest?.attempt).toBe(1);
     store.close();
   });
+
+  it("fallback-delivers transcript when deliverTo set and agent did not send", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "tick-loop-"));
+    const store = new SchedulerStore(dir);
+    const now = Date.now();
+    store.createEvent({
+      id: "evt-fallback",
+      agentId: "agent-a",
+      model: "deepseek/deepseek-v4-flash",
+      prompt: "Morning briefing text only",
+      fireAt: now - 1000,
+      timezone: "UTC",
+      missedPolicy: "fire-once",
+      createdBy: "agent-a",
+      deliverChannel: "telegram",
+      deliverThreadId: "8672094762",
+      now,
+    });
+
+    const outboundCalls: unknown[] = [];
+    const fetchFn = vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/api/v1/agents")) {
+        return new Response(JSON.stringify({ agents: [agent] }), { status: 200 });
+      }
+      if (url.endsWith("/api/v1/command")) {
+        return new Response(
+          JSON.stringify({
+            models: [{ provider: "deepseek", id: "deepseek-v4-flash", current: true }],
+            current: { provider: "deepseek", id: "deepseek-v4-flash", current: true },
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.endsWith("/api/v1/chat")) {
+        return new Response(
+          sseBody([
+            {
+              type: CHAT_STREAM_EVENT.TOKEN,
+              sessionId: "s1",
+              token: "Briefing body with headlines and weather only",
+            },
+            {
+              type: CHAT_STREAM_EVENT.DONE,
+              sessionId: "s1",
+              messageId: "m1",
+            },
+          ]),
+          { status: 200, headers: { "content-type": "text/event-stream" } },
+        );
+      }
+      if (url.endsWith("/api/v1/outbound")) {
+        outboundCalls.push(JSON.parse(String(init?.body)));
+        return new Response(JSON.stringify({ delivered: true }), { status: 200 });
+      }
+      return new Response("not found", { status: 404 });
+    }) as typeof fetch;
+
+    const loop = new TickLoop({
+      store,
+      registerUrl: "http://register:3001",
+      gatewayUrl: "http://gateway:3002",
+      leaseMs: 60_000,
+      clientId: "test-scheduler",
+      chatTimeoutMs: 30_000,
+      fetchFn,
+    });
+
+    await loop.tick();
+
+    expect(outboundCalls).toHaveLength(1);
+    expect(outboundCalls[0]).toMatchObject({
+      channel: "telegram",
+      threadId: "8672094762",
+      text: "Briefing body with headlines and weather only",
+    });
+    const { runs } = store.listRuns({ eventId: "evt-fallback", limit: 5, offset: 0 });
+    expect(runs[0]?.deliverFallback).toBe(true);
+    store.close();
+  });
 });

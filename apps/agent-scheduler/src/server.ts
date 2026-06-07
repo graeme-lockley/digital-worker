@@ -14,6 +14,8 @@ import {
   type ListRunsResponse,
   type ListSchedulerAgentsResponse,
   type RunDetailResponse,
+  type ScheduledEvent,
+  type ScheduledRunSummary,
 } from "@digital-worker/agent-scheduler-protocol";
 
 import {
@@ -24,7 +26,9 @@ import {
   validateModel,
 } from "./agent-resolver.js";
 import { InvalidCronError, computeInitialFireAt, validateCron } from "./cron.js";
+import { appendDeliveryPrompt } from "./delivery.js";
 import { registerStaticRoutes } from "./static.js";
+import { enrichRun, enrichRunSummary } from "./run-enrichment.js";
 import type { SchedulerStore } from "./store/scheduler-store.js";
 import type { TickLoop } from "./tick-loop.js";
 
@@ -96,6 +100,9 @@ export function createApp(ctx: SchedulerContext): Hono {
       timezone: input.timezone,
       missedPolicy: input.missedPolicy,
       createdBy: input.createdBy,
+      internalOnly: input.internalOnly,
+      deliverChannel: input.deliverChannel,
+      deliverThreadId: input.deliverThreadId,
       now,
     });
 
@@ -135,7 +142,10 @@ export function createApp(ctx: SchedulerContext): Hono {
       limit: 10,
       offset: 0,
     });
-    const response: EventDetailResponse = { event, recentRuns: runs };
+    const response: EventDetailResponse = {
+      event,
+      recentRuns: runs.map((run) => presentRunSummary(run)),
+    };
     return c.json(response);
   });
 
@@ -149,7 +159,10 @@ export function createApp(ctx: SchedulerContext): Hono {
       limit: 10,
       offset: 0,
     });
-    const response: EventDetailResponse = { event, recentRuns: runs };
+    const response: EventDetailResponse = {
+      event,
+      recentRuns: runs.map((run) => presentRunSummary(run)),
+    };
     return c.json(response);
   });
 
@@ -163,7 +176,10 @@ export function createApp(ctx: SchedulerContext): Hono {
       limit: 10,
       offset: 0,
     });
-    const response: EventDetailResponse = { event, recentRuns: runs };
+    const response: EventDetailResponse = {
+      event,
+      recentRuns: runs.map((run) => presentRunSummary(run)),
+    };
     return c.json(response);
   });
 
@@ -186,7 +202,10 @@ export function createApp(ctx: SchedulerContext): Hono {
       limit: 10,
       offset: 0,
     });
-    const response: EventDetailResponse = { event, recentRuns: runs };
+    const response: EventDetailResponse = {
+      event,
+      recentRuns: runs.map((run) => presentRunSummary(run)),
+    };
     return c.json(response);
   });
 
@@ -216,7 +235,10 @@ export function createApp(ctx: SchedulerContext): Hono {
       limit,
       offset,
     });
-    const response: ListRunsResponse = { runs, total };
+    const response: ListRunsResponse = {
+      runs: runs.map((run) => presentRunSummary(run)),
+      total,
+    };
     return c.json(response);
   });
 
@@ -242,7 +264,10 @@ export function createApp(ctx: SchedulerContext): Hono {
       limit,
       offset,
     });
-    const response: ListRunsResponse = { runs, total };
+    const response: ListRunsResponse = {
+      runs: runs.map((run) => presentRunSummary(run)),
+      total,
+    };
     return c.json(response);
   });
 
@@ -251,7 +276,10 @@ export function createApp(ctx: SchedulerContext): Hono {
     if (!detail) {
       return apiError(c, SCHEDULER_ERROR_CODES.NOT_FOUND, "run not found", 404);
     }
-    const response: RunDetailResponse = detail;
+    const response: RunDetailResponse = {
+      run: enrichRun(detail.run, detail.event),
+      event: detail.event,
+    };
     return c.json(response);
   });
 
@@ -307,6 +335,9 @@ function validateCreateEvent(body: CreateEventRequest):
         timezone: string;
         missedPolicy: "fire-once" | "skip";
         createdBy: string;
+        internalOnly: boolean;
+        deliverChannel?: string;
+        deliverThreadId?: string;
       };
     }
   | { error: { code: string; message: string; status: number } } {
@@ -402,16 +433,35 @@ function validateCreateEvent(body: CreateEventRequest):
     };
   }
 
+  const internalOnly = body.internalOnly === true;
+  const deliverChannel = body.deliverTo?.channel?.trim();
+  const deliverThreadId = body.deliverTo?.threadId?.trim();
+
+  if (internalOnly && deliverChannel) {
+    return {
+      error: {
+        code: SCHEDULER_ERROR_CODES.INVALID_REQUEST,
+        message: "internalOnly events cannot specify deliverTo",
+        status: 400,
+      },
+    };
+  }
+
+  const finalPrompt = appendDeliveryPrompt(prompt, internalOnly);
+
   return {
     value: {
       agentId,
       model,
-      prompt,
+      prompt: finalPrompt,
       cron: hasCron ? cron : undefined,
       fireAt,
       timezone,
       missedPolicy,
       createdBy,
+      internalOnly,
+      deliverChannel: deliverChannel || undefined,
+      deliverThreadId: deliverThreadId || undefined,
     },
   };
 }
@@ -445,4 +495,14 @@ function apiError(
   status: number,
 ): Response {
   return c.json({ error: { code, message } }, status);
+}
+
+type RunSummaryRow = ScheduledRunSummary & {
+  internalOnly?: boolean;
+  deliverTo?: ScheduledEvent["deliverTo"];
+};
+
+function presentRunSummary(run: RunSummaryRow): ScheduledRunSummary {
+  const { internalOnly, deliverTo, ...base } = run;
+  return enrichRunSummary(base, { internalOnly, deliverTo });
 }

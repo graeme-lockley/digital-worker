@@ -38,6 +38,14 @@ export function createScheduleEventTool(
         fireAt: params.fireAt?.trim(),
         timezone: params.timezone?.trim(),
         missedPolicy: params.missedPolicy,
+        internalOnly: params.internalOnly === true,
+        deliverTo:
+          params.deliverToChannel?.trim()
+            ? {
+                channel: params.deliverToChannel.trim(),
+                threadId: params.deliverToThreadId?.trim(),
+              }
+            : undefined,
       };
 
       const response = await fetchFn(url, {
@@ -290,6 +298,26 @@ const scheduleEventParameters = Type.Object({
     Type.String({
       description: "Target agent id (default: self)",
       minLength: 1,
+      maxLength: 100,
+    }),
+  ),
+  internalOnly: Type.Optional(
+    Type.Boolean({
+      description:
+        "When true, skip delivery suffix and scheduler fallback (internal/background task)",
+    }),
+  ),
+  deliverToChannel: Type.Optional(
+    Type.String({
+      description:
+        'Fallback delivery channel if the agent does not send_message (e.g. "telegram")',
+      minLength: 1,
+      maxLength: 50,
+    }),
+  ),
+  deliverToThreadId: Type.Optional(
+    Type.String({
+      description: "Fallback delivery thread/chat id (e.g. Telegram chat id)",
       maxLength: 100,
     }),
   ),

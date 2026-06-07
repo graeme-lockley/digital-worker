@@ -64,12 +64,56 @@ select {
   font-size: 0.92rem;
 }
 
+.view-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.view-heading h2 {
+  margin: 0;
+}
+
+.view-filter {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  color: #94a3b8;
+  font-size: 0.92rem;
+}
+
 .data-table th,
 .data-table td {
   border-bottom: 1px solid #243041;
   padding: 0.55rem 0.4rem;
   text-align: left;
   vertical-align: top;
+}
+
+.data-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.data-table th.sortable:hover {
+  color: #ffffff;
+}
+
+.sort-indicator {
+  display: inline-block;
+  width: 1rem;
+  margin-left: 0.15rem;
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.data-table th.sortable[aria-sort="ascending"] .sort-indicator,
+.data-table th.sortable[aria-sort="descending"] .sort-indicator {
+  color: #9ecbff;
 }
 
 .data-table tbody tr {
@@ -143,4 +187,16 @@ footer {
 .status-failed,
 .status-interrupted {
   color: #fca5a5;
+}
+
+.delivery-ok {
+  color: #86efac;
+}
+
+.delivery-warn {
+  color: #fcd34d;
+}
+
+.delivery-neutral {
+  color: #94a3b8;
 }

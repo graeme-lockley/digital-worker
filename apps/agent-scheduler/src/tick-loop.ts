@@ -9,6 +9,8 @@ import {
 } from "./agent-resolver.js";
 import { ChatFireError, fireChat } from "./chat-fire-client.js";
 import { computeNextFireAt } from "./cron.js";
+import { detectDeliveryInTranscript } from "./delivery.js";
+import { GatewayOutboundError, postGatewayOutbound } from "./gateway-outbound.js";
 import type { SchedulerStore } from "./store/scheduler-store.js";
 
 const SLEEPING_BACKOFF_MS = [30_000, 60_000, 300_000] as const;
@@ -21,6 +23,8 @@ export type TickLoopDeps = {
   leaseMs: number;
   clientId: string;
   chatTimeoutMs: number;
+  /** When set, enables fallback Telegram delivery via agent-gateway outbound. */
+  gatewayUrl?: string;
   fetchFn?: typeof fetch;
   onError?: (error: unknown, context: { eventId: string }) => void;
 };
@@ -148,6 +152,8 @@ export class TickLoop {
       this.deps.store.finishRun(run.id, "succeeded", Date.now());
       this.sleepingRetries.delete(event.id);
 
+      await this.maybeDeliverFallback(event, run.id, result.transcript);
+
       if (event.cron) {
         const nextFireAt = computeNextFireAt(
           event.cron,
@@ -232,5 +238,52 @@ export class TickLoop {
     });
     this.deps.store.finishRun(run.id, "failed", now, message);
     await this.scheduleFailureRetry(event, now, attempt, message);
+  }
+
+  private async maybeDeliverFallback(
+    event: ScheduledEvent,
+    runId: string,
+    transcript: string,
+  ): Promise<void> {
+    const deliverTo = event.deliverTo;
+    if (
+      event.internalOnly ||
+      !deliverTo?.channel?.trim() ||
+      !this.deps.gatewayUrl?.trim()
+    ) {
+      return;
+    }
+
+    if (detectDeliveryInTranscript(transcript)) {
+      return;
+    }
+
+    const text = transcript.trim();
+    if (!text) {
+      return;
+    }
+
+    try {
+      const result = await postGatewayOutbound(
+        this.deps.gatewayUrl,
+        {
+          channel: deliverTo.channel.trim(),
+          text,
+          threadId: deliverTo.threadId?.trim(),
+        },
+        this.fetchFn,
+      );
+      if (result.delivered) {
+        this.deps.store.markRunDeliverFallback(runId);
+      }
+    } catch (error) {
+      const message =
+        error instanceof GatewayOutboundError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "fallback delivery failed";
+      console.error(`fallback delivery for run ${runId}: ${message}`);
+    }
   }
 }

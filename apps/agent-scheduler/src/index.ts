@@ -19,6 +19,7 @@ async function main(): Promise<void> {
     leaseMs: options.leaseMs,
     clientId: options.clientId,
     chatTimeoutMs: options.chatTimeoutMs,
+    gatewayUrl: options.gatewayUrl,
     onError: (error, context) => {
       console.error(`tick error for event ${context.eventId}:`, error);
     },
@@ -41,7 +42,7 @@ async function main(): Promise<void> {
     { store, registerUrl: options.registerUrl, tickLoop },
     () => {
       console.log(
-        `agent-scheduler ready on http://${options.host}:${options.port} (register ${options.registerUrl})`,
+        `agent-scheduler ready on http://${options.host}:${options.port} (register ${options.registerUrl}${options.gatewayUrl ? `, gateway ${options.gatewayUrl}` : ""})`,
       );
     },
   );

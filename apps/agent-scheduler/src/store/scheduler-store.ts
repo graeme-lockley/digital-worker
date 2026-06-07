@@ -13,7 +13,7 @@ import type {
 
 import { computeNextFireAt } from "../cron.js";
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 type EventRow = {
   id: string;
@@ -29,6 +29,9 @@ type EventRow = {
   created_by: string;
   created_at: number;
   updated_at: number;
+  internal_only: number;
+  deliver_channel: string | null;
+  deliver_thread_id: string | null;
 };
 
 type RunRow = {
@@ -42,6 +45,7 @@ type RunRow = {
   transcript: string;
   error: string | null;
   attempt: number;
+  deliver_fallback: number;
 };
 
 export type CreateEventInput = {
@@ -54,6 +58,9 @@ export type CreateEventInput = {
   timezone: string;
   missedPolicy: MissedFirePolicy;
   createdBy: string;
+  internalOnly?: boolean;
+  deliverChannel?: string;
+  deliverThreadId?: string;
   now: number;
 };
 
@@ -104,7 +111,10 @@ export class SchedulerStore {
         lease_until INTEGER,
         created_by TEXT NOT NULL,
         created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        internal_only INTEGER NOT NULL DEFAULT 0,
+        deliver_channel TEXT,
+        deliver_thread_id TEXT
       );
       CREATE INDEX IF NOT EXISTS idx_event_due
         ON scheduled_event (status, fire_at);
@@ -118,7 +128,8 @@ export class SchedulerStore {
         model TEXT NOT NULL,
         transcript TEXT NOT NULL DEFAULT '',
         error TEXT,
-        attempt INTEGER NOT NULL DEFAULT 1
+        attempt INTEGER NOT NULL DEFAULT 1,
+        deliver_fallback INTEGER NOT NULL DEFAULT 0
       );
       CREATE INDEX IF NOT EXISTS idx_run_event
         ON scheduled_run (event_id, started_at);
@@ -127,7 +138,9 @@ export class SchedulerStore {
     const row = this.db
       .prepare("SELECT value FROM meta WHERE key = 'schema_version'")
       .get() as { value: string } | undefined;
-    if (!row || Number(row.value) !== SCHEMA_VERSION) {
+    const version = row ? Number(row.value) : 0;
+    if (version < SCHEMA_VERSION) {
+      this.migrateSchema(version);
       this.db
         .prepare(
           "INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', ?)",
@@ -136,13 +149,41 @@ export class SchedulerStore {
     }
   }
 
+  private migrateSchema(fromVersion: number): void {
+    if (fromVersion < 2) {
+      this.addColumnIfMissing("scheduled_event", "internal_only", "INTEGER NOT NULL DEFAULT 0");
+      this.addColumnIfMissing("scheduled_event", "deliver_channel", "TEXT");
+      this.addColumnIfMissing("scheduled_event", "deliver_thread_id", "TEXT");
+      this.addColumnIfMissing(
+        "scheduled_run",
+        "deliver_fallback",
+        "INTEGER NOT NULL DEFAULT 0",
+      );
+    }
+  }
+
+  private addColumnIfMissing(
+    table: string,
+    column: string,
+    definition: string,
+  ): void {
+    const columns = this.db
+      .prepare(`PRAGMA table_info(${table})`)
+      .all() as Array<{ name: string }>;
+    if (columns.some((entry) => entry.name === column)) {
+      return;
+    }
+    this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+
   createEvent(input: CreateEventInput): ScheduledEvent {
     this.db
       .prepare(
         `INSERT INTO scheduled_event (
           id, agent_id, model, prompt, cron, fire_at, timezone,
-          missed_policy, status, lease_until, created_by, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, ?, ?, ?)`,
+          missed_policy, status, lease_until, created_by, created_at, updated_at,
+          internal_only, deliver_channel, deliver_thread_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         input.id,
@@ -156,6 +197,9 @@ export class SchedulerStore {
         input.createdBy,
         input.now,
         input.now,
+        input.internalOnly ? 1 : 0,
+        input.deliverChannel ?? null,
+        input.deliverThreadId ?? null,
       );
     return this.getEvent(input.id)!;
   }
@@ -349,6 +393,12 @@ export class SchedulerStore {
       .run(chunk, runId);
   }
 
+  markRunDeliverFallback(runId: string): void {
+    this.db
+      .prepare("UPDATE scheduled_run SET deliver_fallback = 1 WHERE id = ?")
+      .run(runId);
+  }
+
   finishRun(
     runId: string,
     status: Exclude<ScheduledRunStatus, "running">,
@@ -411,7 +461,8 @@ export class SchedulerStore {
 
     const rows = this.db
       .prepare(
-        `SELECT r.*, e.agent_id, e.prompt, e.cron
+        `SELECT r.*, e.agent_id, e.prompt, e.cron, e.internal_only,
+                e.deliver_channel, e.deliver_thread_id
          FROM scheduled_run r
          JOIN scheduled_event e ON e.id = r.event_id
          ${where}
@@ -419,7 +470,14 @@ export class SchedulerStore {
          LIMIT ? OFFSET ?`,
       )
       .all(...params, filters.limit, filters.offset) as Array<
-      RunRow & { agent_id: string; prompt: string; cron: string | null }
+      RunRow & {
+        agent_id: string;
+        prompt: string;
+        cron: string | null;
+        internal_only: number;
+        deliver_channel: string | null;
+        deliver_thread_id: string | null;
+      }
     >;
 
     return {
@@ -428,6 +486,13 @@ export class SchedulerStore {
         agentId: row.agent_id,
         prompt: row.prompt,
         cron: row.cron ?? undefined,
+        internalOnly: row.internal_only === 1,
+        deliverTo: row.deliver_channel?.trim()
+          ? {
+              channel: row.deliver_channel.trim(),
+              threadId: row.deliver_thread_id?.trim() || undefined,
+            }
+          : undefined,
       })),
       total: totalRow.count,
     };
@@ -523,6 +588,7 @@ export class SchedulerStore {
 }
 
 function mapEventRow(row: EventRow): ScheduledEvent {
+  const deliverChannel = row.deliver_channel?.trim();
   return {
     id: row.id,
     agentId: row.agent_id,
@@ -537,6 +603,13 @@ function mapEventRow(row: EventRow): ScheduledEvent {
     createdBy: row.created_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    internalOnly: row.internal_only === 1,
+    deliverTo: deliverChannel
+      ? {
+          channel: deliverChannel,
+          threadId: row.deliver_thread_id?.trim() || undefined,
+        }
+      : undefined,
   };
 }
 
@@ -552,5 +625,6 @@ function mapRunRow(row: RunRow): ScheduledRun {
     transcript: row.transcript,
     error: row.error ?? undefined,
     attempt: row.attempt,
+    deliverFallback: row.deliver_fallback === 1,
   };
 }

@@ -156,6 +156,8 @@ services:
         condition: service_healthy
       agent-core:
         condition: service_healthy
+      agent-gateway:
+        condition: service_healthy
     command:
       - node
       - dist/index.js
@@ -165,8 +167,12 @@ services:
       - "3003"
       - --register-url
       - http://agent-register:3001
+      - --gateway-url
+      - http://agent-gateway:3002
       - --data-dir
       - /data
+    environment:
+      GATEWAY_URL: http://agent-gateway:3002
     volumes:
       - scheduler-data:/data
     healthcheck:

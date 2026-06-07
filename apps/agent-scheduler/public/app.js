@@ -1,11 +1,24 @@
+import {
+  buildEventsQuery,
+  DEFAULT_SCHEDULE_SORT,
+  nextScheduleSort,
+  sortScheduleEvents,
+} from "./ui-helpers.js";
+
 const API = "/api/v1";
 const REFRESH_MS = 15_000;
 
 const agentFilter = document.getElementById("agent-filter");
+const scheduleStatusFilter = document.getElementById("schedule-status-filter");
 const refreshBtn = document.getElementById("refresh-btn");
 const statusLine = document.getElementById("status-line");
+const schedulesTable = document.getElementById("schedules-table");
 
 let autoRefreshTimer;
+let cachedScheduleEvents = [];
+/** @type {import("./ui-helpers.js").ScheduleSortState} */
+let scheduleSort = { ...DEFAULT_SCHEDULE_SORT };
+let scheduleSortBound = false;
 
 function parseHash() {
   const hash = location.hash.replace(/^#/, "").trim();
@@ -41,6 +54,28 @@ function statusClass(status) {
   return `status-${status}`;
 }
 
+const DELIVERY_HINT_LABELS = {
+  internal: "Internal",
+  "agent-likely": "Agent sent",
+  "scheduler-fallback": "Scheduler sent",
+  "not-detected": "Not detected",
+  "n/a": "—",
+};
+
+function deliveryHintLabel(hint) {
+  return DELIVERY_HINT_LABELS[hint] ?? hint ?? "—";
+}
+
+function deliveryHintClass(hint) {
+  if (hint === "agent-likely" || hint === "scheduler-fallback") {
+    return "delivery-ok";
+  }
+  if (hint === "not-detected") {
+    return "delivery-warn";
+  }
+  return "delivery-neutral";
+}
+
 async function fetchJson(path) {
   const response = await fetch(path);
   if (!response.ok) {
@@ -60,6 +95,84 @@ function showView(name) {
   }
 }
 
+function bindScheduleSortHeaders() {
+  if (scheduleSortBound || !schedulesTable) {
+    return;
+  }
+  scheduleSortBound = true;
+
+  for (const header of schedulesTable.querySelectorAll("th.sortable")) {
+    header.addEventListener("click", () => {
+      const column = header.dataset.sort;
+      if (!column) {
+        return;
+      }
+      scheduleSort = nextScheduleSort(scheduleSort, column);
+      renderSchedulesTable();
+    });
+  }
+}
+
+function updateScheduleSortHeaders() {
+  if (!schedulesTable) {
+    return;
+  }
+
+  for (const header of schedulesTable.querySelectorAll("th.sortable")) {
+    const column = header.dataset.sort;
+    const indicator = header.querySelector(".sort-indicator");
+    if (!column || !indicator) {
+      continue;
+    }
+
+    if (column === scheduleSort.column) {
+      header.setAttribute(
+        "aria-sort",
+        scheduleSort.direction === "asc" ? "ascending" : "descending",
+      );
+      indicator.textContent = scheduleSort.direction === "asc" ? "▲" : "▼";
+    } else {
+      header.setAttribute("aria-sort", "none");
+      indicator.textContent = "";
+    }
+  }
+}
+
+function renderSchedulesTable() {
+  const table = schedulesTable;
+  const tbody = table.querySelector("tbody");
+  const empty = document.getElementById("schedules-empty");
+  tbody.innerHTML = "";
+
+  const events = sortScheduleEvents(cachedScheduleEvents, scheduleSort);
+  updateScheduleSortHeaders();
+
+  if (!events.length) {
+    table.classList.add("hidden");
+    empty.classList.remove("hidden");
+    return;
+  }
+
+  empty.classList.add("hidden");
+  table.classList.remove("hidden");
+
+  for (const event of events) {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${event.agentId}</td>
+      <td class="${statusClass(event.status)}">${event.status}</td>
+      <td>${scheduleLabel(event)}</td>
+      <td>${fmt(event.fireAt)}</td>
+      <td>${event.model}</td>
+      <td>${excerpt(event.prompt)}</td>`;
+    row.addEventListener("click", () => {
+      location.hash = `event/${event.id}`;
+      render();
+    });
+    tbody.appendChild(row);
+  }
+}
+
 async function loadAgents() {
   const body = await fetchJson(`${API}/agents`);
   const current = agentFilter.value;
@@ -74,38 +187,15 @@ async function loadAgents() {
 }
 
 async function loadSchedules() {
-  const agentId = agentFilter.value;
-  const url = agentId ? `${API}/events?agentId=${encodeURIComponent(agentId)}` : `${API}/events`;
-  const body = await fetchJson(url);
-  const table = document.getElementById("schedules-table");
-  const tbody = table.querySelector("tbody");
-  const empty = document.getElementById("schedules-empty");
-  tbody.innerHTML = "";
+  bindScheduleSortHeaders();
 
-  if (!body.events.length) {
-    table.classList.add("hidden");
-    empty.classList.remove("hidden");
-    return;
-  }
-
-  empty.classList.add("hidden");
-  table.classList.remove("hidden");
-
-  for (const event of body.events) {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${event.agentId}</td>
-      <td>${event.status}</td>
-      <td>${scheduleLabel(event)}</td>
-      <td>${fmt(event.fireAt)}</td>
-      <td>${event.model}</td>
-      <td>${excerpt(event.prompt)}</td>`;
-    row.addEventListener("click", () => {
-      location.hash = `event/${event.id}`;
-      render();
-    });
-    tbody.appendChild(row);
-  }
+  const query = buildEventsQuery({
+    agentId: agentFilter.value,
+    status: scheduleStatusFilter.value,
+  });
+  const body = await fetchJson(`${API}/events${query}`);
+  cachedScheduleEvents = body.events;
+  renderSchedulesTable();
 }
 
 async function loadRuns() {
@@ -135,6 +225,7 @@ async function loadRuns() {
       <td>${fmt(run.scheduledFor)}</td>
       <td class="${statusClass(run.status)}">${run.status}</td>
       <td>${duration(run.startedAt, run.finishedAt)}</td>
+      <td class="${deliveryHintClass(run.deliveryHint)}">${deliveryHintLabel(run.deliveryHint)}</td>
       <td>${excerpt(run.prompt)}</td>`;
     row.addEventListener("click", () => {
       location.hash = `run/${run.id}`;
@@ -171,6 +262,7 @@ async function loadEventDetail(id) {
       <td>${fmt(run.scheduledFor)}</td>
       <td class="${statusClass(run.status)}">${run.status}</td>
       <td>${run.attempt}</td>
+      <td class="${deliveryHintClass(run.deliveryHint)}">${deliveryHintLabel(run.deliveryHint)}</td>
       <td>${excerpt(run.transcript || run.error || "", 80)}</td>`;
     row.addEventListener("click", () => {
       location.hash = `run/${run.id}`;
@@ -185,6 +277,15 @@ async function loadRunDetail(id) {
   const { run, event } = body;
   document.getElementById("run-meta").textContent =
     `${event.agentId} · ${run.status} · model ${run.model} · attempt ${run.attempt} · scheduled ${fmt(run.scheduledFor)} · started ${fmt(run.startedAt)} · finished ${fmt(run.finishedAt)}`;
+  const deliveryEl = document.getElementById("run-delivery");
+  deliveryEl.textContent = `Delivery: ${deliveryHintLabel(run.deliveryHint)}`;
+  deliveryEl.className = `meta delivery ${deliveryHintClass(run.deliveryHint)}`;
+  if (event.deliverTo?.channel) {
+    deliveryEl.textContent += ` · fallback ${event.deliverTo.channel}${event.deliverTo.threadId ? `:${event.deliverTo.threadId}` : ""}`;
+  }
+  if (event.internalOnly) {
+    deliveryEl.textContent += " · internal only";
+  }
   document.getElementById("run-prompt").textContent = event.prompt;
   document.getElementById("run-transcript").textContent = run.transcript || "(empty transcript)";
   const errorBlock = document.getElementById("run-error");
@@ -243,6 +344,9 @@ refreshBtn.addEventListener("click", () => {
   render().catch(console.error);
 });
 agentFilter.addEventListener("change", () => {
+  render().catch(console.error);
+});
+scheduleStatusFilter.addEventListener("change", () => {
   render().catch(console.error);
 });
 window.addEventListener("hashchange", () => {

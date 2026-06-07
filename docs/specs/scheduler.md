@@ -78,6 +78,16 @@ Examples:
 - **Sleeping agents:** Fire is deferred with backoff (30s → 1m → 5m) while the target agent status is `SLEEPING`.
 - **Interrupted runs:** If the scheduler dies mid-SSE, stale leases mark associated runs `interrupted` (no automatic retry).
 
+## Delivery
+
+Scheduled events are **agent turns**, not automatic Telegram pushes. Delivery is handled in three layers:
+
+1. **Prompt suffix (default):** Unless `internalOnly: true`, the scheduler appends a reminder to call `send_message` and confirm delivery in reply text.
+2. **UI audit:** Run list/detail shows `deliveryHint` — `agent-likely` (transcript mentions send), `scheduler-fallback`, `not-detected`, or `internal`. Detection is heuristic on assistant text only (tool results are not in the transcript).
+3. **Fallback `deliverTo`:** Optional `{ channel, threadId? }` on create. After a **successful** run, if the agent did not appear to send and `--gateway-url` is configured, the scheduler posts the transcript via `POST /api/v1/outbound` on agent-gateway.
+
+Pass `internalOnly: true` for background tasks with no delivery. User-facing schedules should set `deliverToChannel: "telegram"` and Graeme's chat id for fallback.
+
 ## Security (v1)
 
 No auth on the scheduler API or UI — intended for local/dev-workstation trust boundaries only.
