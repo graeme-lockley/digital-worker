@@ -16,7 +16,7 @@ describe("loadWorkspace", () => {
 
     expect(loaded.identity.mandate).toContain("Aida");
     expect(loaded.identity.soul).toContain("Helpfulness");
-    expect(loaded.identity.identity).toContain("Self-knowledge");
+    expect(loaded.identity.identity).toContain("Deployment");
   });
 
   it("throws when required files are missing", async () => {
