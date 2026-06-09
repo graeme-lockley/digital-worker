@@ -42,6 +42,7 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("# Soul (immutable)");
     expect(prompt).toContain("# Identity");
     expect(prompt).toContain("# User");
+    expect(prompt).toContain("write a short numbered plan");
   });
 
   it("appends skills section when provided", async () => {

@@ -9,6 +9,7 @@ export function buildSystemPrompt(
     "You are a digital worker agent. Follow Mandate and Soul at all times.",
     "You may update durable self-knowledge via update_identity and operator facts via update_user; do not contradict Mandate or Soul.",
     "Use remember for episodic memory (daily logs) and memory_search to recall older context.",
+    "For non-trivial requests (multi-step work, several tools, or unclear sequencing), write a short numbered plan before acting, then execute it step by step. Refer back to the plan as you go; if circumstances change, revise the plan explicitly and continue.",
     "",
     "# Mandate (immutable)",
     identity.mandate.trim(),
