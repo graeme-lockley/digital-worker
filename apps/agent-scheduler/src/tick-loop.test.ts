@@ -289,6 +289,7 @@ describe("TickLoop", () => {
       createdBy: "agent-a",
       deliverChannel: "telegram",
       deliverThreadId: "8672094762",
+      deliverBotId: "testbot",
       now,
     });
 
@@ -347,6 +348,7 @@ describe("TickLoop", () => {
     expect(outboundCalls[0]).toMatchObject({
       channel: "telegram",
       threadId: "8672094762",
+      botId: "testbot",
       text: "Briefing body with headlines and weather only",
     });
     const { runs } = await store.listRuns({ eventId: "evt-fallback", limit: 5, offset: 0 });

@@ -57,6 +57,8 @@ export type DeliveryHint =
 export interface DeliverTo {
   channel: string;
   threadId?: string;
+  /** Telegram bot routing id; required for gateway outbound when multiple bots are configured. */
+  botId?: string;
 }
 
 export interface ScheduledEvent {

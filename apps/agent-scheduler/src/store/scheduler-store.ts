@@ -15,7 +15,7 @@ import { computeNextFireAt } from "../cron.js";
 import { migrateAgentIds } from "./migrate-agent-ids.js";
 import { migrateLegacySchedulerDb } from "./migrate-legacy-store.js";
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 type EventRow = {
   id: string;
@@ -34,6 +34,7 @@ type EventRow = {
   internal_only: number;
   deliver_channel: string | null;
   deliver_thread_id: string | null;
+  deliver_bot_id: string | null;
 };
 
 type RunRow = {
@@ -63,6 +64,7 @@ export type CreateEventInput = {
   internalOnly?: boolean;
   deliverChannel?: string;
   deliverThreadId?: string;
+  deliverBotId?: string;
   now: number;
 };
 
@@ -210,6 +212,10 @@ export class SchedulerStore {
         );
       }
     }
+
+    if (fromVersion < 4) {
+      await this.addColumnIfMissing("scheduled_event", "deliver_bot_id", "TEXT");
+    }
   }
 
   private async addColumnIfMissing(
@@ -231,8 +237,8 @@ export class SchedulerStore {
       sql: `INSERT INTO scheduled_event (
           id, agent_id, model, prompt, cron, fire_at, timezone,
           missed_policy, status, lease_until, created_by, created_at, updated_at,
-          internal_only, deliver_channel, deliver_thread_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, ?, ?, ?, ?, ?, ?)`,
+          internal_only, deliver_channel, deliver_thread_id, deliver_bot_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         input.id,
         input.agentId,
@@ -248,6 +254,7 @@ export class SchedulerStore {
         input.internalOnly ? 1 : 0,
         input.deliverChannel ?? null,
         input.deliverThreadId ?? null,
+        input.deliverBotId ?? null,
       ],
     });
     return (await this.getEvent(input.id))!;
@@ -532,6 +539,7 @@ export class SchedulerStore {
         internal_only: number;
         deliver_channel: string | null;
         deliver_thread_id: string | null;
+        deliver_bot_id: string | null;
       }
     >;
 
@@ -546,6 +554,7 @@ export class SchedulerStore {
           ? {
               channel: row.deliver_channel.trim(),
               threadId: row.deliver_thread_id?.trim() || undefined,
+              botId: row.deliver_bot_id?.trim() || undefined,
             }
           : undefined,
       })),
@@ -653,6 +662,7 @@ function mapEventRow(row: EventRow): ScheduledEvent {
       ? {
           channel: deliverChannel,
           threadId: row.deliver_thread_id?.trim() || undefined,
+          botId: row.deliver_bot_id?.trim() || undefined,
         }
       : undefined,
   };

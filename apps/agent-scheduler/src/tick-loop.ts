@@ -270,6 +270,7 @@ export class TickLoop {
           channel: deliverTo.channel.trim(),
           text,
           threadId: deliverTo.threadId?.trim(),
+          botId: deliverTo.botId?.trim(),
         },
         this.fetchFn,
       );

@@ -186,4 +186,92 @@ describe("gateway server", () => {
 
     expect(response.status).toBe(404);
   });
+
+  it("fans out group auto-replies to other configured bots", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, result: { message_id: 42 } }),
+    });
+
+    const groupId = "-5286192919";
+    const mailbox = new Mailbox();
+    const correlations = new CorrelationRegistry();
+    correlations.register(`telegram:aidadigitalbot:${groupId}`, {
+      channel: "telegram",
+      threadId: groupId,
+      sender: "graeme",
+      botId: "aidadigitalbot",
+    });
+
+    const telegramBots = new TelegramBotRegistry([
+      {
+        botId: "aidadigitalbot",
+        token: "aida-token",
+        agentCoreUrl: "http://agent-core-aida:3000",
+        allowedChatIds: new Set([groupId]),
+      },
+      {
+        botId: "riaandigitalbot",
+        token: "riaan-token",
+        agentCoreUrl: "http://agent-core-riaan:3000",
+        allowedChatIds: new Set([groupId]),
+      },
+    ]);
+
+    for (const botId of ["aidadigitalbot", "riaandigitalbot"] as const) {
+      const adapter = telegramBots.getAdapter(botId);
+      (adapter as unknown as { options: { fetchFn: typeof fetch } }).options.fetchFn =
+        fetchMock as unknown as typeof fetch;
+    }
+
+    const notifier = new Notifier({
+      resolveAgentCoreUrl: (botId) => telegramBots.agentCoreUrlFor(botId),
+      mailbox,
+      clientId: "test",
+      inFlightTimeoutMs: 0,
+    });
+
+    const persistence: GatewayPersistence = {
+      onInboundMessage: vi.fn().mockResolvedValue(undefined),
+      onMessagesRead: vi.fn().mockResolvedValue(undefined),
+      onShutdown: vi.fn().mockResolvedValue(undefined),
+    };
+
+    mailbox.add({
+      id: "msg-group",
+      channel: "telegram",
+      botId: "aidadigitalbot",
+      sender: "graeme",
+      text: "hello group",
+      threadId: groupId,
+      receivedAt: "2026-06-06T10:00:00.000Z",
+    });
+
+    const app = createApp({
+      mailbox,
+      telegramBots,
+      notifier,
+      correlations,
+      persistence,
+    });
+    const response = await app.request("/api/v1/reply", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        correlationId: `telegram:aidadigitalbot:${groupId}`,
+        text: "Reply from Aida",
+        messageIds: ["msg-group"],
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const peerMessages = mailbox
+      .peekUnread()
+      .filter((message) => message.botId === "riaandigitalbot");
+    expect(peerMessages).toHaveLength(1);
+    expect(peerMessages[0]?.sender).toBe("aidadigitalbot");
+    expect(peerMessages[0]?.text).toBe("Reply from Aida");
+    expect(peerMessages[0]?.threadId).toBe(groupId);
+    expect(persistence.onInboundMessage).toHaveBeenCalled();
+  });
 });

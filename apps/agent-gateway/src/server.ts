@@ -6,6 +6,7 @@ import type { Mailbox } from "./mailbox.js";
 import type { Notifier } from "./notifier.js";
 import type { GatewayPersistence } from "./persistence.js";
 import type { TelegramBotRegistry } from "./telegram/bot-registry.js";
+import { fanOutGroupAgentMessage } from "./telegram/group-peer-fanout.js";
 import {
   GATEWAY_PATHS,
   type AckRequest,
@@ -97,6 +98,11 @@ export function createApp(ctx: GatewayContext): Hono {
       const result = await ctx.telegramBots
         .getAdapter(botId)
         .send(body.text.trim(), route.threadId);
+      await fanOutGroupAgentMessage(ctx, {
+        senderBotId: botId,
+        threadId: route.threadId,
+        text: body.text.trim(),
+      });
       const messageIds = body.messageIds ?? [];
       if (messageIds.length > 0) {
         ctx.mailbox.ack(messageIds);
@@ -142,6 +148,11 @@ export function createApp(ctx: GatewayContext): Hono {
       const result = await ctx.telegramBots
         .getAdapter(botId)
         .send(body.text.trim(), body.threadId?.trim());
+      await fanOutGroupAgentMessage(ctx, {
+        senderBotId: botId,
+        threadId: body.threadId?.trim() ?? "",
+        text: body.text.trim(),
+      });
       const response: OutboundResponse = {
         delivered: true,
         providerMessageId: result.providerMessageId,

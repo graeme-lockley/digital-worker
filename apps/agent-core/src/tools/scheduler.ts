@@ -14,6 +14,7 @@ import { Type } from "typebox";
 export type SchedulerClientDeps = {
   schedulerUrl: string;
   agentId: string;
+  telegramBotId?: string;
   fetchFn?: typeof fetch;
 };
 
@@ -44,6 +45,10 @@ export function createScheduleEventTool(
             ? {
                 channel: params.deliverToChannel.trim(),
                 threadId: params.deliverToThreadId?.trim(),
+                botId:
+                  params.deliverToChannel.trim() === "telegram"
+                    ? deps.telegramBotId?.trim()
+                    : undefined,
               }
             : undefined,
       };

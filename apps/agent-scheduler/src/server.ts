@@ -103,6 +103,7 @@ export function createApp(ctx: SchedulerContext): Hono {
       internalOnly: input.internalOnly,
       deliverChannel: input.deliverChannel,
       deliverThreadId: input.deliverThreadId,
+      deliverBotId: input.deliverBotId,
       now,
     });
 
@@ -338,6 +339,7 @@ function validateCreateEvent(body: CreateEventRequest):
         internalOnly: boolean;
         deliverChannel?: string;
         deliverThreadId?: string;
+        deliverBotId?: string;
       };
     }
   | { error: { code: string; message: string; status: number } } {
@@ -436,6 +438,7 @@ function validateCreateEvent(body: CreateEventRequest):
   const internalOnly = body.internalOnly === true;
   const deliverChannel = body.deliverTo?.channel?.trim();
   const deliverThreadId = body.deliverTo?.threadId?.trim();
+  const deliverBotId = body.deliverTo?.botId?.trim();
 
   if (internalOnly && deliverChannel) {
     return {
@@ -462,6 +465,7 @@ function validateCreateEvent(body: CreateEventRequest):
       internalOnly,
       deliverChannel: deliverChannel || undefined,
       deliverThreadId: deliverThreadId || undefined,
+      deliverBotId: deliverBotId || undefined,
     },
   };
 }

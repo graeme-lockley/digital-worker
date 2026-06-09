@@ -4,6 +4,7 @@ export type GatewayOutboundBody = {
   channel: string;
   text: string;
   threadId?: string;
+  botId?: string;
 };
 
 export class GatewayOutboundError extends Error {

@@ -306,6 +306,7 @@ export async function createLlmAgent(
     const schedulerDeps = {
       schedulerUrl: options.schedulerUrl,
       agentId: options.agentId,
+      telegramBotId: options.telegramBotId,
     };
     customTools.push(
       createScheduleEventTool(schedulerDeps),
