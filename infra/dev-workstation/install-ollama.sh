@@ -22,5 +22,14 @@ curl --fail --show-error --location --progress-bar \
   --http1.1 --retry 5 --retry-delay 5 --retry-all-errors \
   "$url" | zstd -d | tar -xf - -C /usr/local
 
-ln -sf /usr/local/ollama "$bindir/ollama"
-echo ">>> Ollama installed to $bindir/ollama"
+# Current tarballs ship bin/ollama + lib/ollama/. Older releases used a top-level
+# ollama binary; only symlink when the tarball did not place one in bindir.
+if [ -x "${bindir}/ollama" ]; then
+  echo ">>> Ollama installed to ${bindir}/ollama"
+elif [ -x /usr/local/ollama ]; then
+  ln -sf /usr/local/ollama "${bindir}/ollama"
+  echo ">>> Ollama installed to ${bindir}/ollama (legacy layout)"
+else
+  echo "install-ollama: ollama binary not found after extract" >&2
+  exit 1
+fi

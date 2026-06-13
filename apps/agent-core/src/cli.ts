@@ -42,6 +42,15 @@ export type ServerOptions = {
   wikiUrl?: string;
 };
 
+/** OLLAMA_HOST in compose is often host:port; Node fetch and Distill need a URL scheme. */
+export function resolveOllamaBaseUrl(raw?: string): string {
+  const value = raw?.trim() || DEFAULT_MEMORY_CONFIG.ollamaBaseUrl;
+  if (value.startsWith("http://") || value.startsWith("https://")) {
+    return value.replace(/\/+$/, "");
+  }
+  return `http://${value.replace(/\/+$/, "")}`;
+}
+
 export function parseCli(argv: readonly string[] = process.argv): ServerOptions {
   const program = new Command()
     .name("agent-core")
@@ -243,7 +252,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     ),
     searchEnabled: opts.memorySearch !== false,
     semanticSearchEnabled: opts.memorySemanticSearch !== false,
-    ollamaBaseUrl: process.env.OLLAMA_HOST ?? DEFAULT_MEMORY_CONFIG.ollamaBaseUrl,
+    ollamaBaseUrl: resolveOllamaBaseUrl(process.env.OLLAMA_HOST),
     embeddingModel:
       opts.memoryEmbeddingModel || DEFAULT_MEMORY_CONFIG.embeddingModel,
   };

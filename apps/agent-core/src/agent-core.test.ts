@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AGENT_CORE_PATHS } from "@digital-worker/agent-core-protocol";
 import { AGENT_REGISTER_PATHS } from "@digital-worker/agent-register-protocol";
 
-import { parseCli } from "./cli.js";
+import { parseCli, resolveOllamaBaseUrl } from "./cli.js";
 import { buildAgentEndpointUrl, resolveAdvertisedHost } from "./endpoint.js";
 import { createLlmAgent } from "./llm-agent.js";
 import { deregisterAgent, registerAgent } from "./registration.js";
@@ -102,6 +102,40 @@ describe("parseCli", () => {
   it("defaults browserEnabled to true and disables with --no-browser", () => {
     expect(parseCli(baseCliArgs).browserEnabled).toBe(true);
     expect(parseCli([...baseCliArgs, "--no-browser"]).browserEnabled).toBe(false);
+  });
+
+  it("normalizes OLLAMA_HOST for memory config", () => {
+    const prev = process.env.OLLAMA_HOST;
+    process.env.OLLAMA_HOST = "127.0.0.1:11434";
+    try {
+      expect(parseCli(baseCliArgs).memory.ollamaBaseUrl).toBe(
+        "http://127.0.0.1:11434",
+      );
+    } finally {
+      if (prev === undefined) {
+        delete process.env.OLLAMA_HOST;
+      } else {
+        process.env.OLLAMA_HOST = prev;
+      }
+    }
+  });
+});
+
+describe("resolveOllamaBaseUrl", () => {
+  it("adds http scheme for host:port values", () => {
+    expect(resolveOllamaBaseUrl("127.0.0.1:11434")).toBe(
+      "http://127.0.0.1:11434",
+    );
+  });
+
+  it("preserves an existing scheme", () => {
+    expect(resolveOllamaBaseUrl("http://127.0.0.1:11434")).toBe(
+      "http://127.0.0.1:11434",
+    );
+  });
+
+  it("defaults when unset", () => {
+    expect(resolveOllamaBaseUrl()).toBe("http://127.0.0.1:11434");
   });
 });
 
