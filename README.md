@@ -12,15 +12,15 @@ This project does not use Docker Desktop. Compose scripts call `docker-compose`,
 
 ## Dev workstation (Colima + Docker Compose)
 
-The **dev-workstation** stack runs `agent-register`, `agent-core`, and `agent-gateway`. Config lives in [`infra/dev-workstation/`](infra/dev-workstation/):
+The **template stack** in this repo runs `agent-register`, **Fred** (**agent-core**), and **agent-wiki**. Config lives in [`infra/dev-workstation/`](infra/dev-workstation/):
 
 | File | Image |
 |------|--------|
 | `Dockerfile.agent-register` | Registration service |
 | `Dockerfile.agent-core` | Runnable agent |
-| `Dockerfile.agent-gateway` | Telegram channel edge |
+| `Dockerfile.agent-wiki` | Shared markdown knowledge + operator UI |
 
-Both Dockerfiles build from the monorepo root (`context: ../..`) because each app depends on shared `packages/*`. The compile steps are duplicated on purpose so each service has its own image definition; keep the `build` stages in sync when you change dependencies.
+Dockerfiles build from the monorepo root (`context: .`) because each app depends on shared `packages/*`. The compile steps are duplicated on purpose so each service has its own image definition; keep the `build` stages in sync when you change dependencies.
 
 ### Start Colima
 
@@ -48,12 +48,12 @@ brew services start colima
 From the repository root:
 
 ```bash
-cp .env.example .env   # then set DEEPSEEK_API_KEY and TELEGRAM_* in .env
+cp .env.example .env   # then set DEEPSEEK_API_KEY
 pnpm install
 pnpm docker:dev
 ```
 
-`pnpm docker:dev` reads `.env` from the **project root** (where `package.json` lives) and passes `DEEPSEEK_API_KEY` and Telegram credentials into the respective containers.
+`pnpm docker:dev` reads `.env` from the **project root** (where `package.json` lives) and passes `DEEPSEEK_API_KEY` into agent-core.
 
 Build images and start containers in the foreground. Stop with `Ctrl+C`, then remove containers:
 
@@ -61,15 +61,15 @@ Build images and start containers in the foreground. Stop with `Ctrl+C`, then re
 pnpm docker:dev:down
 ```
 
-## Default endpoints (dev-workstation)
+## Default endpoints (template stack)
 
 From your Mac, services are published on **localhost**:
 
 | Service | Base URL | Health | Notes |
 |---------|----------|--------|--------|
 | **agent-core** | http://127.0.0.1:3000 | http://127.0.0.1:3000/health | `GET /api/v1` — service metadata |
-| **agent-gateway** | http://127.0.0.1:3002 | http://127.0.0.1:3002/health | `GET /api/v1/messages` — mailbox pull |
 | **agent-register** | http://127.0.0.1:3001 | http://127.0.0.1:3001/health | `GET /api/v1/agents` — all registered agents |
+| **agent-wiki** | http://127.0.0.1:3004 | http://127.0.0.1:3004/health | Wiki UI at `/`; API under `/api/v1` |
 
 ### Useful requests
 
@@ -77,7 +77,7 @@ From your Mac, services are published on **localhost**:
 # Health checks
 curl http://127.0.0.1:3000/health
 curl http://127.0.0.1:3001/health
-curl http://127.0.0.1:3002/health
+curl http://127.0.0.1:3004/health
 
 # List registered agents
 curl http://127.0.0.1:3001/api/v1/agents
@@ -86,7 +86,7 @@ curl http://127.0.0.1:3001/api/v1/agents
 curl http://127.0.0.1:3000/api/v1
 ```
 
-Inside the Compose network, containers reach each other by service name (e.g. `http://agent-register:3001`, `http://agent-core-aida:3000`). Those hostnames are not available from your Mac unless port mappings are used.
+Inside the Compose network, containers reach each other by service name (e.g. `http://agent-register:3001`, `http://agent-core-fred:3000`, `http://agent-wiki:3004`). Those hostnames are not available from your Mac unless port mappings are used.
 
 ## Agent TUI
 
@@ -100,7 +100,7 @@ pnpm --filter @digital-worker/agent-core dev -- \
   -r http://127.0.0.1:3001 \
   --provider deepseek --model deepseek-v4-flash \
   --models deepseek-v4-flash,deepseek-v4-pro \
-  --agent-name _template \
+  --agent-name Fred \
   --gateway-url http://127.0.0.1:3002   # terminal 2 (port 3000; set DEEPSEEK_API_KEY)
 
 # Terminal 3 — agent-gateway (port 3002; set TELEGRAM_BOT_TOKEN, TELEGRAM_ALLOWED_CHAT_IDS)
@@ -110,12 +110,12 @@ pnpm --filter @digital-worker/agent-gateway dev -- \
 
 pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001
 # or with agent name prefix:
-pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001 --agent-name _template
+pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001 --agent-name Fred
 ```
 
 Chat uses **SSE** token streaming on `POST /api/v1/chat` (see [docs/specs/chat-streaming.md](docs/specs/chat-streaming.md)).
 
-When the register is on `localhost` but an agent registered a Docker hostname (e.g. `http://agent-core-aida:3000` from dev-workstation), the TUI automatically chats via `http://127.0.0.1:<port>` instead.
+When the register is on `localhost` but an agent registered a Docker hostname (e.g. `http://agent-core-fred:3000` from the template stack), the TUI automatically chats via `http://127.0.0.1:<port>` instead.
 
 ## Local development (without Docker)
 
@@ -131,7 +131,7 @@ pnpm --filter @digital-worker/agent-core dev -- \
   --register-url http://127.0.0.1:3001 \
   --provider deepseek --model deepseek-v4-flash \
   --models deepseek-v4-flash,deepseek-v4-pro \
-  --agent-name _template \
+  --agent-name Fred \
   --gateway-url http://127.0.0.1:3002
 
 # Terminal 3 — agent-gateway

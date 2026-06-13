@@ -4,7 +4,7 @@ Two deployment modes:
 
 | Mode | Where to run | Purpose |
 |------|--------------|---------|
-| **Template stack** | `digital-worker` repo (`pnpm docker:dev`) | Illustrative `_template` agent + register + wiki seed |
+| **Template stack** | `digital-worker` repo (`pnpm docker:dev`) | Illustrative **Fred** agent + register + wiki seed |
 | **Real stack** | `digital-worker-workspace` repo (`./infra/dev-workstation/up.sh`) | Your agents (Aida, Riaan), wiki, secrets, Telegram |
 
 Platform Dockerfiles and entrypoint scripts live in **`digital-worker/infra/dev-workstation/`**. The workspace repo builds from that source via `DIGITAL_WORKER_ROOT`.
@@ -89,7 +89,7 @@ From **this repo** root:
 
 ```bash
 pnpm install
-pnpm docker:dev        # template stack: _template agent + register + wiki
+pnpm docker:dev        # template stack: Fred agent + register + wiki
 pnpm docker:dev:down
 ```
 
@@ -97,12 +97,12 @@ pnpm docker:dev:down
 
 | Service | Host port |
 |---------|-----------|
-| agent-core-template | 3000 |
+| agent-core-fred | 3000 |
 | agent-register | 3001 |
 | agent-wiki | 3004 |
 | libsql | 8080 |
 
-- Workspace: `./workspace/_template` bind-mounted
+- Workspace: `./workspace/Fred` bind-mounted
 - Wiki: named volume with seed pages from `apps/agent-wiki/seed/`
 
 ---
@@ -122,10 +122,10 @@ Not in compose. Run on the host against either stack:
 
 ```bash
 pnpm build
-pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001 --agent-name Aida
+pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001 --agent-name Fred
 ```
 
-Use `_template` for the template stack. The TUI rewrites Docker-internal URLs to `127.0.0.1` when the register is local.
+The TUI rewrites Docker-internal URLs to `127.0.0.1` when the register is local.
 
 ## Related docs
 

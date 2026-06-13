@@ -10,13 +10,13 @@ import { MANDATE_FILE, SOUL_FILE, IDENTITY_FILE, USER_FILE } from "./paths.js";
 describe("loadWorkspace", () => {
   it("loads template workspace from repo", async () => {
     const loaded = await loadWorkspace({
-      agentName: "_template",
+      agentName: "Fred",
       workspaceDir: repoWorkspacePath(),
     });
 
-    expect(loaded.identity.mandate).toContain("Example");
+    expect(loaded.identity.mandate).toContain("Fred");
     expect(loaded.identity.soul).toContain("Helpful");
-    expect(loaded.identity.identity).toContain("Deployment");
+    expect(loaded.identity.identity).toContain("Fred");
   });
 
   it("throws when required files are missing", async () => {
@@ -34,7 +34,7 @@ describe("loadWorkspace", () => {
 describe("buildSystemPrompt", () => {
   it("includes mandate soul and identity sections", async () => {
     const loaded = await loadWorkspace({
-      agentName: "_template",
+      agentName: "Fred",
       workspaceDir: repoWorkspacePath(),
     });
     const prompt = buildSystemPrompt(loaded.identity);
@@ -47,7 +47,7 @@ describe("buildSystemPrompt", () => {
 
   it("appends skills section when provided", async () => {
     const loaded = await loadWorkspace({
-      agentName: "_template",
+      agentName: "Fred",
       workspaceDir: repoWorkspacePath(),
     });
     const prompt = buildSystemPrompt(loaded.identity, "<available_skills></available_skills>");

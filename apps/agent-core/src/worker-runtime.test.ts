@@ -212,7 +212,7 @@ describe("WorkerRuntime", () => {
     expect(modelB).toBeTruthy();
 
     const loaded = await loadWorkspace({
-      agentName: "_template",
+      agentName: "Fred",
       workspaceDir: repoWorkspacePath(),
     });
 

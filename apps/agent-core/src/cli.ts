@@ -62,7 +62,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     .option(
       "--agent-name <name>",
       "workspace folder name under workspace/ (or WORKSPACE_ROOT)",
-      "_template",
+      "Fred",
     )
     .option("--name <name>", "registration display name (defaults to agent-name)")
     .option(

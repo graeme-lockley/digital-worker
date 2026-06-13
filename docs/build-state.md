@@ -2,7 +2,7 @@
 
 Living snapshot of what this repository implements. Update this file when features land or priorities shift.
 
-**Last updated:** 2026-06-09
+**Last updated:** 2026-06-13
 
 ## Summary
 
@@ -47,7 +47,7 @@ The dev-workstation stack runs **libsql** (central database), **agent-register**
 | Register persistence (libSQL) | **Done** | [agent-register-api](./specs/agent-register-api.md), [shared-database](./specs/shared-database.md) | `apps/agent-register/src/store.ts` |
 | Scheduler persistence (libSQL) | **Done** | [scheduler](./specs/scheduler.md), [shared-database](./specs/shared-database.md) | `apps/agent-scheduler/src/store/scheduler-store.ts` |
 | Gateway persistence (libSQL) | **Done** | [gateway](./specs/gateway.md), [shared-database](./specs/shared-database.md) | `apps/agent-gateway/src/store/gateway-store.ts` |
-| Workspace bind mount (Docker template) | **Done** | [workspace-identity](./specs/workspace-identity.md) | Template compose: `./workspace/_template`; real stack in `digital-worker-workspace` |
+| Workspace bind mount (Docker template) | **Done** | [workspace-identity](./specs/workspace-identity.md) | Template compose: `./workspace/Fred` |
 | Episodic memory (daily logs, flush, search) | **Done** | [memory](./specs/memory.md) | `apps/agent-core/src/memory/` |
 | Memory roll-up + cron maintenance | **Done** | [memory](./specs/memory.md) | Distill + Ollama in Docker image |
 | Additional channels (email) | **Not started** | [roadmap](./roadmap.md) | `ChannelAdapter` extension point in gateway |

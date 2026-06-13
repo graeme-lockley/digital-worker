@@ -20,13 +20,13 @@ import { WorkerRuntime } from "./worker-runtime.js";
 export const TEST_SESSION_ID = "test-worker-session";
 export const TEST_AGENT_ID = "test-agent-id";
 
-export function repoWorkspacePath(agentName = "_template"): string {
+export function repoWorkspacePath(agentName = "Fred"): string {
   const srcDir = path.dirname(fileURLToPath(import.meta.url));
   const repoRoot = path.resolve(srcDir, "../../..");
   return path.join(repoRoot, "workspace", agentName);
 }
 
-async function createIsolatedWorkspace(agentName = "_template"): Promise<string> {
+async function createIsolatedWorkspace(agentName = "Fred"): Promise<string> {
   const source = repoWorkspacePath(agentName);
   const dir = await mkdtemp(path.join(tmpdir(), "dw-agent-test-"));
   for (const file of ["MANDATE.md", "SOUL.md", "IDENTITY.md", "USER.md"]) {
@@ -60,7 +60,7 @@ export async function createTestHarness(
   const model = registration.getModel();
 
   const loaded = await loadWorkspace({
-    agentName: "_template",
+    agentName: "Fred",
     workspaceDir: await createIsolatedWorkspace(),
   });
 

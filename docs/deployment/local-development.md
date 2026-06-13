@@ -24,7 +24,17 @@ pnpm build   # builds packages/* (protocol libraries)
 pnpm --filter @digital-worker/agent-register dev
 ```
 
-### Terminal 2 — agent-core (port 3000)
+### Terminal 2 — agent-wiki (port 3004, optional)
+
+Enables `wiki_*` tools in agent-core when you pass `--wiki-url`:
+
+```bash
+pnpm --filter @digital-worker/agent-wiki dev
+```
+
+Wiki UI: http://127.0.0.1:3004/
+
+### Terminal 3 — agent-core (port 3000)
 
 Export an LLM API key (project-root `.env` is **not** loaded automatically):
 
@@ -35,11 +45,14 @@ pnpm --filter @digital-worker/agent-core dev -- \
   --provider deepseek \
   --model deepseek-v4-flash \
   --models deepseek-v4-flash,deepseek-v4-pro \
-  --agent-name _template \
-  --gateway-url http://127.0.0.1:3002
+  --agent-name Fred \
+  --gateway-url http://127.0.0.1:3002 \
+  --wiki-url http://127.0.0.1:3004
 ```
 
-### Terminal 3 — agent-gateway (port 3002)
+Omit `--wiki-url` if agent-wiki is not running.
+
+### Terminal 4 — agent-gateway (port 3002)
 
 ```bash
 export TELEGRAM_BOT_TOKEN=...
@@ -49,22 +62,22 @@ pnpm --filter @digital-worker/agent-gateway dev -- \
   --use-notify-endpoint
 ```
 
-### Terminal 4 — agent-tui
+### Terminal 5 — agent-tui
 
 ```bash
 pnpm --filter @digital-worker/agent-tui dev -- \
   -r http://127.0.0.1:3001 \
-  --agent-name _template
+  --agent-name Fred
 ```
 
-### Terminal 5 (optional) — agent-observer
+### Terminal 6 (optional) — agent-observer
 
 Watch all worker activity live (chat, Telegram notify, tools, thinking):
 
 ```bash
 pnpm --filter @digital-worker/agent-observer dev -- \
   -r http://127.0.0.1:3001 \
-  --agent-name _template
+  --agent-name Fred
 ```
 
 To see model **thinking** in the observer, run agent-core with a reasoning model (e.g. `--model deepseek-reasoner`). The default `deepseek-chat` / `deepseek-v4-flash` models do not emit thinking events. The observer forwards thinking when the model produces it — it does not change thinking level or add token cost.
@@ -77,7 +90,13 @@ To see model **thinking** in the observer, run agent-core with a reasoning model
 pnpm --filter @digital-worker/agent-register dev
 ```
 
-### Terminal 2 — agent-core (port 3000)
+### Terminal 2 — agent-wiki (port 3004, optional)
+
+```bash
+pnpm --filter @digital-worker/agent-wiki dev
+```
+
+### Terminal 3 — agent-core (port 3000)
 
 Export an LLM API key (project-root `.env` is **not** loaded automatically):
 
@@ -88,10 +107,11 @@ pnpm --filter @digital-worker/agent-core dev -- \
   --provider deepseek \
   --model deepseek-v4-flash \
   --models deepseek-v4-flash,deepseek-v4-pro \
-  --agent-name _template
+  --agent-name Fred \
+  --wiki-url http://127.0.0.1:3004
 ```
 
-Or pass `--api-key` instead of exporting. Omitting `--agent-name` defaults to `_template`; builtin tools default to the workspace directory.
+Or pass `--api-key` instead of exporting. Omitting `--agent-name` defaults to `Fred`; builtin tools default to the workspace directory.
 
 For **real agents**, point at your private workspace repo:
 
@@ -101,26 +121,26 @@ pnpm --filter @digital-worker/agent-core dev -- \
   --register-url http://127.0.0.1:3001 \
   --provider deepseek \
   --model deepseek-v4-flash \
-  --agent-name _template \
+  --agent-name Fred \
   --workspace-dir "$WORKSPACE_ROOT/agents/Aida"
 ```
 
-Optional flags: `--host`, `--port`, `--agent-id`, `--workspace-dir`, `--tools-cwd`, `--endpoint-url`, `--skills`, `--purpose`.
+Optional flags: `--host`, `--port`, `--agent-id`, `--workspace-dir`, `--tools-cwd`, `--endpoint-url`, `--skills`, `--purpose`, `--wiki-url`.
 
-### Terminal 3 — agent-tui
+### Terminal 4 — agent-tui
 
 ```bash
 pnpm --filter @digital-worker/agent-tui dev -- \
   -r http://127.0.0.1:3001 \
-  --agent-name _template
+  --agent-name Fred
 ```
 
-### Terminal 4 (optional) — agent-observer
+### Terminal 5 (optional) — agent-observer
 
 ```bash
 pnpm --filter @digital-worker/agent-observer dev -- \
   -r http://127.0.0.1:3001 \
-  --agent-name _template
+  --agent-name Fred
 ```
 
 See [specs/observer.md](../specs/observer.md) for reasoning-model notes.
@@ -130,11 +150,12 @@ See [specs/observer.md](../specs/observer.md) for reasoning-model notes.
 ```bash
 curl http://127.0.0.1:3001/api/v1/agents
 curl http://127.0.0.1:3000/api/v1
+curl http://127.0.0.1:3004/health   # when agent-wiki is running
 ```
 
 ## Workspace
 
-Default workspace: `./workspace/_template/` (or `WORKSPACE_ROOT/<agent-name>` when set). Builtin tools use the same directory unless `--tools-cwd` overrides.
+Default workspace: `./workspace/Fred/` (or `WORKSPACE_ROOT/<agent-name>` when set). Builtin tools use the same directory unless `--tools-cwd` overrides.
 
 For real agents, use `digital-worker-workspace`:
 

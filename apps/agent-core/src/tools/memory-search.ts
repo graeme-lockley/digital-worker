@@ -14,7 +14,7 @@ export function createMemorySearchTool(
     name: "memory_search",
     label: "Memory Search",
     description:
-      "Search Aida's memory archive (daily logs, roll-ups, MEMORY.md) using hybrid keyword + semantic recall. Matches by meaning as well as exact wording, so paraphrased queries still surface relevant past notes. Use when recalling something from a past session or topic.",
+      "Search this agent's memory archive (daily logs, roll-ups, MEMORY.md) using hybrid keyword + semantic recall. Matches by meaning as well as exact wording, so paraphrased queries still surface relevant past notes. Use when recalling something from a past session or topic.",
     parameters: memorySearchParameters,
     execute: async (_toolCallId, params) => {
       const hits = await deps.memoryManager.searchMemory(

@@ -39,10 +39,10 @@ The workspace is the agent's **frame of reference**: identity files and the defa
 
 | Repo | Workspace |
 |------|-----------|
-| `digital-worker` | `workspace/_template/` — illustrative only |
+| `digital-worker` | `workspace/Fred/` — illustrative only |
 | `digital-worker-workspace` (private) | Real agents (`agents/Aida/`, `agents/Riaan/`, …), memory, skills |
 
-Docker template stack bind-mounts `./workspace/_template`. The real stack in `digital-worker-workspace` bind-mounts agent folders and `./wiki` from that repo.
+Docker template stack bind-mounts `./workspace/Fred`.
 
 ## File semantics
 
@@ -126,7 +126,7 @@ On success:
 | Environment | Workspace persistence |
 |-------------|----------------------|
 | Local file workspace | Survives restarts |
-| Docker template stack | Bind mount `./workspace/_template` |
+| Docker template stack | Bind mount `./workspace/Fred` |
 | Docker real stack (`digital-worker-workspace`) | Bind mount `./agents/<agentName>` and `./wiki` |
 | Docker without volume | Writable container layer until image recreate |
 
@@ -136,4 +136,4 @@ Startup **must fail** if any of the four files is missing under the configured w
 
 ## Seeded example
 
-This repository includes `workspace/_template/` for the template Docker stack and tests. Real agent workspaces live in the private **`digital-worker-workspace`** repo.
+This repository includes `workspace/Fred/` for the template Docker stack and tests.

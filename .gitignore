@@ -36,8 +36,8 @@ Thumbs.db
 **/.agent-core-pi/
 
 # Template workspace derived index (rebuildable)
-workspace/_template/memory/index.db
-workspace/_template/.agent-core-pi/
+workspace/Fred/memory/index.db
+workspace/Fred/.agent-core-pi/
 
 # Gateway persisted mailbox state (local dev)
 data/

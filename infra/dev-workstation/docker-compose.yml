@@ -60,7 +60,7 @@ services:
       retries: 3
       start_period: 15s
 
-  agent-core-template:
+  agent-core-fred:
     build:
       context: .
       dockerfile: infra/dev-workstation/Dockerfile.agent-core
@@ -80,19 +80,19 @@ services:
       - --register-url
       - http://agent-register:3001
       - --endpoint-url
-      - http://agent-core-template:3000
+      - http://agent-core-fred:3000
       - --agent-id
-      - dev-workstation-agent-core-template
+      - dev-workstation-agent-core-fred
       - --agent-name
-      - _template
+      - Fred
       - --workspace-dir
-      - /app/workspace/_template
+      - /app/workspace/Fred
       - --provider
       - deepseek
       - --model
       - deepseek-v4-flash
       - --skills
-      - memory-curation,skill-authoring
+      - skill-authoring
       - --memory-flush-soft-threshold-tokens
       - "4000"
       - --memory-flush-min-turns
@@ -112,7 +112,7 @@ services:
       AGENT_CORE_PORT: "3000"
       WIKI_URL: http://agent-wiki:3004
     volumes:
-      - ./workspace/_template:/app/workspace/_template
+      - ./workspace/Fred:/app/workspace/Fred
     healthcheck:
       test:
         [
@@ -133,7 +133,7 @@ services:
     ports:
       - "3004:3004"
     depends_on:
-      agent-core-template:
+      agent-core-fred:
         condition: service_healthy
     command:
       - node

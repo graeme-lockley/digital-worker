@@ -16,7 +16,7 @@ Workspace skills live under:
 workspace/<agentName>/skills/<skill-name>/SKILL.md
 ```
 
-Example: `workspace/_template/skills/skill-authoring/SKILL.md`.
+Example: `workspace/Fred/skills/skill-authoring/SKILL.md`.
 
 The skills directory name is `skills/` (constant `SKILLS_DIR` in `apps/agent-core/src/workspace/paths.ts`). It is resolved relative to **`--tools-cwd`**, which defaults to the workspace directory (`--workspace-dir` / `--agent-name`).
 
@@ -97,4 +97,4 @@ Skills can instruct the agent to run commands or access external resources. Oper
 ## Testing
 
 - `apps/agent-core/src/skills/skill-registry.test.ts` — scan and prompt formatting with a temp skill directory.
-- Integration tests use `workspace/_template/skills/skill-authoring` when `toolsCwd` is the template workspace directory.
+- Integration tests use `workspace/Fred/skills/skill-authoring` when `toolsCwd` is the template workspace directory.

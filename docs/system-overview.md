@@ -107,7 +107,7 @@ Spec: [specs/worker-runtime.md](./specs/worker-runtime.md)
 
 ## Workspace identity
 
-Before serving traffic, agent-core loads identity files from `workspace/<agentName>/` (default **`_template`** in this repo; real agents in `digital-worker-workspace`):
+Before serving traffic, agent-core loads identity files from `workspace/<agentName>/` (default **`Fred`** in this repo):
 
 | File | Mutability | Purpose |
 |------|------------|---------|

@@ -47,7 +47,7 @@ describe("parseCli", () => {
         "--agent-id",
         "agent-1",
         "--agent-name",
-        "_template",
+        "Fred",
         "--skills",
         "a, b",
       ]),
@@ -56,7 +56,7 @@ describe("parseCli", () => {
       port: 8080,
       registerUrl: "http://127.0.0.1:3001",
       agentId: "agent-1",
-      agentName: "_template",
+      agentName: "Fred",
       skills: ["a", "b"],
       llm: { provider: "deepseek", modelId: "deepseek-v4-flash" },
     });
@@ -93,9 +93,9 @@ describe("parseCli", () => {
     });
   });
 
-  it("defaults agent-name to _template and tools-cwd to workspace-dir", () => {
+  it("defaults agent-name to Fred and tools-cwd to workspace-dir", () => {
     const opts = parseCli(baseCliArgs);
-    expect(opts.agentName).toBe("_template");
+    expect(opts.agentName).toBe("Fred");
     expect(opts.toolsCwd).toBe(opts.workspaceDir);
   });
 
@@ -194,7 +194,7 @@ describe("command plane model switching", () => {
       models: [{ id: "faux-a" }, { id: "faux-b" }],
     });
     const loaded = await loadWorkspace({
-      agentName: "_template",
+      agentName: "Fred",
       workspaceDir: repoWorkspacePath(),
     });
 
@@ -264,7 +264,7 @@ describe("command plane model switching", () => {
 describe("createLlmAgent tool allowlist", () => {
   it("includes refresh_skills and loads workspace skills into the system prompt", async () => {
     const loaded = await loadWorkspace({
-      agentName: "_template",
+      agentName: "Fred",
       workspaceDir: repoWorkspacePath(),
     });
     const registration = registerFauxProvider();

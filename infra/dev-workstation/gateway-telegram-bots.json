@@ -2,6 +2,6 @@
   {
     "botId": "examplebot",
     "tokenEnv": "TELEGRAM_EXAMPLEBOT_TOKEN",
-    "agentCoreUrl": "http://agent-core-template:3000"
+    "agentCoreUrl": "http://agent-core-fred:3000"
   }
 ]

@@ -2,13 +2,13 @@
 
 ## Name
 
-Example
+Fred
 
 ## Deployment
 
 - **Platform:** digital-worker (template stack)
-- **Runtime:** agent-core-template (Docker dev-workstation template compose)
-- **Workspace path:** `/app/workspace/_template`
+- **Runtime:** agent-core-fred (Docker dev-workstation template compose)
+- **Workspace path:** `/app/workspace/Fred`
 - **Purpose:** Illustrative agent for documentation and local experimentation
 
 ## Platform

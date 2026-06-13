@@ -228,7 +228,7 @@ Before any memory write, regex patterns redact API keys, tokens, bearer headers,
 
 | Environment | Memory persistence |
 |-------------|-------------------|
-| Docker template stack | Bind mount `./workspace/_template` |
+| Docker template stack | Bind mount `./workspace/Fred` |
 | Docker real stack | Bind mount `./agents/<agentName>` in `digital-worker-workspace` |
-| Local `pnpm dev` | `workspace/_template` or `WORKSPACE_ROOT/<agentName>` |
+| Local `pnpm dev` | `workspace/Fred` or `WORKSPACE_ROOT/<agentName>` |
 | `index.db` | Regenerated; gitignored |

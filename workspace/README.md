@@ -1,21 +1,12 @@
-# Agent workspace (template)
+# Agent workspace
 
 Illustrative workspace for learning the digital-worker platform. **Normative spec:** [docs/specs/workspace-identity.md](../docs/specs/workspace-identity.md).
-
-## This repo vs your workspace
-
-| Location | Purpose |
-|----------|---------|
-| `digital-worker/workspace/_template/` | **This folder** — generic example for docs, tests, and the template Docker stack |
-| `digital-worker-workspace/` (sibling private repo) | Real agents under `agents/` (Aida, Riaan), memory, skills, wiki, secrets, and runnable infra |
-
-To run your own agents, create or clone `digital-worker-workspace` alongside this repo. See [docs/deployment/dev-workstation.md](../docs/deployment/dev-workstation.md).
 
 ## Layout
 
 ```
 workspace/
-  _template/
+  Fred/
     MANDATE.md    # Immutable — purpose, scope
     SOUL.md       # Immutable — temperament and style
     IDENTITY.md   # Mutable — self-knowledge (update_identity)
@@ -41,8 +32,8 @@ Full authoring rules: [docs/specs/workspace-identity.md](../docs/specs/workspace
 
 ## Template Docker stack
 
-The public repo's `pnpm docker:dev` runs a minimal stack with `workspace/_template` bind-mounted. It is for learning the platform — not for production agents.
+The public repo's `pnpm docker:dev` runs a minimal stack with `workspace/Fred` bind-mounted.
 
 ## USER.md vs wiki `people/`
 
-Shared operator facts belong in the wiki (`people/<name>`). Agent-specific notes belong in each agent's `USER.md`. See `skills/shared-knowledge` in a real deployment for the split.
+Shared operator facts belong in the wiki (`people/<name>`). Agent-specific notes belong in each agent's `USER.md`.
