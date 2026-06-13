@@ -84,6 +84,8 @@ async function main(): Promise<void> {
     registerUrl: options.registerUrl,
     agentId: options.agentId,
     schedulerUrl: options.schedulerUrl,
+    wikiUrl: options.wikiUrl,
+    agentName: options.agentName,
   });
 
   const agent = session.agent;

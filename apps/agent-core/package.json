@@ -19,6 +19,7 @@
     "@digital-worker/agent-gateway-protocol": "workspace:*",
     "@digital-worker/agent-register-protocol": "workspace:*",
     "@digital-worker/agent-scheduler-protocol": "workspace:*",
+    "@digital-worker/agent-wiki-protocol": "workspace:*",
     "@earendil-works/pi-agent-core": "0.75.5",
     "@earendil-works/pi-ai": "0.75.5",
     "@earendil-works/pi-coding-agent": "0.75.5",

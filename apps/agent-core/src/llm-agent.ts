@@ -37,6 +37,13 @@ import {
   createScheduleEventTool,
 } from "./tools/scheduler.js";
 import {
+  createWikiDeleteTool,
+  createWikiListTool,
+  createWikiReadTool,
+  createWikiSearchTool,
+  createWikiWriteTool,
+} from "./tools/wiki.js";
+import {
   AGENT_BROWSER_TOOL_NAME,
   resolvePiAgentBrowserExtensionPath,
 } from "./tools/pi-browser-plugin.js";
@@ -64,6 +71,11 @@ const BASE_TOOL_NAMES = [
   "list_scheduled_events",
   "list_scheduled_runs",
   "cancel_scheduled_event",
+  "wiki_list",
+  "wiki_read",
+  "wiki_search",
+  "wiki_write",
+  "wiki_delete",
 ] as const;
 
 function buildToolAllowlist(
@@ -72,6 +84,7 @@ function buildToolAllowlist(
   gatewayEnabled: boolean,
   interAgentEnabled: boolean,
   schedulerEnabled: boolean,
+  wikiEnabled: boolean,
 ): string[] {
   const names = BASE_TOOL_NAMES.filter((n) => {
     if (!memorySearchEnabled && n === "memory_search") {
@@ -89,6 +102,16 @@ function buildToolAllowlist(
         n === "list_scheduled_events" ||
         n === "list_scheduled_runs" ||
         n === "cancel_scheduled_event")
+    ) {
+      return false;
+    }
+    if (
+      !wikiEnabled &&
+      (n === "wiki_list" ||
+        n === "wiki_read" ||
+        n === "wiki_search" ||
+        n === "wiki_write" ||
+        n === "wiki_delete")
     ) {
       return false;
     }
@@ -144,6 +167,10 @@ export type CreateLlmAgentOptions = {
   agentId?: string;
   /** agent-scheduler base URL; enables scheduling tools. */
   schedulerUrl?: string;
+  /** agent-wiki base URL; enables shared knowledge tools. */
+  wikiUrl?: string;
+  /** Agent display name for wiki provenance (updated_by). */
+  agentName?: string;
 };
 
 export type CreateLlmAgentResult = {
@@ -166,12 +193,16 @@ export async function createLlmAgent(
   const schedulerEnabled = Boolean(
     options.schedulerUrl?.trim() && options.agentId?.trim(),
   );
+  const wikiEnabled = Boolean(
+    options.wikiUrl?.trim() && options.agentName?.trim(),
+  );
   const tools = buildToolAllowlist(
     browserEnabled,
     memorySearchEnabled,
     gatewayEnabled,
     interAgentEnabled,
     schedulerEnabled,
+    wikiEnabled,
   );
 
   const agentDir = path.join(options.toolsCwd, ".agent-core-pi");
@@ -313,6 +344,20 @@ export async function createLlmAgent(
       createListScheduledEventsTool(schedulerDeps),
       createListScheduledRunsTool(schedulerDeps),
       createCancelScheduledEventTool(schedulerDeps),
+    );
+  }
+
+  if (wikiEnabled && options.wikiUrl && options.agentName) {
+    const wikiDeps = {
+      wikiUrl: options.wikiUrl,
+      agentName: options.agentName,
+    };
+    customTools.push(
+      createWikiListTool(wikiDeps),
+      createWikiReadTool(wikiDeps),
+      createWikiSearchTool(wikiDeps),
+      createWikiWriteTool(wikiDeps),
+      createWikiDeleteTool(wikiDeps),
     );
   }
 
