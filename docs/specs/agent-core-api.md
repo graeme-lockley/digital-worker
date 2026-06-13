@@ -285,7 +285,7 @@ Required and common flags for agent-core:
 | `--register-url` | yes | agent-register base URL |
 | `--provider` | yes | pi-ai provider id |
 | `--model` | yes | Model id or `provider/model` |
-| `--agent-name` | no | Workspace folder name (default `Aida`) |
+| `--agent-name` | no | Workspace folder name (default `_template`) |
 | `--workspace-dir` | no | Override workspace path (default `./workspace/<agent-name>`) |
 | `--tools-cwd` | no | Builtin tool working directory (default: workspace directory) |
 | `--api-key` | no | LLM key override |

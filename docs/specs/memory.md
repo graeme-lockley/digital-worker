@@ -1,8 +1,8 @@
 # Memory specification
 
-Normative rules for Aida's episodic and long-term memory — file layout, flush lifecycle, roll-ups, search index, and maintenance.
+Normative rules for episodic and long-term memory — file layout, flush lifecycle, roll-ups, search index, and maintenance.
 
-**Operator guide:** [workspace/Aida/skills/memory-curation/SKILL.md](../../workspace/Aida/skills/memory-curation/SKILL.md)
+**Operator guide:** `skills/memory-curation/SKILL.md` in your agent workspace (see `digital-worker-workspace` for production agents).
 
 **Implementation:** `apps/agent-core/src/memory/`, `apps/agent-core/src/tools/remember.ts`, `apps/agent-core/src/tools/memory-search.ts`
 
@@ -30,7 +30,7 @@ Normative rules for Aida's episodic and long-term memory — file layout, flush 
 ## Workspace layout
 
 ```
-workspace/Aida/memory/
+<workspace>/memory/
   MEMORY.md
   manifest.json
   index.db              # derived; gitignored
@@ -228,6 +228,7 @@ Before any memory write, regex patterns redact API keys, tokens, bearer headers,
 
 | Environment | Memory persistence |
 |-------------|-------------------|
-| Docker dev-workstation | Bind mount `./workspace/Aida` |
-| Local `pnpm dev` | `./workspace/Aida` on disk |
+| Docker template stack | Bind mount `./workspace/_template` |
+| Docker real stack | Bind mount `./agents/<agentName>` in `digital-worker-workspace` |
+| Local `pnpm dev` | `workspace/_template` or `WORKSPACE_ROOT/<agentName>` |
 | `index.db` | Regenerated; gitignored |

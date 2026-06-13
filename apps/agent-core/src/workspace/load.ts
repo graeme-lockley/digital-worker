@@ -78,5 +78,8 @@ async function assertFileExists(
 }
 
 export function workspaceDirForAgent(agentName: string): string {
-  return path.resolve(process.cwd(), "workspace", agentName);
+  const root = process.env.WORKSPACE_ROOT?.trim()
+    ? path.resolve(process.env.WORKSPACE_ROOT.trim())
+    : path.resolve(process.cwd(), "workspace");
+  return path.join(root, agentName);
 }

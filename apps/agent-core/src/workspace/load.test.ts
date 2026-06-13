@@ -8,14 +8,14 @@ import { buildSystemPrompt, extractPurposeFromMandate, loadWorkspace } from "./i
 import { MANDATE_FILE, SOUL_FILE, IDENTITY_FILE, USER_FILE } from "./paths.js";
 
 describe("loadWorkspace", () => {
-  it("loads seeded Aida workspace from repo", async () => {
+  it("loads template workspace from repo", async () => {
     const loaded = await loadWorkspace({
-      agentName: "Aida",
+      agentName: "_template",
       workspaceDir: repoWorkspacePath(),
     });
 
-    expect(loaded.identity.mandate).toContain("Aida");
-    expect(loaded.identity.soul).toContain("Helpfulness");
+    expect(loaded.identity.mandate).toContain("Example");
+    expect(loaded.identity.soul).toContain("Helpful");
     expect(loaded.identity.identity).toContain("Deployment");
   });
 
@@ -34,7 +34,7 @@ describe("loadWorkspace", () => {
 describe("buildSystemPrompt", () => {
   it("includes mandate soul and identity sections", async () => {
     const loaded = await loadWorkspace({
-      agentName: "Aida",
+      agentName: "_template",
       workspaceDir: repoWorkspacePath(),
     });
     const prompt = buildSystemPrompt(loaded.identity);
@@ -47,7 +47,7 @@ describe("buildSystemPrompt", () => {
 
   it("appends skills section when provided", async () => {
     const loaded = await loadWorkspace({
-      agentName: "Aida",
+      agentName: "_template",
       workspaceDir: repoWorkspacePath(),
     });
     const prompt = buildSystemPrompt(loaded.identity, "<available_skills></available_skills>");

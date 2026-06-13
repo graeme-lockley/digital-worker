@@ -31,11 +31,18 @@ workspace/
 
 Episodic memory is specified in [memory.md](./memory.md). Do not store session logs in USER or IDENTITY.
 
-CLI flag `--agent-name` selects `<agentName>`. Override path with `--workspace-dir`.
+CLI flag `--agent-name` selects `<agentName>`. Override path with `--workspace-dir` or set `WORKSPACE_ROOT` for a base directory outside this repo.
 
 The workspace is the agent's **frame of reference**: identity files and the default working directory for builtin tools (`read`, `write`, `bash`, `ls`). Override tool scope with `--tools-cwd` if needed.
 
-Docker copies `workspace/` into the image at build time; dev-workstation bind-mounts `./workspace/<agentName>` (e.g. `./workspace/Aida` → `/app/workspace/Aida`) so runtime writes persist on the host.
+**Two-repo layout:**
+
+| Repo | Workspace |
+|------|-----------|
+| `digital-worker` | `workspace/_template/` — illustrative only |
+| `digital-worker-workspace` (private) | Real agents (`agents/Aida/`, `agents/Riaan/`, …), memory, skills |
+
+Docker template stack bind-mounts `./workspace/_template`. The real stack in `digital-worker-workspace` bind-mounts agent folders and `./wiki` from that repo.
 
 ## File semantics
 
@@ -44,7 +51,7 @@ Docker copies `workspace/` into the image at build time; dev-workstation bind-mo
 | **MANDATE.md** | **Immutable** at runtime | This actor’s purpose within the digital-worker solution |
 | **SOUL.md** | **Immutable** at runtime | Temperament, communication style, values, constraints |
 | **IDENTITY.md** | **Mutable** | Durable self-knowledge the agent accumulates |
-| **USER.md** | **Mutable** | Durable facts about the operator the agent accumulates |
+| **USER.md** | **Mutable** | Agent-specific operator context (how this agent works with the operator). Canonical shared profile → wiki `people/graeme` |
 
 Runtime code must **never** write to MANDATE or SOUL. Only `IdentityStore` may write IDENTITY; only `UserStore` may write USER (via `update_user`).
 
@@ -101,7 +108,7 @@ On success:
 
 ## update_user tool
 
-The agent **must** maintain **`USER.md`** per Mandate: call **`update_user`** when it learns durable facts about the operator (preferences, role, context, working style) — not transient task state.
+The agent **must** maintain **`USER.md`** per Mandate for **agent-specific** operator context via **`update_user`**. Canonical facts any agent needs (role, interests, shared preferences) belong in wiki **`people/graeme`** (`wiki_write`), not duplicated in `USER.md`.
 
 | Parameter | Constraint |
 |-----------|------------|
@@ -119,7 +126,8 @@ On success:
 | Environment | Workspace persistence |
 |-------------|----------------------|
 | Local file workspace | Survives restarts |
-| Docker dev-workstation | Bind mount `./workspace/<agentName>` (wired in compose for Aida) |
+| Docker template stack | Bind mount `./workspace/_template` |
+| Docker real stack (`digital-worker-workspace`) | Bind mount `./agents/<agentName>` and `./wiki` |
 | Docker without volume | Writable container layer until image recreate |
 
 ## Startup validation
@@ -128,4 +136,4 @@ Startup **must fail** if any of the four files is missing under the configured w
 
 ## Seeded example
 
-The repository includes `workspace/Aida/` with starter content for the default dev-workstation agent.
+This repository includes `workspace/_template/` for the template Docker stack and tests. Real agent workspaces live in the private **`digital-worker-workspace`** repo.

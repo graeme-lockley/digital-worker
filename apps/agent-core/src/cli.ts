@@ -38,6 +38,8 @@ export type ServerOptions = {
   telegramBotId?: string;
   /** agent-scheduler base URL; enables schedule_event and related tools. */
   schedulerUrl?: string;
+  /** agent-wiki base URL; enables wiki_search, wiki_read, wiki_write, wiki_list. */
+  wikiUrl?: string;
 };
 
 export function parseCli(argv: readonly string[] = process.argv): ServerOptions {
@@ -59,8 +61,8 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     .option("--agent-id <id>", "unique agent id (generated if omitted)")
     .option(
       "--agent-name <name>",
-      "workspace folder name under workspace/",
-      "Aida",
+      "workspace folder name under workspace/ (or WORKSPACE_ROOT)",
+      "_template",
     )
     .option("--name <name>", "registration display name (defaults to agent-name)")
     .option(
@@ -137,6 +139,10 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     .option(
       "--scheduler-url <url>",
       "agent-scheduler base URL for scheduling tools (or SCHEDULER_URL env)",
+    )
+    .option(
+      "--wiki-url <url>",
+      "agent-wiki base URL for shared knowledge tools (or WIKI_URL env)",
     );
 
   program.parse(userArgv(argv), { from: "user" });
@@ -170,6 +176,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     gatewayUrl?: string;
     telegramBotId?: string;
     schedulerUrl?: string;
+    wikiUrl?: string;
   }>();
 
   const port = Number(opts.port);
@@ -267,6 +274,10 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     schedulerUrl:
       opts.schedulerUrl?.trim() ||
       process.env.SCHEDULER_URL?.trim() ||
+      undefined,
+    wikiUrl:
+      opts.wikiUrl?.trim() ||
+      process.env.WIKI_URL?.trim() ||
       undefined,
   };
 }

@@ -107,7 +107,7 @@ Spec: [specs/worker-runtime.md](./specs/worker-runtime.md)
 
 ## Workspace identity
 
-Before serving traffic, agent-core loads three files from `workspace/<agentName>/` (default agent **Aida** at `workspace/Aida/`):
+Before serving traffic, agent-core loads identity files from `workspace/<agentName>/` (default **`_template`** in this repo; real agents in `digital-worker-workspace`):
 
 | File | Mutability | Purpose |
 |------|------------|---------|
@@ -116,13 +116,13 @@ Before serving traffic, agent-core loads three files from `workspace/<agentName>
 | `IDENTITY.md` | Mutable | Self-knowledge |
 | `USER.md` | Mutable | Operator facts |
 
-They are composed into the LLM system prompt. The agent may update `IDENTITY.md` via `update_identity` and `USER.md` via `update_user`. The workspace is also the default sandbox for builtin file tools (`read`, `write`, `bash`, `ls`). Docker dev bind-mounts `./workspace/Aida` for persistence across restarts.
+They are composed into the LLM system prompt. The agent may update `IDENTITY.md` via `update_identity` and `USER.md` via `update_user`. The workspace is also the default sandbox for builtin file tools. The real Docker stack bind-mounts agent folders from `digital-worker-workspace`.
 
 Spec: [specs/workspace-identity.md](./specs/workspace-identity.md)
 
 ## Episodic memory
 
-Aida persists session continuity through markdown memory files under `workspace/Aida/memory/`:
+Each agent persists session continuity through markdown memory under `<workspace>/memory/`:
 
 - **Daily logs** (`memory/daily/YYYY-MM-DD.md`) — append-only episodic notes via `remember`
 - **Curated long-term** (`memory/MEMORY.md`) — standing decisions promoted during roll-ups
@@ -155,6 +155,19 @@ Workers communicate with each other through a fire-and-forget message bus separa
 4. There is **no automatic reply**; the receiver uses `send_to_agent` separately if a response is needed.
 
 Spec: [specs/inter-agent-bus.md](./specs/inter-agent-bus.md)
+
+## Shared knowledge (agent-wiki)
+
+Cross-agent durable facts live in **agent-wiki**, separate from per-agent memory:
+
+1. Pages are markdown files on a shared volume (`pages/**/*.md`); in production bind-mounted from `digital-worker-workspace/wiki/`.
+2. A derived SQLite FTS index (`index.db`) powers `wiki_search`.
+3. Agents use `wiki_list`, `wiki_read`, `wiki_search`, and `wiki_write` when `WIKI_URL` is configured.
+4. Operators browse and edit via the web UI at port **3004** (same pattern as agent-scheduler).
+
+Key pages include `Usage` (conventions) and `people/<name>` (one page per person, e.g. `people/graeme`).
+
+Spec: [specs/wiki.md](./specs/wiki.md)
 
 ## Deployment units
 

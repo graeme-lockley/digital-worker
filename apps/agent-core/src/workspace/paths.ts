@@ -17,7 +17,10 @@ export function resolveWorkspaceDir(
   if (workspaceDir) {
     return path.resolve(workspaceDir);
   }
-  return path.resolve(process.cwd(), "workspace", agentName);
+  const root = process.env.WORKSPACE_ROOT?.trim()
+    ? path.resolve(process.env.WORKSPACE_ROOT.trim())
+    : path.resolve(process.cwd(), "workspace");
+  return path.join(root, agentName);
 }
 
 export function workspaceFilePaths(workspaceDir: string): {

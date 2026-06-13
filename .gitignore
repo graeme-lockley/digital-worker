@@ -35,13 +35,9 @@ Thumbs.db
 # Pi loader state under agent workspace (agent-core DefaultResourceLoader)
 **/.agent-core-pi/
 
-# Agent memory (runtime state; markdown + derived index)
-workspace/Aida/memory/
-workspace/Aida/drafts/
-workspace/Aida/USER.md
-workspace/Riaan/memory/
-workspace/Riaan/drafts/
-workspace/Riaan/USER.md
+# Template workspace derived index (rebuildable)
+workspace/_template/memory/index.db
+workspace/_template/.agent-core-pi/
 
 # Gateway persisted mailbox state (local dev)
 data/

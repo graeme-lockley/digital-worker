@@ -16,7 +16,7 @@ Workspace skills live under:
 workspace/<agentName>/skills/<skill-name>/SKILL.md
 ```
 
-Example: `workspace/Aida/skills/skill-authoring/SKILL.md`.
+Example: `workspace/_template/skills/skill-authoring/SKILL.md`.
 
 The skills directory name is `skills/` (constant `SKILLS_DIR` in `apps/agent-core/src/workspace/paths.ts`). It is resolved relative to **`--tools-cwd`**, which defaults to the workspace directory (`--workspace-dir` / `--agent-name`).
 
@@ -77,7 +77,7 @@ Refresh is **explicit** (tool call + startup scan), not automatic on every chat 
 3. Call **`refresh_skills`** so the new skill appears in `<available_skills>`.
 4. Use **`read`** on the skill path when executing it.
 
-Aida ships a meta-skill at `skills/skill-authoring/SKILL.md` documenting format, best practices, and this runtime's management tools.
+The template workspace ships a meta-skill at `skills/skill-authoring/SKILL.md` documenting format, best practices, and this runtime's management tools.
 
 Authoring uses existing workspace-scoped **`write`** and **`bash`** tools; no separate file tool is required.
 
@@ -97,4 +97,4 @@ Skills can instruct the agent to run commands or access external resources. Oper
 ## Testing
 
 - `apps/agent-core/src/skills/skill-registry.test.ts` — scan and prompt formatting with a temp skill directory.
-- Integration tests use the real `workspace/Aida/skills/skill-authoring` skill when `toolsCwd` is the Aida workspace directory.
+- Integration tests use `workspace/_template/skills/skill-authoring` when `toolsCwd` is the template workspace directory.
