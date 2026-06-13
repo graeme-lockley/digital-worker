@@ -35,7 +35,7 @@ pnpm --filter @digital-worker/agent-core dev -- \
   --provider deepseek \
   --model deepseek-v4-flash \
   --models deepseek-v4-flash,deepseek-v4-pro \
-  --agent-name Aida \
+  --agent-name _template \
   --gateway-url http://127.0.0.1:3002
 ```
 
@@ -54,7 +54,7 @@ pnpm --filter @digital-worker/agent-gateway dev -- \
 ```bash
 pnpm --filter @digital-worker/agent-tui dev -- \
   -r http://127.0.0.1:3001 \
-  --agent-name Aida
+  --agent-name _template
 ```
 
 ### Terminal 5 (optional) — agent-observer
@@ -64,7 +64,7 @@ Watch all worker activity live (chat, Telegram notify, tools, thinking):
 ```bash
 pnpm --filter @digital-worker/agent-observer dev -- \
   -r http://127.0.0.1:3001 \
-  --agent-name Aida
+  --agent-name _template
 ```
 
 To see model **thinking** in the observer, run agent-core with a reasoning model (e.g. `--model deepseek-reasoner`). The default `deepseek-chat` / `deepseek-v4-flash` models do not emit thinking events. The observer forwards thinking when the model produces it — it does not change thinking level or add token cost.
@@ -88,10 +88,22 @@ pnpm --filter @digital-worker/agent-core dev -- \
   --provider deepseek \
   --model deepseek-v4-flash \
   --models deepseek-v4-flash,deepseek-v4-pro \
-  --agent-name Aida
+  --agent-name _template
 ```
 
-Or pass `--api-key` instead of exporting. Omitting `--agent-name` defaults to `Aida`; builtin tools default to the workspace directory.
+Or pass `--api-key` instead of exporting. Omitting `--agent-name` defaults to `_template`; builtin tools default to the workspace directory.
+
+For **real agents**, point at your private workspace repo:
+
+```bash
+export WORKSPACE_ROOT=../digital-worker-workspace
+pnpm --filter @digital-worker/agent-core dev -- \
+  --register-url http://127.0.0.1:3001 \
+  --provider deepseek \
+  --model deepseek-v4-flash \
+  --agent-name _template \
+  --workspace-dir "$WORKSPACE_ROOT/agents/Aida"
+```
 
 Optional flags: `--host`, `--port`, `--agent-id`, `--workspace-dir`, `--tools-cwd`, `--endpoint-url`, `--skills`, `--purpose`.
 
@@ -100,7 +112,7 @@ Optional flags: `--host`, `--port`, `--agent-id`, `--workspace-dir`, `--tools-cw
 ```bash
 pnpm --filter @digital-worker/agent-tui dev -- \
   -r http://127.0.0.1:3001 \
-  --agent-name Aida
+  --agent-name _template
 ```
 
 ### Terminal 4 (optional) — agent-observer
@@ -108,7 +120,7 @@ pnpm --filter @digital-worker/agent-tui dev -- \
 ```bash
 pnpm --filter @digital-worker/agent-observer dev -- \
   -r http://127.0.0.1:3001 \
-  --agent-name Aida
+  --agent-name _template
 ```
 
 See [specs/observer.md](../specs/observer.md) for reasoning-model notes.
@@ -122,12 +134,13 @@ curl http://127.0.0.1:3000/api/v1
 
 ## Workspace
 
-Default workspace: `./workspace/Aida/` relative to the **current working directory** when starting agent-core (typically `apps/agent-core` or project root depending how you invoke pnpm). Builtin tools use the same directory unless `--tools-cwd` overrides.
+Default workspace: `./workspace/_template/` (or `WORKSPACE_ROOT/<agent-name>` when set). Builtin tools use the same directory unless `--tools-cwd` overrides.
 
-Use explicit path if needed:
+For real agents, use `digital-worker-workspace`:
 
 ```bash
---workspace-dir /path/to/digital-worker/workspace/Aida
+--workspace-dir /path/to/digital-worker-workspace/agents/Aida
+# or: export WORKSPACE_ROOT=../digital-worker-workspace/agents
 ```
 
 See [specs/workspace-identity.md](../specs/workspace-identity.md).

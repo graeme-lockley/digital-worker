@@ -100,7 +100,7 @@ pnpm --filter @digital-worker/agent-core dev -- \
   -r http://127.0.0.1:3001 \
   --provider deepseek --model deepseek-v4-flash \
   --models deepseek-v4-flash,deepseek-v4-pro \
-  --agent-name Aida \
+  --agent-name _template \
   --gateway-url http://127.0.0.1:3002   # terminal 2 (port 3000; set DEEPSEEK_API_KEY)
 
 # Terminal 3 — agent-gateway (port 3002; set TELEGRAM_BOT_TOKEN, TELEGRAM_ALLOWED_CHAT_IDS)
@@ -110,7 +110,7 @@ pnpm --filter @digital-worker/agent-gateway dev -- \
 
 pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001
 # or with agent name prefix:
-pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001 --agent-name Aida
+pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001 --agent-name _template
 ```
 
 Chat uses **SSE** token streaming on `POST /api/v1/chat` (see [docs/specs/chat-streaming.md](docs/specs/chat-streaming.md)).
@@ -131,7 +131,7 @@ pnpm --filter @digital-worker/agent-core dev -- \
   --register-url http://127.0.0.1:3001 \
   --provider deepseek --model deepseek-v4-flash \
   --models deepseek-v4-flash,deepseek-v4-pro \
-  --agent-name Aida \
+  --agent-name _template \
   --gateway-url http://127.0.0.1:3002
 
 # Terminal 3 — agent-gateway

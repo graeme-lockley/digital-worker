@@ -1,15 +1,19 @@
 # Dev workstation (Docker Compose)
 
-Run **agent-register**, **agent-core-aida** (Aida), **agent-core-riaan** (Riaan), **agent-gateway**, and **agent-scheduler** in containers for local integration testing.
+Two deployment modes:
 
-**Stack name:** `dev-workstation`  
-**Config:** `infra/dev-workstation/`
+| Mode | Where to run | Purpose |
+|------|--------------|---------|
+| **Template stack** | `digital-worker` repo (`pnpm docker:dev`) | Illustrative `_template` agent + register + wiki seed |
+| **Real stack** | `digital-worker-workspace` repo (`./infra/dev-workstation/up.sh`) | Your agents (Aida, Riaan), wiki, secrets, Telegram |
+
+Platform Dockerfiles and entrypoint scripts live in **`digital-worker/infra/dev-workstation/`**. The workspace repo builds from that source via `DIGITAL_WORKER_ROOT`.
 
 ## Prerequisites
 
 - [Colima](https://github.com/abiosoft/colima) (this project does not use Docker Desktop)
 - Homebrew: `colima`, `docker`, `docker-compose`
-- Node is only required on the host for `pnpm install`; images use Node 22
+- Node is only required on the host for `pnpm install` in `digital-worker`; images use Node 22
 
 ```bash
 colima start
@@ -17,174 +21,115 @@ colima status
 docker info
 ```
 
-## Secrets
+---
 
-Create `.env` at the **project root** (same folder as `package.json`):
+## Real stack (digital-worker-workspace)
+
+Clone or create **`digital-worker-workspace`** as a sibling of this repo:
+
+```
+Projects/
+  digital-worker/           # platform source (this repo)
+  digital-worker-workspace/ # agents, wiki, secrets, compose
+```
+
+### Secrets
+
+In **`digital-worker-workspace`**:
 
 ```bash
 cp .env.example .env
-# Edit:
-#   DEEPSEEK_API_KEY=...
-#   TELEGRAM_BOT_TOKEN=...
-#   TELEGRAM_ALLOWED_CHAT_IDS=8672094762
+# Edit DEEPSEEK_API_KEY, TELEGRAM_* tokens, TELEGRAM_ALLOWED_CHAT_IDS
 ```
 
-`.env` is gitignored. See `.env.example` for variable names. Telegram credentials live on **agent-gateway** only — not in the workspace bind mount.
+### Start and stop
 
-## Start and stop
+```bash
+cd ../digital-worker-workspace
+./infra/dev-workstation/up.sh      # build from ../digital-worker + up
+./infra/dev-workstation/down.sh
+```
 
-From project root:
+Or: `npm run docker:up` / `npm run docker:down`
+
+### Services (host ports)
+
+| Service | Port |
+|---------|------|
+| agent-core (Aida) | 3000 |
+| agent-core (Riaan) | 3010 |
+| agent-register | 3001 |
+| agent-gateway | 3002 |
+| agent-scheduler | 3003 |
+| agent-wiki | 3004 |
+| libsql | 8080 |
+
+- Workspaces bind-mounted from `./agents/Aida`, `./agents/Riaan`
+- Wiki bind-mounted from `./wiki` (edit `wiki/pages/*.md` on disk)
+- Bot routes: `infra/dev-workstation/gateway-telegram-bots.json`
+
+See **`digital-worker-workspace/README.md`** for backup and layout.
+
+---
+
+## Template stack (digital-worker)
+
+For learning the platform without a private workspace repo.
+
+### Secrets
+
+```bash
+cp .env.example .env
+# Edit DEEPSEEK_API_KEY only (Telegram not wired in template compose)
+```
+
+### Start and stop
+
+From **this repo** root:
 
 ```bash
 pnpm install
-pnpm docker:dev        # build + foreground up
-pnpm docker:dev:down   # stop and remove containers
+pnpm docker:dev        # template stack: _template agent + register + wiki
+pnpm docker:dev:down
 ```
 
-`docker:dev` runs:
+### Template services
 
-```bash
-docker-compose --env-file .env --project-directory . \
-  -f infra/dev-workstation/docker-compose.yml up --build
-```
+| Service | Host port |
+|---------|-----------|
+| agent-core-template | 3000 |
+| agent-register | 3001 |
+| agent-wiki | 3004 |
+| libsql | 8080 |
 
-- **`--project-directory .`** — paths and `.env` resolve from project root
-- **`env_file: .env`** on agent-core-aida, agent-core-riaan, and agent-gateway injects keys into containers
+- Workspace: `./workspace/_template` bind-mounted
+- Wiki: named volume with seed pages from `apps/agent-wiki/seed/`
 
-## Services
-
-| Service | Host port | Container name | Image Dockerfile |
-|---------|-----------|----------------|------------------|
-| libsql | 8080 | — | `ghcr.io/tursodatabase/libsql-server:latest` |
-| agent-register | 3001 | — | `Dockerfile.agent-register` |
-| agent-core-aida (Aida) | 3000 | — | `Dockerfile.agent-core` |
-| agent-core-riaan (Riaan) | 3010 | — | `Dockerfile.agent-core` |
-| agent-gateway | 3002 | — | `Dockerfile.agent-gateway` |
-| agent-scheduler | 3003 | — | `Dockerfile.agent-scheduler` |
-
-### libsql
-
-- Central libSQL (`sqld`) database for operational services
-- Data volume: `libsql-data` → `/var/lib/sqld`
-- Host port `8080` (optional direct access; apps use `http://libsql:8080` on the Compose network)
-- Healthcheck: `GET /health` on port 8080; **agent-register**, **agent-scheduler**, and **agent-gateway** wait for `service_healthy` before starting
-
-### agent-register
-
-- Depends on `libsql`
-- Command: `node dist/index.js --host 0.0.0.0 --port 3001 --db-url http://libsql:8080`
-- Registry persisted in libSQL (`agent` table); survives register restarts
-- Heartbeat interval 15s, timeout 5s
-
-### agent-core-aida (Aida)
-
-- Entrypoint: `agent-core-entrypoint.sh` — starts Ollama (local embeddings), cron (memory maintenance), then `restart-loop.sh`
-- Wrapped by restart loop — `/restart` exits with code 75 and relaunches the worker
-- Registers with `http://agent-register:3001`
-- Advertises `http://agent-core-aida:3000` inside the Compose network
-- Agent **Aida** (`--agent-name Aida`); workspace: `/app/workspace/Aida` (bind-mounted from `./workspace/Aida` on the host)
-- Registers as `dev-workstation-agent-core-aida`
-- `--gateway-url http://agent-gateway:3002` enables `check_messages` / `send_message` tools
-- `GATEWAY_URL` env set for bash/curl in skills
-- Memory: episodic daily logs, flush on compaction/shutdown, cron roll-ups (Distill + Ollama)
-- Builtin tools default to the workspace directory (no separate `--tools-cwd`)
-- LLM: `--provider deepseek --model deepseek-v4-flash --models deepseek-v4-flash,deepseek-v4-pro`
-- Requires `DEEPSEEK_API_KEY` from `.env`
-- Image includes: **Ollama** + `nomic-embed-text` (baked at build), **Distill** CLI, **cron**, **sqlite3**
-- Image base: `node:22-bookworm-slim` (agent-core runtime; register remains alpine)
-
-### agent-core-riaan (Riaan)
-
-- Same image and entrypoint as **agent-core-aida**
-- Host port **3010** → container **3000**
-- Agent **Riaan** (`--agent-name Riaan`); workspace: `/app/workspace/Riaan` (bind-mounted from `./workspace/Riaan`)
-- Registers as `dev-workstation-agent-core-riaan`; advertises `http://agent-core-riaan:3000`
-- Gateway and scheduler URLs match Aida — Riaan uses `send_message` for proactive Telegram delivery and `send_to_agent` to coordinate with Aida
-- `--skills memory-curation` only (workspace skills under `skills/`)
-
-### agent-core (shared notes)
-
-- Entrypoint, memory maintenance, Ollama, and Distill behaviour are identical for both agent-core services.
-
-### agent-gateway
-
-- Depends on `libsql` (healthy), `agent-core-aida`, and `agent-core-riaan`
-- Bot routes: **`infra/dev-workstation/gateway-telegram-bots.json`** (mounted read-only; override with `GATEWAY_TELEGRAM_BOTS_FILE` or inline `GATEWAY_TELEGRAM_BOTS` JSON)
-- Tokens: env vars named by each entry's `tokenEnv` (e.g. `TELEGRAM_AIDADIGITALBOT_TOKEN`, `TELEGRAM_RIAANDIGITALBOT_TOKEN`)
-- Shared allowlist: `TELEGRAM_ALLOWED_CHAT_IDS`
-- Correlation ids: `telegram:{botId}:{chatId}`
-
-### agent-scheduler
-
-- Depends on `libsql` (healthy), `agent-register`, `agent-core-aida`, `agent-core-riaan`, and `agent-gateway`
-- Command: `node dist/index.js --host 0.0.0.0 --port 3003 --register-url http://agent-register:3001 --db-url http://libsql:8080`
-- Schedule data persisted in libSQL (`libsql-data` volume); no SQLite volume in the container
-- Serves read-only web UI at **http://127.0.0.1:3003/**
-- Fires due events via each agent's registered endpoint (`POST /api/v1/chat`, SSE transcript capture)
-- Both **agent-core** services use `--scheduler-url http://agent-scheduler:3003` for scheduling tools
+---
 
 ## Build context
 
-All images build from **project root** (`context: .` in compose):
+| Stack | `build.context` | Dockerfiles |
+|-------|-----------------|-------------|
+| Template (this repo) | `.` (project root) | `infra/dev-workstation/Dockerfile.*` |
+| Real (workspace repo) | `../digital-worker` (via `DIGITAL_WORKER_ROOT`) | same Dockerfiles |
 
-- Copies `packages/`, `apps/`, `workspace/`
-- Compiles protocol packages and apps
-- agent-register / agent-gateway base: `node:22-alpine`
-- agent-core runtime base: `node:22-bookworm-slim` (Ollama, Distill, cron)
+Images copy `workspace/` at build time (template only in public repo). Runtime state always comes from bind mounts in the real stack.
 
-Keep Dockerfiles' build stages in sync when dependencies change.
+## agent-tui
 
-## Endpoints (from Mac)
-
-| URL | Purpose |
-|-----|---------|
-| http://127.0.0.1:3001/health | Register health |
-| http://127.0.0.1:3001/api/v1/agents | List agents |
-| http://127.0.0.1:3000/health | Aida agent health |
-| http://127.0.0.1:3000/api/v1 | Aida agent metadata |
-| http://127.0.0.1:3010/health | Riaan agent health |
-| http://127.0.0.1:3010/api/v1 | Riaan agent metadata |
-| http://127.0.0.1:3002/health | Gateway health |
-| http://127.0.0.1:3002/api/v1/messages | Pull unread Telegram messages |
-| http://127.0.0.1:3003/ | Scheduler web UI (schedules + runs) |
-| http://127.0.0.1:3003/health | Scheduler health |
-
-Inside the Compose network, use service hostnames `agent-register`, `agent-core-aida`, `agent-core-riaan`, `agent-gateway`, and `agent-scheduler`.
-
-## agent-tui with Docker stack
-
-agent-tui is **not** in the compose file. Run on the host:
+Not in compose. Run on the host against either stack:
 
 ```bash
 pnpm build
 pnpm --filter @digital-worker/agent-tui dev -- -r http://127.0.0.1:3001 --agent-name Aida
 ```
 
-The TUI rewrites Docker-internal agent URLs to `127.0.0.1` when the register is local.
-
-## Telegram chat from your phone
-
-1. Start the stack with valid `TELEGRAM_*` vars in `.env`.
-2. Message **@AidaDigitalBot** for general tasks (routes to Aida) or **@RiaanDigitalBot** for news/sports (routes to Riaan).
-3. Gateway stores the message and doorbell-notifies the matching agent-core instance.
-4. The agent replies in text; delivery back to the same bot is automatic.
-
-See [specs/gateway.md](../specs/gateway.md).
-
-## Troubleshooting
-
-| Issue | Check |
-|-------|-------|
-| Build context path errors | Run `pnpm docker:dev` from project root; compose uses `context: .` |
-| Missing API key | `DEEPSEEK_API_KEY` in project-root `.env` |
-| Telegram not working | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_CHAT_IDS`; gateway logs; outbound internet |
-| Agent `SLEEPING` | agent-core container logs; heartbeat must reach port 3000 |
-| buildx warning | Optional plugin; build may still succeed |
+Use `_template` for the template stack. The TUI rewrites Docker-internal URLs to `127.0.0.1` when the register is local.
 
 ## Related docs
 
 - [local-development.md](./local-development.md) — run without Docker
-- [specs/agent-register-api.md](../specs/agent-register-api.md)
-- [specs/agent-core-api.md](../specs/agent-core-api.md)
+- [specs/workspace-identity.md](../specs/workspace-identity.md)
+- [specs/wiki.md](../specs/wiki.md)
 - [specs/gateway.md](../specs/gateway.md)
-- [specs/scheduler.md](../specs/scheduler.md)
