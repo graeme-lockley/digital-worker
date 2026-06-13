@@ -27,8 +27,17 @@ import {
   mapAgentEventToObserver,
 } from "./observer-map.js";
 import { resolveScopedModel } from "./resolve-scoped-model.js";
+import {
+  prefixPromptWithTurnContext,
+  resolveAgentTimeZone,
+} from "./turn-context.js";
 
 export type { ChatJob } from "./job-types.js";
+
+export type WorkerRuntimeOptions = {
+  /** IANA timezone for per-turn clock context (default: AGENT_TIMEZONE, TZ, or system). */
+  timeZone?: string;
+};
 
 type PendingJob = InboxJob & {
   resolve: () => void;
@@ -58,13 +67,18 @@ export class WorkerRuntime {
 
   private observerUnsubscribe?: () => void;
 
+  private readonly timeZone: string;
+
   constructor(
     private readonly agent: Agent,
     readonly sessionId: string,
     private readonly memoryManager?: MemoryManager,
     private readonly observer?: ObserverHub,
     private readonly session?: AgentSession,
-  ) {}
+    options: WorkerRuntimeOptions = {},
+  ) {
+    this.timeZone = resolveAgentTimeZone(options.timeZone);
+  }
 
   start(): void {
     if (this.loopPromise) {
@@ -324,7 +338,9 @@ export class WorkerRuntime {
       }
 
       try {
-        await this.agent.prompt(job.prompt);
+        await this.agent.prompt(
+          prefixPromptWithTurnContext(job.prompt, this.timeZone),
+        );
 
         if (job.signal.aborted) {
           throw new Error("request cancelled");

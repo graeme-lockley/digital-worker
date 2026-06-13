@@ -10,6 +10,7 @@ import {
   type LlmOptions,
 } from "./llm-config.js";
 import { DEFAULT_MEMORY_CONFIG, type MemoryConfig } from "./memory/index.js";
+import { isValidTimeZone, resolveAgentTimeZone } from "./turn-context.js";
 import { userArgv } from "./user-argv.js";
 import { resolveWorkspaceDir } from "./workspace/paths.js";
 
@@ -40,6 +41,8 @@ export type ServerOptions = {
   schedulerUrl?: string;
   /** agent-wiki base URL; enables wiki_search, wiki_read, wiki_write, wiki_list. */
   wikiUrl?: string;
+  /** IANA timezone for per-turn clock context on user prompts. */
+  timeZone: string;
 };
 
 /** OLLAMA_HOST in compose is often host:port; Node fetch and Distill need a URL scheme. */
@@ -152,6 +155,10 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     .option(
       "--wiki-url <url>",
       "agent-wiki base URL for shared knowledge tools (or WIKI_URL env)",
+    )
+    .option(
+      "--timezone <iana>",
+      "IANA timezone for per-turn clock context (default: AGENT_TIMEZONE, TZ, or system)",
     );
 
   program.parse(userArgv(argv), { from: "user" });
@@ -186,6 +193,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
     telegramBotId?: string;
     schedulerUrl?: string;
     wikiUrl?: string;
+    timezone?: string;
   }>();
 
   const port = Number(opts.port);
@@ -257,6 +265,12 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
       opts.memoryEmbeddingModel || DEFAULT_MEMORY_CONFIG.embeddingModel,
   };
 
+  const timezoneArg = opts.timezone?.trim();
+  if (timezoneArg && !isValidTimeZone(timezoneArg)) {
+    program.error(`invalid timezone: ${timezoneArg}`);
+  }
+  const timeZone = resolveAgentTimeZone(timezoneArg);
+
   return {
     host: opts.host,
     port,
@@ -288,6 +302,7 @@ export function parseCli(argv: readonly string[] = process.argv): ServerOptions 
       opts.wikiUrl?.trim() ||
       process.env.WIKI_URL?.trim() ||
       undefined,
+    timeZone,
   };
 }
 

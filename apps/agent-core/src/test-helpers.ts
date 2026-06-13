@@ -111,6 +111,7 @@ export async function createTestHarness(
     memoryManager,
     observer,
     session,
+    { timeZone: "UTC" },
   );
   runtime.start();
 

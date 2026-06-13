@@ -44,9 +44,14 @@ describe("POST /api/v1/notify", () => {
 
       await vi.waitFor(() => {
         expect(promptSpy).toHaveBeenCalledWith(
-          "You have 1 new Telegram message from graeme.",
+          expect.stringContaining(
+            "You have 1 new Telegram message from graeme.",
+          ),
         );
       });
+
+      const calledPrompt = promptSpy.mock.calls[0]?.[0] as string;
+      expect(calledPrompt).toMatch(/^\[Context: .+\]\n\n/);
     } finally {
       promptSpy.mockRestore();
       await disposeTestHarness(harness);

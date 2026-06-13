@@ -132,6 +132,50 @@ describe("WorkerRuntime", () => {
     }
   });
 
+  it("prefixes prompts with per-turn clock context", async () => {
+    const agent = {
+      prompt: vi.fn(async () => {}),
+      abort: vi.fn(),
+      subscribe: vi.fn(() => () => {}),
+      state: { messages: [] },
+    } as unknown as Agent;
+
+    const runtime = new WorkerRuntime(
+      agent,
+      TEST_SESSION_ID,
+      undefined,
+      new ObserverHub(),
+      undefined,
+      { timeZone: "UTC" },
+    );
+    runtime.start();
+
+    const now = new Date("2026-06-13T12:34:56.789Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    try {
+      await runtime.enqueue({
+        kind: "chat",
+        id: "job-1",
+        messageId: "msg-1",
+        clientId: "client-1",
+        prompt: "hello",
+        sessionId: TEST_SESSION_ID,
+        enqueueAt: Date.now(),
+        emit: async () => {},
+        signal: new AbortController().signal,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(agent.prompt).toHaveBeenCalledWith(
+      "[Context: 2026-06-13 12:34 UTC (Saturday), timezone UTC]\n\nhello",
+    );
+
+    await runtime.stop();
+  });
+
   it("abandon drains queued jobs with SSE errors", async () => {
     let rejectPrompt: ((error: Error) => void) | undefined;
     const promptGate = new Promise<void>((_resolve, reject) => {

@@ -93,7 +93,9 @@ async function main(): Promise<void> {
 
   const sessionId = crypto.randomUUID();
   const observer = new ObserverHub();
-  const runtime = new WorkerRuntime(agent, sessionId, memoryManager, observer, session);
+  const runtime = new WorkerRuntime(agent, sessionId, memoryManager, observer, session, {
+    timeZone: options.timeZone,
+  });
   runtime.start();
 
   const purpose =
