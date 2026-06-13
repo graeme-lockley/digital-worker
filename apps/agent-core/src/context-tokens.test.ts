@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { estimateContextTokens } from "@earendil-works/pi-agent-core";
+import {
+  estimateContextTokens,
+  type AgentMessage,
+} from "@earendil-works/pi-agent-core";
 
 import { estimateContextContentTokens } from "./context-tokens.js";
 
@@ -20,17 +23,21 @@ describe("estimateContextContentTokens", () => {
       role: "assistant" as const,
       content: [{ type: "text" as const, text: "recent reply" }],
       timestamp: Date.now(),
+      api: "test",
+      provider: "test",
+      model: "test",
       usage: {
         input: 40_000,
         output: 4_000,
         cacheRead: 0,
         cacheWrite: 0,
         totalTokens: 44_000,
+        cost: 0,
       },
       stopReason: "stop" as const,
     };
 
-    const messages = [summary, recentUser, staleAssistant];
+    const messages = [summary, recentUser, staleAssistant] as AgentMessage[];
 
     expect(estimateContextTokens(messages).tokens).toBeGreaterThan(40_000);
     expect(estimateContextContentTokens(messages)).toBeLessThan(1_000);
