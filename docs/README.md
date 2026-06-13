@@ -54,6 +54,7 @@ docs/
     agent-core-api.md
     agent-register-api.md
     shared-database.md
+    wiki.md
     chat-streaming.md
     gateway.md
 
@@ -73,6 +74,7 @@ docs/
 | Change worker queue or LLM loop | [specs/worker-runtime.md](./specs/worker-runtime.md) |
 | Change external channels (Telegram gateway) | [specs/gateway.md](./specs/gateway.md) |
 | Change MANDATE / SOUL / IDENTITY / USER / memory | [specs/workspace-identity.md](./specs/workspace-identity.md), [specs/memory.md](./specs/memory.md) |
+| Change shared agent knowledge (wiki) | [specs/wiki.md](./specs/wiki.md) |
 | Change workspace skills or refresh | [specs/skills.md](./specs/skills.md) |
 | Run locally or in Docker | [deployment/local-development.md](./deployment/local-development.md), [deployment/dev-workstation.md](./deployment/dev-workstation.md) |
 | Add an app or package | [project-structure.md](./project-structure.md) |

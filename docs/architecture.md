@@ -13,6 +13,8 @@ Technology choices and design rationale for the digital-worker monorepo.
 | agent-gateway | `apps/agent-gateway` | External channel edge (Telegram mailbox + notify) |
 | agent-tui | `apps/agent-tui` | Terminal chat client |
 | agent-observer | `apps/agent-observer` | Live operator observability TUI |
+| agent-scheduler | `apps/agent-scheduler` | Durable cron/one-shot scheduling + run UI |
+| agent-wiki | `apps/agent-wiki` | Shared markdown knowledge + FTS search + operator UI |
 
 ## Protocol packages
 
@@ -21,6 +23,8 @@ Technology choices and design rationale for the digital-worker monorepo.
 | agent-register-protocol | `packages/agent-register-protocol` | Register HTTP types |
 | agent-core-protocol | `packages/agent-core-protocol` | Agent HTTP + chat SSE types |
 | agent-gateway-protocol | `packages/agent-gateway-protocol` | Gateway HTTP types |
+| agent-scheduler-protocol | `packages/agent-scheduler-protocol` | Scheduler HTTP types |
+| agent-wiki-protocol | `packages/agent-wiki-protocol` | Wiki HTTP types |
 
 Apps import these packages — do not duplicate request/response shapes in application code. Human-readable specs: [specs/agent-register-api.md](./specs/agent-register-api.md), [specs/agent-core-api.md](./specs/agent-core-api.md), [specs/gateway.md](./specs/gateway.md).
 
@@ -42,8 +46,20 @@ Apps import these packages — do not duplicate request/response shapes in appli
 | Server | libSQL `sqld` in Docker | SQLite-compatible network server; first consumer is agent-register |
 | Client | `@libsql/client` | Same driver for `file:` (local) and `http://` (Compose) |
 | Not centralized | agent-core memory | Workspace bind mount stays portable per agent |
+| Not centralized | agent-wiki content | Markdown on wiki volume; FTS index co-located and rebuildable |
 
 Spec: [specs/shared-database.md](./specs/shared-database.md).
+
+### agent-wiki
+
+| Concern | Choice | Rationale |
+|---------|--------|-----------|
+| Content | Markdown files on Docker volume | Human-auditable source of truth; seed from `apps/agent-wiki/seed/pages/` |
+| Search index | `node:sqlite` FTS5 (`index.db`) | Same pattern as agent-core memory; derived and rebuildable |
+| HTTP API | Hono + @hono/node-server | Consistent with scheduler and register |
+| Agent access | `wiki_*` tools in agent-core | HTTP client; no shared workspace mount into agent containers |
+
+Spec: [specs/wiki.md](./specs/wiki.md).
 
 ### agent-tui
 
