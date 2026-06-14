@@ -9,6 +9,7 @@ let pages = [];
 let currentPage = null;
 
 const pageListEl = document.getElementById("page-list");
+const pinnedListEl = document.getElementById("pinned-list");
 const pageMetaEl = document.getElementById("page-meta");
 const pageRenderEl = document.getElementById("page-render");
 const searchInputEl = document.getElementById("search-input");
@@ -76,6 +77,23 @@ document.getElementById("new-page-btn")?.addEventListener("click", () => {
 
 const ROOT_PAGE_SLUG = "Home";
 
+/** Root sidebar pins — meta/guide pages always visible at top. */
+const PINNED_ROOT_SLUGS = ["Home", "knowledge-layers", "Usage"];
+
+/** @type {Set<string>} Expanded folder paths (segment paths, e.g. "people/graeme"). */
+const expandedFolders = new Set();
+
+function isPinnedSlug(slug) {
+  return PINNED_ROOT_SLUGS.includes(slug);
+}
+
+function isPinnedRootNode(node) {
+  // Pinned pages with children still appear in Browse as folders (e.g. Usage/authoring).
+  return Boolean(
+    node.page?.slug && isPinnedSlug(node.page.slug) && node.children.size === 0,
+  );
+}
+
 async function loadPages() {
   const response = await fetch(API.pages);
   if (!response.ok) {
@@ -87,13 +105,40 @@ async function loadPages() {
   renderPageTree();
 }
 
+function renderPinnedList() {
+  if (!pinnedListEl) return;
+  pinnedListEl.innerHTML = "";
+  for (const slug of PINNED_ROOT_SLUGS) {
+    const page = pages.find((entry) => entry.slug === slug);
+    if (!page) continue;
+    const li = document.createElement("li");
+    const link = document.createElement("a");
+    link.href = "#";
+    link.textContent = page.title || slug;
+    link.dataset.slug = slug;
+    if (currentPage?.slug === slug) {
+      link.classList.add("active");
+    }
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      void loadPage(slug);
+    });
+    li.appendChild(link);
+    pinnedListEl.appendChild(li);
+  }
+}
+
 function renderPageTree() {
+  renderPinnedList();
   if (!pageListEl) return;
   pageListEl.innerHTML = "";
   const tree = buildPageTree(pages);
-  const childNodes = sortTreeNodes([...tree.children.values()]);
-  for (const node of childNodes) {
-    pageListEl.appendChild(renderTreeNode(node));
+  const browseNodes = sortTreeNodes(
+    [...tree.children.values()].filter((node) => !isPinnedRootNode(node)),
+    { root: true },
+  );
+  for (const node of browseNodes) {
+    pageListEl.appendChild(renderTreeNode(node, ""));
   }
 }
 
@@ -120,13 +165,25 @@ function createTreeNode(name) {
   return { name, children: new Map(), page: null };
 }
 
-function sortTreeNodes(nodes) {
-  return nodes.sort((a, b) => compareTreeNodes(a, b));
+function sortTreeNodes(nodes, options = {}) {
+  return nodes.sort((a, b) => compareTreeNodes(a, b, options));
 }
 
-function compareTreeNodes(a, b) {
-  if (a.name === ROOT_PAGE_SLUG) return -1;
-  if (b.name === ROOT_PAGE_SLUG) return 1;
+function pinnedRootOrder(node) {
+  if (node.children.size > 0) {
+    return 100;
+  }
+  return 200;
+}
+
+function compareTreeNodes(a, b, { root = false } = {}) {
+  if (root) {
+    const aOrder = pinnedRootOrder(a);
+    const bOrder = pinnedRootOrder(b);
+    if (aOrder !== bOrder) {
+      return aOrder - bOrder;
+    }
+  }
   if (a.name.startsWith("_") && !b.name.startsWith("_")) return 1;
   if (!a.name.startsWith("_") && b.name.startsWith("_")) return -1;
   const aIsFolder = a.children.size > 0;
@@ -136,15 +193,59 @@ function compareTreeNodes(a, b) {
   return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
 }
 
-function renderTreeNode(node) {
+function isFolderExpanded(folderPath) {
+  return expandedFolders.has(folderPath);
+}
+
+function revealAncestorsOfSlug(slug) {
+  const segments = slug.split("/").filter(Boolean);
+  if (segments.length <= 1) {
+    return;
+  }
+  let path = segments[0] ?? "";
+  for (let i = 1; i < segments.length; i += 1) {
+    expandedFolders.add(path);
+    path = `${path}/${segments[i]}`;
+  }
+}
+
+function toggleFolder(path) {
+  if (expandedFolders.has(path)) {
+    expandedFolders.delete(path);
+  } else {
+    expandedFolders.add(path);
+  }
+  renderPageTree();
+}
+
+function renderTreeNode(node, folderPath) {
+  const path = folderPath ? `${folderPath}/${node.name}` : node.name;
   const li = document.createElement("li");
   const hasChildren = node.children.size > 0;
 
   if (hasChildren) {
-    const label = document.createElement(node.page ? "a" : "span");
-    label.textContent = nodeLabel(node);
+    li.classList.add("tree-folder");
+    const expanded = isFolderExpanded(path);
+
+    const header = document.createElement("div");
+    header.className = "tree-folder-header";
+
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "tree-toggle";
+    toggle.setAttribute("aria-label", expanded ? "Collapse folder" : "Expand folder");
+    toggle.textContent = expanded ? "▾" : "▸";
+    toggle.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleFolder(path);
+    });
+    header.appendChild(toggle);
+
     if (node.page) {
+      const label = document.createElement("a");
       label.href = "#";
+      label.textContent = nodeLabel(node);
       label.classList.add("tree-folder-label", "is-page");
       label.dataset.slug = node.page.slug;
       if (currentPage?.slug === node.page.slug) {
@@ -154,14 +255,22 @@ function renderTreeNode(node) {
         event.preventDefault();
         void loadPage(node.page.slug);
       });
+      header.appendChild(label);
     } else {
-      label.classList.add("tree-folder-label");
+      const label = document.createElement("span");
+      label.className = "tree-folder-label";
+      label.textContent = nodeLabel(node);
+      header.appendChild(label);
     }
-    li.appendChild(label);
+
+    li.appendChild(header);
 
     const childList = document.createElement("ul");
+    if (!expanded) {
+      childList.classList.add("collapsed");
+    }
     for (const child of sortTreeNodes([...node.children.values()])) {
-      childList.appendChild(renderTreeNode(child));
+      childList.appendChild(renderTreeNode(child, path));
     }
     li.appendChild(childList);
     return li;
@@ -203,6 +312,7 @@ async function loadPage(slug) {
   }
   const body = await response.json();
   currentPage = body.page;
+  revealAncestorsOfSlug(slug);
   renderCurrentPage();
   renderPageTree();
   updatePageActionButtons();
@@ -406,23 +516,46 @@ function isTableRow(line) {
   return trimmed.startsWith("|") && trimmed.endsWith("|") && trimmed.length > 2;
 }
 
+/** Split table rows; ignore `|` inside `[wiki|links]`. Keep in sync with src/markdown-table.ts */
+function parseTableCells(line) {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) {
+    return [];
+  }
+
+  const inner = trimmed.slice(1, -1);
+  const cells = [];
+  let current = "";
+  let bracketDepth = 0;
+
+  for (let i = 0; i < inner.length; i += 1) {
+    const ch = inner[i];
+    if (ch === "[") {
+      bracketDepth += 1;
+      current += ch;
+    } else if (ch === "]") {
+      bracketDepth = Math.max(0, bracketDepth - 1);
+      current += ch;
+    } else if (ch === "|" && bracketDepth === 0) {
+      cells.push(current.trim());
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+
+  cells.push(current.trim());
+  return cells;
+}
+
 function isTableSeparator(line) {
   const trimmed = line.trim();
   if (!isTableRow(trimmed)) {
     return false;
   }
-  return trimmed
-    .slice(1, -1)
-    .split("|")
-    .every((cell) => /^:?-{3,}:?$/.test(cell.trim()));
-}
-
-function parseTableCells(line) {
-  return line
-    .trim()
-    .slice(1, -1)
-    .split("|")
-    .map((cell) => cell.trim());
+  return parseTableCells(trimmed).every((cell) =>
+    /^:?-{3,}:?$/.test(cell.trim()),
+  );
 }
 
 function renderTable(lines) {
